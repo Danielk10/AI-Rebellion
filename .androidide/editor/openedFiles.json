@@ -1,20 +1,20 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/build.gradle",
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/pantalla/PantallaJuego.java",
       "selection": {
         "end": {
-          "column": 45,
-          "index": 190,
-          "line": 9
+          "column": 0,
+          "index": 0,
+          "line": 0
         },
         "start": {
-          "column": 45,
-          "index": 190,
-          "line": 9
+          "column": 0,
+          "index": 0,
+          "line": 0
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/build.gradle"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/pantalla/PantallaJuego.java"
 }

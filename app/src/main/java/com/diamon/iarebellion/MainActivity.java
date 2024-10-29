@@ -1,37 +1,106 @@
 package com.diamon.iarebellion;
 
+import android.content.Context;
 import android.os.Bundle;
-import android.view.ContextMenu;
-import android.view.ContextMenu.ContextMenuInfo;
-import android.view.View;
-import android.view.inputmethod.CompletionInfo;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
+import android.view.KeyEvent;
+import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+
+import com.diamon.juego.IARebellion;
+import com.diamon.utilidad.PantallaCompleta;
 
 public class MainActivity extends AppCompatActivity {
+
+    private WakeLock wakeLock;
+
+    private IARebellion juego;
+
+    private PantallaCompleta pantallaCompleta;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_main);
-        ViewCompat.setOnApplyWindowInsetsListener(
-                findViewById(R.id.main),
-                (v, insets) -> {
-                    Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-                    v.setPadding(
-                            systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-                    return insets;
-                });
+
+        pantallaCompleta = new PantallaCompleta(this);
+
+        pantallaCompleta.pantallaCompleta();
+
+        pantallaCompleta.ocultarBotonesVirtuales();
+
+        juego = new IARebellion(this);
+
+        RelativeLayout mainLayout = new RelativeLayout(this);
+
+        FrameLayout frame = new FrameLayout(this);
+
+        RelativeLayout.LayoutParams mrecParameters =
+                new RelativeLayout.LayoutParams(
+                        RelativeLayout.LayoutParams.WRAP_CONTENT,
+                        RelativeLayout.LayoutParams.WRAP_CONTENT);
+        mrecParameters.addRule(RelativeLayout.CENTER_HORIZONTAL);
+        mrecParameters.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+
+        frame.addView(
+                juego,
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT));
+
+        frame.addView(mainLayout);
+
+        setContentView(frame);
+
+        PowerManager powerManejador = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        
+        wakeLock = powerManejador.newWakeLock(PowerManager.FULL_WAKE_LOCK, "GLGame");
     }
 
     @Override
-    public void onCreateContextMenu(ContextMenu arg0, View arg1, ContextMenuInfo arg2) {
-        super.onCreateContextMenu(arg0, arg1, arg2);
-        // TODO: Implement this method
+    protected void onPause() {
+
+        super.onPause();
+
+        juego.pausa();
+
+        wakeLock.release();
+
+        if (isFinishing()) {
+            
+            juego.liberarRecursos();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+
+        super.onResume();
+
+        juego.resumen();
+
+        wakeLock.acquire();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+
+        if (hasFocus) {
+
+            pantallaCompleta.ocultarBotonesVirtuales();
+        }
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+
+        pantallaCompleta.ocultarBotonesVirtuales();
+
+        return super.onKeyUp(keyCode, event);
     }
 }
