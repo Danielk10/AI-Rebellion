@@ -100,6 +100,38 @@ public class Textura2D implements Textura {
         new BitmapFactory.Options().inPreferredConfig = this.bitmap.getConfig();
     }
 
+    @SuppressWarnings("deprecation")
+    public Textura2D(Textura textura, float ancho, float alto) {
+
+        float w = textura.getAncho();
+
+        float h = textura.getAlto();
+
+        float sw = ancho / w;
+
+        float sh = alto / h;
+
+        Matrix max = new Matrix();
+
+        max.postScale(sw, sh);
+
+        // Obtén la configuración del bitmap
+        Bitmap.Config config = textura.getBipmap().getConfig();
+
+        // Asigna el formato de textura basado en la configuración
+        if (config == Bitmap.Config.RGB_565) {
+            formatoTextura = Graficos.FormatoTextura.RGB565;
+        } else if (config == Bitmap.Config.ARGB_4444) {
+            formatoTextura = Graficos.FormatoTextura.ARGB4444;
+        } else {
+            formatoTextura = Graficos.FormatoTextura.ARGB8888;
+        }
+
+        this.bitmap = Bitmap.createBitmap(bitmap, 0, 0, (int) w, (int) h, max, false);
+
+        new BitmapFactory.Options().inPreferredConfig = this.bitmap.getConfig();
+    }
+
     @Override
     public FormatoTextura getFormatoTextura() {
 

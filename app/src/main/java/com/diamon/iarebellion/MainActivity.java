@@ -8,7 +8,6 @@ import android.view.KeyEvent;
 import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.diamon.juego.IARebellion;
@@ -25,7 +24,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
 
         pantallaCompleta = new PantallaCompleta(this);
 
@@ -57,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(frame);
 
         PowerManager powerManejador = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        
+
         wakeLock = powerManejador.newWakeLock(PowerManager.FULL_WAKE_LOCK, "GLGame");
     }
 
@@ -71,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
         wakeLock.release();
 
         if (isFinishing()) {
-            
+
             juego.liberarRecursos();
         }
     }

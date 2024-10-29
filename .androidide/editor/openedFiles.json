@@ -1,7 +1,7 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/pantalla/PantallaJuego.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/iarebellion/MainActivity.java",
       "selection": {
         "end": {
           "column": 0,
@@ -14,7 +14,37 @@
           "line": 0
         }
       }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/nucleo/Textura.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/graficos/Textura2D.java",
+      "selection": {
+        "end": {
+          "column": 35,
+          "index": 3020,
+          "line": 107
+        },
+        "start": {
+          "column": 35,
+          "index": 3020,
+          "line": 107
+        }
+      }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/pantalla/PantallaJuego.java"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/graficos/Textura2D.java"
 }
