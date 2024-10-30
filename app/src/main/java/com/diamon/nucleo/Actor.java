@@ -27,7 +27,7 @@ public abstract class Actor {
 
     protected Animacion2D animacion;
 
-    protected Pantalla pantalla;
+    private Pantalla pantalla;
 
     protected Recurso recurso;
 
@@ -37,7 +37,7 @@ public abstract class Actor {
 
     protected ArrayList<Actor> actores;
 
-    protected boolean animar;
+    private boolean animar; 
 
     public Actor(Pantalla pantalla, Textura textura, float x, float y) {
 

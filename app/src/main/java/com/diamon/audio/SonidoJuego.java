@@ -4,13 +4,13 @@ import android.media.SoundPool;
 
 import com.diamon.nucleo.Sonido;
 
-public class EfectoDeSonido implements Sonido {
+public class SonidoJuego implements Sonido {
 
     private int id;
 
     private SoundPool sonidoPool;
 
-    public EfectoDeSonido(int id, SoundPool sonidoPool) {
+    public SonidoJuego(int id, SoundPool sonidoPool) {
 
         this.id = id;
 

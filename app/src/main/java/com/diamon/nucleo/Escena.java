@@ -7,9 +7,9 @@ import com.diamon.utilidad.Recurso;
 
 import java.util.ArrayList;
 
-public abstract class Mundo {
+public abstract class Escena {
 
-    protected Pantalla pantalla;
+    private Pantalla pantalla;
 
     protected Jugador jugador;
 
@@ -21,7 +21,7 @@ public abstract class Mundo {
 
     protected ConfiguracionesDeJuego configuracionesDeJuego;
 
-    public Mundo(Pantalla pantalla, Jugador jugador) {
+    public Escena(Pantalla pantalla, Jugador jugador) {
 
         this.pantalla = pantalla;
 

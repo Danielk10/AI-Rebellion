@@ -11,7 +11,10 @@ import android.widget.RelativeLayout;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.diamon.juego.IARebellion;
+import com.diamon.notificaciones.NotificacionScheduler;
+import com.diamon.notificaciones.NotificacionUtils;
 import com.diamon.utilidad.PantallaCompleta;
+import com.diamon.utilidad.Recurso;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -21,9 +24,17 @@ public class MainActivity extends AppCompatActivity {
 
     private PantallaCompleta pantallaCompleta;
 
+    public static Recurso recurso;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        recurso = new Recurso(this);
+
+        NotificacionUtils.createNotificationChannel(this);
+
+        NotificacionScheduler.programarNotificacion(this);
 
         pantallaCompleta = new PantallaCompleta(this);
 

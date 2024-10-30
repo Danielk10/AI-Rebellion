@@ -6,13 +6,13 @@ import android.media.MediaPlayer.OnCompletionListener;
 
 import com.diamon.nucleo.Musica;
 
-public class MusicaDeJuego implements Musica, OnCompletionListener {
+public class MusicaJuego implements Musica, OnCompletionListener {
 
     private MediaPlayer mediaPlayer;
 
     private boolean preparado;
 
-    public MusicaDeJuego(AssetFileDescriptor descriptor) {
+    public MusicaJuego(AssetFileDescriptor descriptor) {
 
         preparado = false;
 

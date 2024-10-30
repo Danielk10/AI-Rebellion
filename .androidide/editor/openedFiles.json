@@ -1,7 +1,22 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/iarebellion/MainActivity.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/escenario/EscenarioI.java",
+      "selection": {
+        "end": {
+          "column": 29,
+          "index": 417,
+          "line": 17
+        },
+        "start": {
+          "column": 29,
+          "index": 417,
+          "line": 17
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/actor/Jugador.java",
       "selection": {
         "end": {
           "column": 0,
@@ -16,35 +31,35 @@
       }
     },
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/nucleo/Textura.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/pantalla/PantallaJuego.java",
       "selection": {
         "end": {
-          "column": 0,
-          "index": 0,
-          "line": 0
+          "column": 7,
+          "index": 546,
+          "line": 24
         },
         "start": {
-          "column": 0,
-          "index": 0,
-          "line": 0
+          "column": 7,
+          "index": 546,
+          "line": 24
         }
       }
     },
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/graficos/Textura2D.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/nucleo/Juego.java",
       "selection": {
         "end": {
-          "column": 35,
-          "index": 3020,
-          "line": 107
+          "column": 0,
+          "index": 0,
+          "line": 0
         },
         "start": {
-          "column": 35,
-          "index": 3020,
-          "line": 107
+          "column": 0,
+          "index": 0,
+          "line": 0
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/graficos/Textura2D.java"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/nucleo/Juego.java"
 }

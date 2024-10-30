@@ -217,7 +217,6 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
             iniciar = true;
             hilo = new Thread(this);
             hilo.start();
-            pantalla.mostrar();
             pantalla.resume();
         }
     }
@@ -242,8 +241,6 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
     public void liberarRecursos() {
         if (pantalla != null) {
-
-            pantalla.ocultar();
 
             pantalla.liberarRecursos();
         }
