@@ -2,6 +2,7 @@ package com.diamon.utilidad;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.media.SoundPool;
@@ -39,43 +40,37 @@ public class Recurso {
     }
 
     public Textura cargarTextura(String nombre) {
-
         InputStream entrada = null;
-
         Textura imagen = null;
-
         final BitmapFactory.Options options = new BitmapFactory.Options();
 
         try {
+            // Primer paso: obtener solo las dimensiones
             entrada = contexto.getAssets().open(nombre);
-
             options.inJustDecodeBounds = true;
-
-            // Decodificar solo las dimensiones
             BitmapFactory.decodeStream(entrada, null, options);
-
-            // Cerrar el stream
             entrada.close();
 
+            // Calcular inSampleSize para reducir la imagen si es necesario
             options.inSampleSize = calculateInSampleSize(options, 800);
-
             options.inJustDecodeBounds = false;
 
+            // Volver a abrir el InputStream para decodificar la imagen completa
             entrada = contexto.getAssets().open(nombre);
+            Bitmap bitmap = BitmapFactory.decodeStream(entrada, null, options);
 
-            imagen = new Textura2D(BitmapFactory.decodeStream(entrada, null, options));
-
+            // Crear la textura con el Bitmap decodificado
+            imagen = new Textura2D(bitmap);
             texturas.put(nombre, imagen);
 
         } catch (IOException e) {
-
+            e.printStackTrace(); // Muestra cualquier excepción que ocurra
         } finally {
             if (entrada != null) {
                 try {
                     entrada.close();
-
                 } catch (IOException e) {
-
+                   
                 }
             }
         }

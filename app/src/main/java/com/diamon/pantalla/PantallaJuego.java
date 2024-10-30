@@ -22,7 +22,7 @@ public class PantallaJuego extends Pantalla2D {
     @Override
     public void mostrar() {
 
-        jugador = new Jugador(this, recurso.getTextura("creditos.png"), 0, 0, 64, 64);
+        jugador = new Jugador(this, recurso.getTextura("texturas/creditos.png"), 0, 0, 64, 64);
 
         escena = new EscenarioI(this, jugador);
     }
