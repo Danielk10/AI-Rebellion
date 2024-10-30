@@ -1,38 +1,29 @@
 package com.diamon.utilidad;
 
-import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.os.Build;
 import android.view.View;
-import android.view.Window;
 import android.view.WindowManager;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 public class PantallaCompleta {
 
-    private Activity actividad;
+    private final AppCompatActivity actividad;
 
-    public PantallaCompleta(Activity actividad) {
-
+    public PantallaCompleta(AppCompatActivity actividad) {
         this.actividad = actividad;
     }
 
-    @SuppressWarnings("deprecation")
     public void pantallaCompleta() {
-        actividad.requestWindowFeature(Window.FEATURE_NO_TITLE);
         actividad
                 .getWindow()
                 .setFlags(
                         WindowManager.LayoutParams.FLAG_FULLSCREEN,
                         WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        actividad.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
     }
 
-    @SuppressWarnings("deprecation")
-    @SuppressLint("NewApi")
     public void ocultarBotonesVirtuales() {
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             actividad
                     .getWindow()
                     .getDecorView()
