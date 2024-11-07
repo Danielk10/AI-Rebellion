@@ -150,7 +150,7 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
             final double tiempoInicial = System.nanoTime();
 
-            delta = (float) (tiempoInicial - referencia) / UNIDAD_TIEMPO;
+            delta = (tiempoInicial - referencia) / UNIDAD_TIEMPO;
 
             if (!holder.getSurface().isValid()) {
                 continue;
@@ -256,9 +256,11 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
         if (this.pantalla != null) {
 
+this.pantalla.reajustarPantalla(getWidth(), getHeight());
+
             this.pantalla.mostrar();
 
-            this.pantalla.reajustarPantalla(getWidth(), getHeight());
+            
         }
     }
 
@@ -267,9 +269,9 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
         return pantalla;
     }
 
-    public float getFPS() {
+    public int getFPS() {
 
-        return (float) (1 / delta);
+        return (int) Math.round(1 / delta);
     }
 
     public void teclaPresionada(int codigoDeTecla) {
