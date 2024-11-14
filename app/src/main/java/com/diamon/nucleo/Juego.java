@@ -10,9 +10,12 @@ import android.view.SurfaceView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.diamon.bluetooth.servicio.ServicioBluetooth;
+import com.diamon.configuracion.Configuracion;
 import com.diamon.dato.ConfiguracionesDeJuego;
 import com.diamon.dato.DatosJuego;
 import com.diamon.entrada.EntradaDeControles;
+import com.diamon.graficos.Camara2D;
 import com.diamon.graficos.Graficos2D;
 import com.diamon.graficos.Textura2D;
 import com.diamon.nucleo.Entrada.EventoDeTecla;
@@ -56,9 +59,15 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
     protected ConfiguracionesDeJuego configuracionesDeJuego;
 
+    protected Configuracion configuraciones;
+
     private Textura bufer;
 
     protected EntradaDeControles entraDeControles;
+
+    private ServicioBluetooth bluetooth;
+
+    private Camara2D camara;
 
     public Juego(AppCompatActivity actividad) {
 
@@ -87,6 +96,11 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
             alto = (int) Juego.ANCHO_PANTALLA;
         }
 
+        // Inicializamos la cámara con el tamaño de la pantalla
+        camara = new Camara2D(Juego.ANCHO_PANTALLA, Juego.ALTO_PANTALLA);
+
+        camara.setPosicion(Juego.ANCHO_PANTALLA / 2, Juego.ALTO_PANTALLA / 2);
+
         bufer = new Textura2D(ancho, alto, FormatoTextura.ARGB8888);
 
         float escalaX = (float) ancho / actividad.getWindowManager().getDefaultDisplay().getWidth();
@@ -109,6 +123,8 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
             configuracionesDeJuego.guardarConfiguraciones();
         }
+
+        configuraciones = new Configuracion(actividad.getApplicationContext());
 
         delta = 0;
 
@@ -170,6 +186,8 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
             renderizar(pincelBufer, (float) delta);
 
+            camara.aplicarTransformacion(pincel);
+
             pincel.drawBitmap(bufer.getBipmap(), null, rectangulo, null);
 
             holder.getSurface().unlockCanvasAndPost(pincel);
@@ -186,10 +204,11 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
     public void renderizar(Graficos pincel, float delta) {
         if (pantalla != null) {
+
             pantalla.dibujar(pincel, delta);
         }
 
-        pincel.dibujarTexto((int) getFPS() + " FPS", 20, 20, Color.GREEN);
+        pincel.dibujarTexto((int) getFPS() + " FPS", camara.getX()-Juego.ANCHO_PANTALLA/2 + 20, 20, Color.GREEN);
     }
 
     public void actualizar(float delta) {
@@ -250,17 +269,19 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
         if (this.pantalla != null) {
 
             this.pantalla.ocultar();
+
+            this.pantalla.liberarRecursos();
         }
 
         this.pantalla = pantalla;
 
         if (this.pantalla != null) {
 
-this.pantalla.reajustarPantalla(getWidth(), getHeight());
+            this.camara.setPosicion(Juego.ANCHO_PANTALLA / 2, Juego.ALTO_PANTALLA / 2);
+
+            this.pantalla.reajustarPantalla(getWidth(), getHeight());
 
             this.pantalla.mostrar();
-
-            
         }
     }
 
@@ -398,5 +419,25 @@ this.pantalla.reajustarPantalla(getWidth(), getHeight());
 
     public EntradaDeControles getEntraDeControles() {
         return entraDeControles;
+    }
+
+    public Configuracion getConfiguraciones() {
+        return this.configuraciones;
+    }
+
+    public ServicioBluetooth getBluetooth() {
+        return this.bluetooth;
+    }
+
+    public void servioBlueTooth(ServicioBluetooth blueTooth) {
+
+        if (pantalla != null && bluetooth != null) {
+
+            pantalla.servicioBluetooth(blueTooth);
+        }
+    }
+
+    public Camara2D getCamara() {
+        return this.camara;
     }
 }

@@ -46,6 +46,7 @@ public class ConfiguracionesDeJuego {
         try {
 
             if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+                
                 if (tipo == ConfiguracionesDeJuego.ASSET) {
 
                     tipo = ConfiguracionesDeJuego.ASSET;

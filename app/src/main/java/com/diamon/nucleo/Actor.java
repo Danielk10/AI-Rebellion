@@ -37,7 +37,7 @@ public abstract class Actor {
 
     protected ArrayList<Actor> actores;
 
-    private boolean animar; 
+    private boolean animar;
 
     public Actor(Pantalla pantalla, Textura textura, float x, float y) {
 
@@ -62,13 +62,16 @@ public abstract class Actor {
 
         tiempoAnimacion = 1;
 
-        animacion = new Animacion2D(tiempoAnimacion / Juego.FPS, texturas);
+        if (textura != null) {
 
-        animacion.setModo(Animacion2D.NORMAL);
+            animacion = new Animacion2D(tiempoAnimacion / Juego.FPS, texturas);
 
-        ancho = textura.getAncho();
+            animacion.setModo(Animacion2D.NORMAL);
 
-        alto = textura.getAlto();
+            ancho = textura.getAncho();
+
+            alto = textura.getAlto();
+        }
 
         remover = false;
 
@@ -100,9 +103,11 @@ public abstract class Actor {
 
         tiempoAnimacion = 1;
 
-        animacion = new Animacion2D(tiempoAnimacion / Juego.FPS, texturas);
+        if (textura != null) {
+            animacion = new Animacion2D(tiempoAnimacion / Juego.FPS, texturas);
 
-        animacion.setModo(Animacion2D.NORMAL);
+            animacion.setModo(Animacion2D.NORMAL);
+        }
 
         this.ancho = ancho;
 
@@ -145,9 +150,11 @@ public abstract class Actor {
 
         this.tiempoAnimacion = tiempoAnimacion;
 
-        animacion = new Animacion2D(tiempoAnimacion / Juego.FPS, texturas);
+        if (texturas != null && texturas.length > 0) {
+            animacion = new Animacion2D(tiempoAnimacion / Juego.FPS, texturas);
 
-        animacion.setModo(Animacion2D.REPETIR);
+            animacion.setModo(Animacion2D.REPETIR);
+        }
 
         this.ancho = ancho;
 
@@ -228,9 +235,12 @@ public abstract class Actor {
 
         this.ancho = ancho;
 
-        for (int i = 0; i < texturas.length; i++) {
+        if (texturas != null && texturas.length > 0) {
 
-            texturas[i] = new Textura2D(texturas[i].getBipmap(), ancho, alto);
+            for (int i = 0; i < texturas.length; i++) {
+
+                texturas[i] = new Textura2D(texturas[i].getBipmap(), ancho, alto);
+            }
         }
     }
 
@@ -238,9 +248,12 @@ public abstract class Actor {
 
         this.alto = alto;
 
-        for (int i = 0; i < texturas.length; i++) {
+        if (texturas != null && texturas.length > 0) {
 
-            texturas[i] = new Textura2D(texturas[i].getBipmap(), ancho, alto);
+            for (int i = 0; i < texturas.length; i++) {
+
+                texturas[i] = new Textura2D(texturas[i].getBipmap(), ancho, alto);
+            }
         }
     }
 
@@ -262,9 +275,12 @@ public abstract class Actor {
 
         this.alto = alto;
 
-        for (int i = 0; i < texturas.length; i++) {
+        if (texturas != null && texturas.length > 0) {
 
-            texturas[i] = new Textura2D(texturas[i].getBipmap(), ancho, alto);
+            for (int i = 0; i < texturas.length; i++) {
+
+                texturas[i] = new Textura2D(texturas[i].getBipmap(), ancho, alto);
+            }
         }
     }
 

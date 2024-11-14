@@ -24,7 +24,7 @@ public class Rectangulo extends RectF {
         AlturaRect1 = alto;
     }
 
-    public boolean Intersecion(Rectangulo r) {
+    public boolean intersecion(Rectangulo r) {
 
         P1 = r.X1;
 
@@ -58,7 +58,7 @@ public class Rectangulo extends RectF {
         return false;
     }
 
-    public boolean IntersecionR(Rectangulo r) {
+    public boolean intersecionR(Rectangulo r) {
         
         if (X1 + BaseRect1 < r.X1) {
             return false;

@@ -61,6 +61,7 @@ public class Recurso {
 
             // Crear la textura con el Bitmap decodificado
             imagen = new Textura2D(bitmap);
+            
             texturas.put(nombre, imagen);
 
         } catch (IOException e) {
@@ -146,7 +147,7 @@ public class Recurso {
         return musica;
     }
 
-    @SuppressWarnings("deprecation")
+    
     public Sonido cargarSonido(String nombre) {
 
         AssetFileDescriptor descriptor = null;

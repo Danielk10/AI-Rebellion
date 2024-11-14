@@ -1,5 +1,7 @@
 package com.diamon.graficos;
 
+import com.diamon.bluetooth.servicio.ServicioBluetooth;
+import com.diamon.configuracion.Configuracion;
 import com.diamon.dato.ConfiguracionesDeJuego;
 import com.diamon.nucleo.Actor;
 import com.diamon.nucleo.Juego;
@@ -16,7 +18,13 @@ public abstract class Pantalla2D implements Pantalla {
 
     protected ConfiguracionesDeJuego configuracionesDeJuego;
 
+    protected Configuracion configuraciones;
+
     protected Recurso recurso;
+
+    protected ServicioBluetooth bluetooth;
+
+    protected Camara2D camara;
 
     public Pantalla2D(final Juego juego) {
 
@@ -24,9 +32,15 @@ public abstract class Pantalla2D implements Pantalla {
 
         configuracionesDeJuego = juego.getConfiguracionesDeJuego();
 
+        configuraciones = juego.getConfiguraciones();
+
         actores = new ArrayList<Actor>();
 
         recurso = juego.getRecurso();
+
+        bluetooth = juego.getBluetooth();
+
+        camara = juego.getCamara();
     }
 
     public Juego getJuego() {
@@ -35,5 +49,13 @@ public abstract class Pantalla2D implements Pantalla {
 
     public ArrayList<Actor> getActores() {
         return actores;
+    }
+
+    public ServicioBluetooth getBluetooth() {
+        return this.bluetooth;
+    }
+
+    public Camara2D getCamara() {
+        return this.camara;
     }
 }

@@ -1,6 +1,7 @@
 package com.diamon.iarebellion;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -93,6 +94,13 @@ public class MainActivity extends AppCompatActivity {
         juego.resumen();
 
         wakeLock.acquire();
+    }
+
+    @Override
+    protected void onActivityResult(int arg0, int arg1, Intent arg2) {
+        super.onActivityResult(arg0, arg1, arg2);
+
+        juego.servioBlueTooth(null);
     }
 
     @Override

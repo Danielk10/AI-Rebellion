@@ -1,7 +1,9 @@
 package com.diamon.nucleo;
 
 import com.diamon.actor.Jugador;
+import com.diamon.bluetooth.servicio.ServicioBluetooth;
 import com.diamon.dato.ConfiguracionesDeJuego;
+import com.diamon.graficos.Camara2D;
 import com.diamon.graficos.Pantalla2D;
 import com.diamon.utilidad.Recurso;
 
@@ -9,7 +11,7 @@ import java.util.ArrayList;
 
 public abstract class Escena {
 
-    private Pantalla pantalla;
+    protected Pantalla pantalla;
 
     protected Jugador jugador;
 
@@ -20,6 +22,10 @@ public abstract class Escena {
     protected Recurso recurso;
 
     protected ConfiguracionesDeJuego configuracionesDeJuego;
+
+    protected Camara2D camara;
+
+    protected ServicioBluetooth bluetooth;
 
     public Escena(Pantalla pantalla, Jugador jugador) {
 
@@ -36,10 +42,16 @@ public abstract class Escena {
         this.configuracionesDeJuego =
                 ((Pantalla2D) pantalla).getJuego().getConfiguracionesDeJuego();
 
-        iniciar();
+        this.camara = ((Pantalla2D) pantalla).getCamara();
+
+        this.camara.setPosicion(Juego.ANCHO_PANTALLA / 2, Juego.ALTO_PANTALLA / 2);
+
+        this.bluetooth = ((Pantalla2D) pantalla).getBluetooth();
     }
 
-    protected abstract void iniciar();
+    public abstract void iniciar();
+
+    public abstract boolean escenarioCompletado();
 
     public abstract void actualizar(float delta);
 

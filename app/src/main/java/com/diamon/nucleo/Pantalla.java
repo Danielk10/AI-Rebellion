@@ -1,5 +1,7 @@
 package com.diamon.nucleo;
 
+import com.diamon.bluetooth.servicio.ServicioBluetooth;
+
 public interface Pantalla {
 
     public abstract void mostrar();
@@ -19,6 +21,8 @@ public interface Pantalla {
     public abstract void ocultar();
 
     public abstract void liberarRecursos();
+
+    public abstract void servicioBluetooth(ServicioBluetooth blueTooth);
 
     public abstract void teclaPresionada(int codigoDeTecla);
 
