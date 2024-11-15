@@ -33,6 +33,7 @@ public class ConectarServidor implements Runnable {
 
         } catch (IOException e) {
 
+            e.printStackTrace();
         }
 
         this.servidor = servidorTempoaral;
@@ -65,6 +66,7 @@ public class ConectarServidor implements Runnable {
 
             } catch (IOException e) {
 
+                e.printStackTrace();
             }
 
             try {
@@ -78,6 +80,7 @@ public class ConectarServidor implements Runnable {
 
             } catch (IOException e) {
 
+                e.printStackTrace();
             }
 
             break;
@@ -97,6 +100,7 @@ public class ConectarServidor implements Runnable {
 
         } catch (IOException e) {
 
+            e.printStackTrace();
         }
     }
 

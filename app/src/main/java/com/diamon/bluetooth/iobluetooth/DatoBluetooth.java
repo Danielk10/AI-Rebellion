@@ -65,6 +65,8 @@ public class DatoBluetooth implements Runnable {
 
         } catch (IOException e) {
 
+            e.printStackTrace();
+
         } finally {
 
             if (salida != null) {
@@ -75,6 +77,7 @@ public class DatoBluetooth implements Runnable {
 
                 } catch (IOException e) {
 
+                    e.printStackTrace();
                 }
             }
         }
@@ -97,6 +100,8 @@ public class DatoBluetooth implements Runnable {
 
             } catch (IOException e) {
 
+                e.printStackTrace();
+
                 break;
 
             } finally {
@@ -109,6 +114,7 @@ public class DatoBluetooth implements Runnable {
 
                     } catch (IOException e) {
 
+                        e.printStackTrace();
                     }
                 }
             }

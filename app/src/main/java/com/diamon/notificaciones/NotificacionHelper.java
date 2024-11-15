@@ -33,7 +33,7 @@ public class NotificacionHelper {
                         .setLargeIcon(
                                 new Textura2D(
                                                 MainActivity.recurso
-                                                        .cargarTextura("creditos.png")
+                                                        .cargarTextura("texturas/creditos.png")
                                                         .getBipmap(),
                                                 150,
                                                 100)
@@ -46,7 +46,7 @@ public class NotificacionHelper {
                                                 new Textura2D(
                                                                 MainActivity.recurso
                                                                         .cargarTextura(
-                                                                                "creditos.png")
+                                                                                "texturas/creditos.png")
                                                                         .getBipmap(),
                                                                 300,
                                                                 250)
@@ -82,7 +82,7 @@ public class NotificacionHelper {
                         .setLargeIcon(
                                 new Textura2D(
                                                 MainActivity.recurso
-                                                        .cargarTextura("creditos.png")
+                                                        .cargarTextura("texturas/creditos.png")
                                                         .getBipmap(),
                                                 150,
                                                 100)
@@ -95,7 +95,7 @@ public class NotificacionHelper {
                                                 new Textura2D(
                                                                 MainActivity.recurso
                                                                         .cargarTextura(
-                                                                                "creditos.png")
+                                                                                "texturas/creditos.png")
                                                                         .getBipmap(),
                                                                 300,
                                                                 250)

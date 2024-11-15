@@ -60,7 +60,7 @@ public class ServicioBluetooth {
             if (conectarCliente.getCliente() != null) {
 
                 dato = new DatoBluetooth(conectarCliente.getCliente());
-                
+
                 dato.iniciar();
             }
         }
@@ -76,7 +76,7 @@ public class ServicioBluetooth {
             if (conectarServidor.getCliente() != null) {
 
                 dato = new DatoBluetooth(conectarServidor.getCliente());
-                
+
                 dato.iniciar();
             }
         }
@@ -91,4 +91,10 @@ public class ServicioBluetooth {
 
         return dato;
     }
+
+    public BluetoothAdapter getAdaptador() {
+        return this.adaptador;
+    }
+
+    
 }

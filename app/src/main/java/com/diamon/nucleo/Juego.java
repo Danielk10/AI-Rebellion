@@ -65,13 +65,19 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
     protected EntradaDeControles entraDeControles;
 
-    private ServicioBluetooth bluetooth;
+    private ServicioBluetooth blueTooth;
 
     private Camara2D camara;
 
-    public Juego(AppCompatActivity actividad) {
+    private AppCompatActivity actividad;
+
+    public Juego(AppCompatActivity actividad, ServicioBluetooth blueTooth) {
 
         super(actividad);
+
+        this.actividad = actividad;
+
+        this.blueTooth = blueTooth;
 
         actividad.setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
@@ -208,7 +214,11 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
             pantalla.dibujar(pincel, delta);
         }
 
-        pincel.dibujarTexto((int) getFPS() + " FPS", camara.getX()-Juego.ANCHO_PANTALLA/2 + 20, 20, Color.GREEN);
+        pincel.dibujarTexto(
+                (int) getFPS() + " FPS",
+                camara.getX() - Juego.ANCHO_PANTALLA / 2 + 20,
+                20,
+                Color.GREEN);
     }
 
     public void actualizar(float delta) {
@@ -426,18 +436,14 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
     }
 
     public ServicioBluetooth getBluetooth() {
-        return this.bluetooth;
-    }
-
-    public void servioBlueTooth(ServicioBluetooth blueTooth) {
-
-        if (pantalla != null && bluetooth != null) {
-
-            pantalla.servicioBluetooth(blueTooth);
-        }
+        return this.blueTooth;
     }
 
     public Camara2D getCamara() {
         return this.camara;
+    }
+
+    public AppCompatActivity getActividad() {
+        return this.actividad;
     }
 }

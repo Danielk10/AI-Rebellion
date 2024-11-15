@@ -22,7 +22,7 @@ public abstract class Pantalla2D implements Pantalla {
 
     protected Recurso recurso;
 
-    protected ServicioBluetooth bluetooth;
+    protected ServicioBluetooth blueTooth;
 
     protected Camara2D camara;
 
@@ -38,7 +38,7 @@ public abstract class Pantalla2D implements Pantalla {
 
         recurso = juego.getRecurso();
 
-        bluetooth = juego.getBluetooth();
+        blueTooth = juego.getBluetooth();
 
         camara = juego.getCamara();
     }
@@ -52,7 +52,7 @@ public abstract class Pantalla2D implements Pantalla {
     }
 
     public ServicioBluetooth getBluetooth() {
-        return this.bluetooth;
+        return this.blueTooth;
     }
 
     public Camara2D getCamara() {

@@ -128,6 +128,4 @@ public class PantallaMenu extends Pantalla2D {
     @Override
     public void acelerometro(float x, float y, float z) {}
 
-    @Override
-    public void servicioBluetooth(ServicioBluetooth blueTooth) {}
-}
+    }

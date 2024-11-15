@@ -22,8 +22,6 @@ public interface Pantalla {
 
     public abstract void liberarRecursos();
 
-    public abstract void servicioBluetooth(ServicioBluetooth blueTooth);
-
     public abstract void teclaPresionada(int codigoDeTecla);
 
     public abstract void teclaLevantada(int codigoDeTecla);

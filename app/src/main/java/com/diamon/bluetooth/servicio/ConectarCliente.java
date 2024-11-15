@@ -34,6 +34,7 @@ public class ConectarCliente implements Runnable {
 
         } catch (IOException e) {
 
+            e.printStackTrace();
         }
 
         this.cliente = clienteTemporal;
@@ -62,6 +63,7 @@ public class ConectarCliente implements Runnable {
 
         } catch (IOException e) {
 
+            e.printStackTrace();
         }
 
         try {
@@ -73,6 +75,7 @@ public class ConectarCliente implements Runnable {
 
         } catch (IOException e) {
 
+            e.printStackTrace();
         }
 
         return;
@@ -91,6 +94,7 @@ public class ConectarCliente implements Runnable {
 
         } catch (IOException e) {
 
+            e.printStackTrace();
         }
     }
 

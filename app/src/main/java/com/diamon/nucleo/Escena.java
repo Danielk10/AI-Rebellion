@@ -25,7 +25,7 @@ public abstract class Escena {
 
     protected Camara2D camara;
 
-    protected ServicioBluetooth bluetooth;
+    protected ServicioBluetooth blueTooth;
 
     public Escena(Pantalla pantalla, Jugador jugador) {
 
@@ -46,7 +46,7 @@ public abstract class Escena {
 
         this.camara.setPosicion(Juego.ANCHO_PANTALLA / 2, Juego.ALTO_PANTALLA / 2);
 
-        this.bluetooth = ((Pantalla2D) pantalla).getBluetooth();
+        this.blueTooth = ((Pantalla2D) pantalla).getBluetooth();
     }
 
     public abstract void iniciar();

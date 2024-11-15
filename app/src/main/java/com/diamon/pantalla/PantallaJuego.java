@@ -38,6 +38,8 @@ public class PantallaJuego extends Pantalla2D {
             case 2:
                 escena = new EscenarioCiudadDesolada(this, jugador);
                 break;
+            default:
+                break;
         }
 
         if (escena != null) {
@@ -177,6 +179,4 @@ public class PantallaJuego extends Pantalla2D {
     @Override
     public void acelerometro(float x, float y, float z) {}
 
-    @Override
-    public void servicioBluetooth(ServicioBluetooth blueTooth) {}
-}
+    }

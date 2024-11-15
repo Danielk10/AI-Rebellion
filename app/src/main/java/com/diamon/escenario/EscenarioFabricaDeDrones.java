@@ -44,7 +44,7 @@ public class EscenarioFabricaDeDrones extends Escena {
     @Override
     public void actualizar(float delta) {
         
-          camara.setX(x+=50*delta);
+          
         
         for (int i = 0; i < actores.size(); i++) {
 
