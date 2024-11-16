@@ -2,13 +2,14 @@ package com.diamon.ui;
 
 import android.graphics.Color;
 import android.graphics.Paint;
+
+import com.diamon.graficos.Actor2D;
 import com.diamon.nucleo.Actor;
 import com.diamon.nucleo.Graficos;
 import com.diamon.nucleo.Pantalla;
 import com.diamon.nucleo.Textura;
-import kotlinx.coroutines.internal.Symbol;
 
-public class Boton extends Actor {
+public class Boton extends Actor2D {
 
     private String texto;
 

@@ -1,12 +1,14 @@
 package com.diamon.ui;
 
+import android.graphics.Color;
 import android.graphics.Paint;
+
+import com.diamon.graficos.Actor2D;
 import com.diamon.nucleo.Actor;
 import com.diamon.nucleo.Graficos;
-import android.graphics.Color;
 import com.diamon.nucleo.Pantalla;
 
-public class EtiquetaTexto extends Actor {
+public class EtiquetaTexto extends Actor2D {
 
     private String texto;
 

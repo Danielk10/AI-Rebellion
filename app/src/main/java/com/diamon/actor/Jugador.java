@@ -1,10 +1,11 @@
 package com.diamon.actor;
 
+import com.diamon.graficos.Actor2D;
 import com.diamon.nucleo.Actor;
 import com.diamon.nucleo.Pantalla;
 import com.diamon.nucleo.Textura;
 
-public class Jugador extends Actor {
+public class Jugador extends Actor2D {
 
     public Jugador(Pantalla pantalla, Textura textura, float x, float y, float ancho, float alto) {
         super(pantalla, textura, x, y, ancho, alto);
