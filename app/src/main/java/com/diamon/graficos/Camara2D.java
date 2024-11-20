@@ -76,6 +76,8 @@ public class Camara2D {
     // Dibuja utilizando la cámara
     public void aplicarTransformacion(Canvas canvas) {
         canvas.setMatrix(matrizTransformacion);
+        
+        
     }
 
     public void setPosicion(float x, float y) {

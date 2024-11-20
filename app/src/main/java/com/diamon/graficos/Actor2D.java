@@ -29,11 +29,13 @@ public abstract class Actor2D implements Actor {
 
     protected Animacion2D animacion;
 
-    private Pantalla pantalla;
+    protected Pantalla pantalla;
+
+    protected Camara2D camara;
 
     protected Recurso recurso;
 
-    protected float tiempoAnimacion;
+    private float tiempoAnimacion;
 
     protected ConfiguracionesDeJuego configuracionesDeJuego;
 
@@ -48,6 +50,8 @@ public abstract class Actor2D implements Actor {
         this.actores = ((Pantalla2D) pantalla).getActores();
 
         this.recurso = ((Pantalla2D) pantalla).getJuego().getRecurso();
+
+        this.camara = ((Pantalla2D) pantalla).getCamara();
 
         this.configuracionesDeJuego =
                 ((Pantalla2D) pantalla).getJuego().getConfiguracionesDeJuego();
@@ -89,6 +93,8 @@ public abstract class Actor2D implements Actor {
         this.actores = ((Pantalla2D) pantalla).getActores();
 
         this.recurso = ((Pantalla2D) pantalla).getJuego().getRecurso();
+
+        this.camara = ((Pantalla2D) pantalla).getCamara();
 
         this.configuracionesDeJuego =
                 ((Pantalla2D) pantalla).getJuego().getConfiguracionesDeJuego();
@@ -139,6 +145,8 @@ public abstract class Actor2D implements Actor {
 
         this.recurso = ((Pantalla2D) pantalla).getJuego().getRecurso();
 
+        this.camara = ((Pantalla2D) pantalla).getCamara();
+
         this.configuracionesDeJuego =
                 ((Pantalla2D) pantalla).getJuego().getConfiguracionesDeJuego();
 
@@ -171,14 +179,17 @@ public abstract class Actor2D implements Actor {
         obtenerActores();
     }
 
+    @Override
     public void setAnimacion(Animacion2D animacion) {
         this.animacion = animacion;
     }
 
+    @Override
     public Animacion2D getAnimacion() {
         return animacion;
     }
 
+    @Override
     public void setPosicion(float x, float y) {
 
         this.x = x;
@@ -186,11 +197,13 @@ public abstract class Actor2D implements Actor {
         this.y = y;
     }
 
+    @Override
     public boolean isRemover() {
 
         return remover;
     }
 
+    @Override
     public void actualizar(float delta) {
 
         if (animar) {
@@ -209,6 +222,7 @@ public abstract class Actor2D implements Actor {
         }
     }
 
+    @Override
     public void dibujar(Graficos pincel, float delta) {
 
         if (animacion != null) {
@@ -217,22 +231,27 @@ public abstract class Actor2D implements Actor {
         }
     }
 
+    @Override
     public float getX() {
         return x;
     }
 
+    @Override
     public void setX(float x) {
         this.x = x;
     }
 
+    @Override
     public float getY() {
         return y;
     }
 
+    @Override
     public void setY(float y) {
         this.y = y;
     }
 
+    @Override
     public void setAncho(float ancho) {
 
         this.ancho = ancho;
@@ -246,6 +265,7 @@ public abstract class Actor2D implements Actor {
         }
     }
 
+    @Override
     public void setAlto(float alto) {
 
         this.alto = alto;
@@ -259,18 +279,22 @@ public abstract class Actor2D implements Actor {
         }
     }
 
+    @Override
     public float getAncho() {
         return ancho;
     }
 
+    @Override
     public float getAlto() {
         return alto;
     }
 
+    @Override
     public Rectangulo getRectangulo() {
         return new Rectangulo(x, y, ancho, alto);
     }
 
+    @Override
     public void setTamano(float ancho, float alto) {
 
         this.ancho = ancho;
@@ -286,6 +310,7 @@ public abstract class Actor2D implements Actor {
         }
     }
 
+    @Override
     public void remover() {
 
         remover = true;

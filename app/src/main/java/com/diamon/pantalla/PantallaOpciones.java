@@ -18,8 +18,8 @@ import com.diamon.iarebellion.MainActivity;
 import com.diamon.nucleo.Actor;
 import com.diamon.nucleo.Graficos;
 import com.diamon.nucleo.Juego;
-import com.diamon.ui.Boton;
-import com.diamon.ui.EtiquetaTexto;
+import com.diamon.ui.boton.Boton;
+import com.diamon.ui.etiqueta.EtiquetaTexto;
 import com.diamon.utilidad.Rectangulo;
 
 import java.util.ArrayList;
@@ -36,6 +36,10 @@ public class PantallaOpciones extends Pantalla2D {
 
     private Boton cancelar;
 
+    private EtiquetaTexto texto;
+
+    private EtiquetaTexto esperando;
+
     private Boton aceptar;
 
     private Textura2D texturaBoton;
@@ -44,7 +48,11 @@ public class PantallaOpciones extends Pantalla2D {
 
     private boolean busqueda;
 
-    private BluetoothDevice dispositivoServidor;
+    private BluetoothDevice dispositivo;
+
+    private int tipo;
+
+    private boolean toque;
 
     public PantallaOpciones(final Juego juego) {
         super(juego);
@@ -70,6 +78,25 @@ public class PantallaOpciones extends Pantalla2D {
         actores.add(cliente);
 
         actores.add(cancelar);
+
+        texto = new EtiquetaTexto(this, 500, 40, "");
+
+        esperando = new EtiquetaTexto(this, 500, 600, "Esperando...");
+
+        aceptar = new Boton(this, texturaBoton, 500, 50, "Aceptar");
+
+        if (blueTooth.getAdaptador().isEnabled()) {
+
+            if (blueTooth.getAdaptador() != null) {
+
+                dispositivo = blueTooth.getAdaptador().getBondedDevices().iterator().next();
+
+                if (dispositivo != null) {
+
+                    texto.setTexto(dispositivo.getName());
+                }
+            }
+        }
     }
 
     public void activarBluetooth() {
@@ -99,6 +126,7 @@ public class PantallaOpciones extends Pantalla2D {
     private void buscarDispositivo() {
 
         if (registro < 1) {
+
             if (blueTooth.getAdaptador().isEnabled()) {
 
                 try {
@@ -130,35 +158,23 @@ public class PantallaOpciones extends Pantalla2D {
 
                     for (int i = 0; i < dispositivos.size(); i++) {
 
-                        if (dispositivos.get(i) != null) {
+                        // if (dispositivos.get(i) != null) {
 
-                            EtiquetaTexto texto =
-                                    new EtiquetaTexto(this, 500, 50, dispositivos.get(i).getName());
+                        // texto.setTexto(dispositivos.get(i).getName());
 
-                            aceptar = new Boton(this, texturaBoton, 500, 70, "Aceptar");
+                        // actores.add(texto);
 
-                            actores.add(texto);
+                        //  actores.add(aceptar);
 
-                            actores.add(aceptar);
-
-                            dispositivoServidor =
-                                    blueTooth
-                                            .getAdaptador()
-                                            .getRemoteDevice(dispositivos.get(i).getAddress());
-                        }
+                        /* dispositivo =
+                        blueTooth
+                                .getAdaptador()
+                                .getRemoteDevice(dispositivos.get(i).getAddress());*/
+                        // }
                     }
                 }
 
                 busqueda = false;
-            }
-        }
-
-        if (dispositivoServidor != null) {
-
-            if (aceptar.getPresionado()) {
-                blueTooth.setDispositivo(dispositivoServidor);
-
-                juego.setPantalla(new PantallaJuego(juego));
             }
         }
     }
@@ -170,16 +186,32 @@ public class PantallaOpciones extends Pantalla2D {
     public void resume() {}
 
     @Override
-    public void colisiones() {}
+    public void colisiones() {
+
+        for (int i = 0; i < actores.size(); i++) {
+
+            Actor actor = actores.get(i);
+
+            if (actor.isRemover()) {
+
+                actores.remove(i);
+            }
+        }
+    }
 
     @Override
     public void actualizar(float delta) {
 
-        blueTooth();
-
         for (Actor actor : actores) {
 
             actor.actualizar(delta);
+        }
+
+        blueTooth();
+
+        if (blueTooth.isConectado()) {
+
+            juego.setPantalla(new PantallaJuego(juego));
         }
     }
 
@@ -214,35 +246,92 @@ public class PantallaOpciones extends Pantalla2D {
     public void teclaLevantada(int codigoDeTecla) {}
 
     @Override
-    public void toquePresionado(float x, float y, int puntero) {
+    public void toquePresionado(float x, float y, int puntero) {}
+
+    @Override
+    public void toqueLevantado(float x, float y, int puntero) {
 
         if (servidor.getRectangulo().intersecion(new Rectangulo(x, y, 32, 32))) {
 
+            tipo = 1;
+
+            cliente.setPosicion(-100, -100);
+
+            cliente.remover();
+
+            actores.add(texto);
+
+            actores.add(aceptar);
+
+            esperando.setTexto("Esperando...Servidor");
+
+            actores.add(esperando);
+
             activarBluetooth();
 
             buscarDispositivo();
+
+            servidor.setPosicion(-100, -100);
+
+            servidor.remover();
 
         } else if (cliente.getRectangulo().intersecion(new Rectangulo(x, y, 32, 32))) {
-            
-            
+
+            tipo = 2;
+
+            servidor.setPosicion(-100, -100);
+
+            servidor.remover();
+
+            actores.add(texto);
+
+            actores.add(aceptar);
+
+            esperando.setTexto("Esperando...Cliente");
+
+            actores.add(esperando);
+
             activarBluetooth();
 
             buscarDispositivo();
+
+            cliente.setPosicion(-100, -100);
+
+            cliente.remover();
 
         } else if (cancelar.getRectangulo().intersecion(new Rectangulo(x, y, 32, 32))) {
 
         }
 
-        if (aceptar != null && aceptar.getRectangulo().intersecion(new Rectangulo(x, y, 32, 32))) {
-            aceptar.setPresionado(true);
-        } else if (aceptar != null) {
+        if (aceptar.getRectangulo().intersecion(new Rectangulo(x, y, 32, 32))) {
 
-            aceptar.setPresionado(false);
+            if (tipo == 1) {
+
+                if (blueTooth.getAdaptador() != null) {
+
+                    if (blueTooth.getAdaptador().isEnabled()) {
+
+                        blueTooth.setTipo(ServicioBluetooth.SERVIDOR);
+
+                        blueTooth.setConectarServidor();
+                    }
+                }
+            }
+
+            if (tipo == 2) {
+
+                if (dispositivo != null) {
+
+                    dispositivo =
+                            blueTooth.getAdaptador().getRemoteDevice(dispositivo.getAddress());
+
+                    blueTooth.setTipo(ServicioBluetooth.CLIENTE);
+
+                    blueTooth.setConectarCliente(dispositivo);
+                }
+            }
         }
     }
-
-    @Override
-    public void toqueLevantado(float x, float y, int puntero) {}
 
     @Override
     public void toqueDeslizando(float x, float y, int puntero) {}

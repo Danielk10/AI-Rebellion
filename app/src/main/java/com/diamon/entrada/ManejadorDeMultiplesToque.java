@@ -12,7 +12,7 @@ import java.util.List;
 
 public class ManejadorDeMultiplesToque implements ManejadorDeToque {
 
-    boolean tocando[];
+    private boolean tocando[];
 
     private float[] x;
 

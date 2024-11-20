@@ -14,7 +14,7 @@ public class Rectangulo extends RectF {
 
     public Rectangulo(float x, float y, float ancho, float alto) {
         super((int) x, (int) y, (int) ancho, (int) alto);
-      
+
         X1 = x;
 
         Y1 = y;
@@ -47,32 +47,43 @@ public class Rectangulo extends RectF {
         Q2 = Q1 + AlturaRect2;
 
         if (X1 >= P1 && X1 <= P2 && Y1 >= Q1 && Y1 <= Q2) return true;
+
         if (X2 >= P1 && X2 <= P2 && Y1 >= Q1 && Y1 <= Q2) return true;
+
         if (X1 >= P1 && X1 <= P2 && Y2 >= Q1 && Y2 <= Q2) return true;
+
         if (X2 >= P1 && X2 <= P2 && Y2 >= Q1 && Y2 <= Q2) return true;
+
         if (P1 >= X1 && P1 <= X2 && Q1 >= Y1 && Q1 <= Y2) return true;
+
         if (P2 >= X1 && P2 <= X2 && Q1 >= Y1 && Q1 <= Y2) return true;
+
         if (P1 >= X1 && P1 <= X2 && Q2 >= Y1 && Q2 <= Y2) return true;
+
         if (P2 >= X1 && P2 <= X2 && Q2 >= Y1 && Q2 <= Y2) return true;
 
         return false;
     }
 
     public boolean intersecionR(Rectangulo r) {
-        
+
         if (X1 + BaseRect1 < r.X1) {
+
             return false;
         }
         if (Y1 + AlturaRect1 < r.Y1) {
+
             return false;
         }
         if (X1 > r.X1 + r.BaseRect1) {
+
             return false;
         }
         if (Y1 > r.Y1 + r.AlturaRect1) {
+
             return false;
         }
-        
+
         return true;
     }
 }

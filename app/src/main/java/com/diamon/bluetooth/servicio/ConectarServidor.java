@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 
+import com.diamon.bluetooth.iobluetooth.DatoBluetooth;
 import java.io.IOException;
 
 public class ConectarServidor implements Runnable {
@@ -13,6 +14,8 @@ public class ConectarServidor implements Runnable {
     private BluetoothSocket cliente;
 
     private BluetoothAdapter adaptador;
+
+    private DatoBluetooth dato;
 
     private boolean conectado;
 
@@ -50,7 +53,7 @@ public class ConectarServidor implements Runnable {
     }
 
     @Override
-    public void run() {
+    public  void run() {
 
         adaptador.cancelDiscovery();
 
@@ -64,30 +67,24 @@ public class ConectarServidor implements Runnable {
 
                 this.conectado = true;
 
-            } catch (IOException e) {
+                if (cliente != null) {
 
-                e.printStackTrace();
-            }
+                    dato = new DatoBluetooth(cliente);
 
-            try {
-
-                this.cliente = cliente;
-
-                if (servidor != null) {
-
-                    servidor.close();
+                    dato.iniciar();
                 }
 
             } catch (IOException e) {
 
                 e.printStackTrace();
             }
+            this.cliente = cliente;
 
             break;
         }
     }
 
-    public void cancelarCliente() {
+    public  void cancelarCliente() {
 
         try {
 
@@ -104,13 +101,17 @@ public class ConectarServidor implements Runnable {
         }
     }
 
-    public BluetoothSocket getCliente() {
+    public  BluetoothSocket getCliente() {
 
         return cliente;
     }
 
-    public boolean isConectado() {
+    public  boolean isConectado() {
 
         return this.conectado;
+    }
+
+    public  DatoBluetooth getDato() {
+        return this.dato;
     }
 }

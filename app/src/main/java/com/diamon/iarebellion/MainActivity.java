@@ -29,7 +29,6 @@ import com.diamon.utilidad.PantallaCompleta;
 import com.diamon.utilidad.Recurso;
 
 import java.util.ArrayList;
-import kotlin.jvm.Volatile;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -44,8 +43,6 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter adaptador;
 
     public ServicioBluetooth servicio;
-    
-    private int numeroDispositivos;
 
     public ArrayList<BluetoothDevice> dispositivos;
 
@@ -74,7 +71,6 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onReceive(Context contexto, Intent intencion) {
 
-                    
                     final String acccion = intencion.getAction();
 
                     if (BluetoothDevice.ACTION_FOUND.equals(acccion)) {
@@ -90,17 +86,8 @@ public class MainActivity extends AppCompatActivity {
                                                     + dispositivo.getName(),
                                             Toast.LENGTH_SHORT)
                                     .show();
-                    
-                    
-                       if(numeroDispositivos <1) {
-                        
-                       	dispositivos.add(dispositivo);
-                    
-                       }
 
-                            
-                    numeroDispositivos++;
-                    
+                            dispositivos.add(dispositivo);
                         }
                     }
                 }
@@ -110,21 +97,17 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-       setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+
         BluetoothManager bluetoothManager =
                 (BluetoothManager)
                         getApplicationContext().getSystemService(Context.BLUETOOTH_SERVICE);
-        
+
         dispositivos = new ArrayList<BluetoothDevice>();
 
-        numeroDispositivos = 0;
-        
         adaptador = bluetoothManager.getAdapter();
 
-        servicio = new ServicioBluetooth(adaptador, ServicioBluetooth.SERVIDOR);
-
-       //  servicio = new ServicioBluetooth(adaptador, ServicioBluetooth.CLIENTE);
+        servicio = new ServicioBluetooth(adaptador);
 
         recurso = new Recurso(this);
 
@@ -187,11 +170,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
 
         super.onResume();
-
+        
+        
         juego.resumen();
 
         wakeLock.acquire();
     }
+    
+   
+    
 
     private void permisos() {
 
@@ -229,14 +216,13 @@ public class MainActivity extends AppCompatActivity {
 
         super.onDestroy();
 
-        // unregisterReceiver(reservado);
+        //unregisterReceiver(reservado);
     }
 
     public ArrayList<BluetoothDevice> getDispositivos() {
         return this.dispositivos;
     }
 
-   
     /*@Override
     protected void onActivityResult(int arg0, int arg1, Intent arg2) {
         super.onActivityResult(arg0, arg1, arg2);

@@ -1,5 +1,6 @@
 package com.diamon.nucleo;
 
+import android.graphics.Canvas;
 import android.graphics.Paint;
 
 public interface Graficos {
@@ -32,4 +33,6 @@ public interface Graficos {
     public abstract float getAlto();
 
     public abstract Textura crearTextura(float ancho, float alto, FormatoTextura formatoTextura);
+
+    public abstract Canvas getCanvas();
 }

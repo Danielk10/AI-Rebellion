@@ -7,8 +7,9 @@ import com.diamon.graficos.Textura2D;
 import com.diamon.nucleo.Actor;
 import com.diamon.nucleo.Graficos;
 import com.diamon.nucleo.Juego;
-import com.diamon.ui.Boton;
-import com.diamon.ui.EtiquetaTexto;
+import com.diamon.ui.boton.Boton;
+import com.diamon.ui.etiqueta.EtiquetaTexto;
+import com.diamon.ui.lienzo.Imagen;
 import com.diamon.utilidad.Rectangulo;
 
 public class PantallaMenu extends Pantalla2D {
@@ -18,8 +19,10 @@ public class PantallaMenu extends Pantalla2D {
     private Boton botonOpciones;
 
     private Boton botonSalir;
-    
+
     private EtiquetaTexto titulo;
+
+    private Imagen fondo;
 
     public PantallaMenu(final Juego juego) {
         super(juego);
@@ -27,16 +30,40 @@ public class PantallaMenu extends Pantalla2D {
         Textura2D texturaBoton =
                 new Textura2D(recurso.getTextura("texturas/creditos.png"), 100, 50);
 
-        botonIniciar = new Boton(this, texturaBoton, 200, 200, "Iniciar Juego");
+        fondo =
+                new Imagen(
+                        this,
+                        recurso.getTextura("texturas/fondo.png"),
+                        0,
+                        0,
+                        Juego.ANCHO_PANTALLA,
+                        Juego.ALTO_PANTALLA,
+                        "");
 
-        botonOpciones = new Boton(this, texturaBoton, 200, 300, "Opciones");
+        titulo = new EtiquetaTexto(this, Juego.ANCHO_PANTALLA / 2 - 100, 50,"AI Rebellion");
 
-        botonSalir = new Boton(this, texturaBoton, 200, 400, "Salir");
+        titulo.setColor(Color.GREEN);
+
+        titulo.setTamanoTexto(30);
+
+        botonIniciar =
+                new Boton(this, texturaBoton, Juego.ANCHO_PANTALLA / 2 - 100, 200,200,50, "Iniciar Juego");
+
+        botonIniciar.setColor(Color.RED);
+
+        botonOpciones =
+                new Boton(this, texturaBoton, Juego.ANCHO_PANTALLA / 2 - 100, 300, 200,50, "Opciones");
         
-        titulo = new EtiquetaTexto(this,200,50,"AI Rebellion");
+        botonOpciones.setColor(Color.RED);
+
+        botonSalir = new Boton(this, texturaBoton, Juego.ANCHO_PANTALLA / 2 - 100, 400,200,50, "Salir");
         
+        botonSalir.setColor(Color.RED); 
+
+        actores.add(fondo);
+
         actores.add(titulo);
-        
+
         actores.add(botonIniciar);
 
         actores.add(botonOpciones);
@@ -91,7 +118,7 @@ public class PantallaMenu extends Pantalla2D {
     }
 
     private void mostrarOpciones() {
-        juego.setPantalla(new PantallaOpciones(juego)); 
+        juego.setPantalla(new PantallaOpciones(juego));
     }
 
     private void salirJuego() {}
@@ -103,29 +130,31 @@ public class PantallaMenu extends Pantalla2D {
     public void teclaLevantada(int codigoDeTecla) {}
 
     @Override
-    public void toquePresionado(float x, float y, int puntero) {
-
-        if (botonIniciar.getRectangulo().intersecion(new Rectangulo(x,y,32,32))) {
-            
-            iniciarJuego();
-            
-        } else if (botonOpciones.getRectangulo().intersecion(new Rectangulo(x,y,32,32))) {
-            
-            mostrarOpciones();
-            
-        } else if (botonSalir.getRectangulo().intersecion(new Rectangulo(x,y,32,32))) {
-            
-            salirJuego();
-        }
-    }
+    public void toquePresionado(float x, float y, int puntero) {}
 
     @Override
-    public void toqueLevantado(float x, float y, int puntero) {}
+    public void toqueLevantado(float x, float y, int puntero) {
+
+        if (puntero == 0) {
+
+            if (botonIniciar.getRectangulo().intersecion(new Rectangulo(x, y, 32, 32))) {
+
+                iniciarJuego();
+
+            } else if (botonOpciones.getRectangulo().intersecion(new Rectangulo(x, y, 32, 32))) {
+
+                mostrarOpciones();
+
+            } else if (botonSalir.getRectangulo().intersecion(new Rectangulo(x, y, 32, 32))) {
+
+                salirJuego();
+            }
+        }
+    }
 
     @Override
     public void toqueDeslizando(float x, float y, int puntero) {}
 
     @Override
     public void acelerometro(float x, float y, float z) {}
-
-    }
+}

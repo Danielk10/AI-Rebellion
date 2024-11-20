@@ -9,17 +9,17 @@ import com.diamon.nucleo.Graficos;
 import com.diamon.nucleo.Pantalla;
 import com.diamon.nucleo.Textura;
 
-public class Boton extends Actor2D {
+public abstract class Elemento extends Actor2D {
 
-    private String texto;
+    protected String texto;
 
-    private boolean presionado;
+    protected int color;
 
-    private Paint lapiz;
+    protected float tamano;
 
-    private boolean obtenido;
+    protected boolean presionado;
 
-    public Boton(
+    public Elemento(
             Pantalla pantalla,
             Textura textura,
             float x,
@@ -32,17 +32,25 @@ public class Boton extends Actor2D {
         this.texto = texto;
 
         this.presionado = false;
+
+        color = Color.BLACK;
+
+        tamano = 18;
     }
 
-    public Boton(Pantalla pantalla, Textura textura, float x, float y, String texto) {
+    public Elemento(Pantalla pantalla, Textura textura, float x, float y, String texto) {
         super(pantalla, textura, x, y);
 
         this.texto = texto;
 
         this.presionado = false;
+
+        color = Color.BLACK;
+
+        tamano = 18;
     }
 
-    public Boton(
+    public Elemento(
             Pantalla pantalla,
             Textura[] texturas,
             float x,
@@ -56,20 +64,19 @@ public class Boton extends Actor2D {
         this.texto = texto;
 
         this.presionado = false;
+
+        color = Color.BLACK;
+
+        tamano = 18;
     }
 
     @Override
     public void dibujar(Graficos pincel, float delta) {
         super.dibujar(pincel, delta);
 
-        if (!obtenido) {
+        pincel.getLapiz().setTextSize(tamano);
 
-            lapiz = pincel.getLapiz();
-
-            obtenido = true;
-        }
-
-        pincel.dibujarTexto(texto, x + ancho / 4, y + alto / 2, Color.BLACK);
+        pincel.dibujarTexto(texto, x + ancho / 4, y + alto / 2, color);
     }
 
     @Override
@@ -94,21 +101,13 @@ public class Boton extends Actor2D {
         this.presionado = presionado;
     }
 
-    @Override
-    public void setTamano(float ancho, float alto) {
-        super.setTamano(ancho, alto);
+    public void setTamanoTexto(float tamano) {
 
-        if (lapiz != null) {
-
-            lapiz.setTextSize(ancho);
-        }
+        this.tamano = tamano;
     }
 
     public void setColor(int color) {
 
-        if (lapiz != null) {
-
-            lapiz.setColor(color);
-        }
+        this.color = color;
     }
 }

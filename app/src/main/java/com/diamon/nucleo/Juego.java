@@ -63,7 +63,7 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
     private Textura bufer;
 
-    protected EntradaDeControles entraDeControles;
+    private EntradaDeControles entraDeControles;
 
     private ServicioBluetooth blueTooth;
 
@@ -188,11 +188,14 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
             pincel.getClipBounds(rectangulo);
 
+            pincel.drawRGB(
+                    (Color.BLUE & 0xff0000) >> 16, (Color.BLUE & 0xff00) >> 8, (Color.BLUE & 0xff));
+
+            camara.aplicarTransformacion(pincelBufer.getCanvas());
+
             pincelBufer.limpiar(Color.BLUE);
 
             renderizar(pincelBufer, (float) delta);
-
-            camara.aplicarTransformacion(pincel);
 
             pincel.drawBitmap(bufer.getBipmap(), null, rectangulo, null);
 
@@ -209,16 +212,16 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
     }
 
     public void renderizar(Graficos pincel, float delta) {
+
         if (pantalla != null) {
 
             pantalla.dibujar(pincel, delta);
         }
 
+        pincel.getLapiz().setTextSize(18);
+
         pincel.dibujarTexto(
-                (int) getFPS() + " FPS",
-                camara.getX() - Juego.ANCHO_PANTALLA / 2 + 20,
-                20,
-                Color.GREEN);
+                getFPS() + " FPS", camara.getX() - Juego.ANCHO_PANTALLA / 2 + 20, 20, Color.GREEN);
     }
 
     public void actualizar(float delta) {
@@ -234,7 +237,13 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
     }
 
     public void reajustarPantalla(int ancho, int alto) {
+
         if (pantalla != null) {
+
+            entraDeControles.getEventosDeTecla().clear();
+
+            entraDeControles.getEventosDeToque().clear();
+
             pantalla.reajustarPantalla(ancho, alto);
         }
     }
@@ -244,17 +253,27 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
         if (pantalla != null) {
 
             iniciar = true;
+
             hilo = new Thread(this);
+
             hilo.start();
+
             pantalla.resume();
         }
     }
 
     public void pausa() {
+
         if (pantalla != null) {
 
+            entraDeControles.getEventosDeTecla().clear();
+
+            entraDeControles.getEventosDeToque().clear();
+
             pantalla.pausa();
+
             iniciar = false;
+
             while (true) {
                 try {
                     hilo.join();
@@ -269,13 +288,23 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
     }
 
     public void liberarRecursos() {
+
         if (pantalla != null) {
+
+            entraDeControles.getEventosDeTecla().clear();
+
+            entraDeControles.getEventosDeToque().clear();
 
             pantalla.liberarRecursos();
         }
     }
 
     public void setPantalla(Pantalla pantalla) {
+
+        entraDeControles.getEventosDeTecla().clear();
+
+        entraDeControles.getEventosDeToque().clear();
+
         if (this.pantalla != null) {
 
             this.pantalla.ocultar();

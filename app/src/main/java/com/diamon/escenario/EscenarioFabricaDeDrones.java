@@ -1,51 +1,58 @@
 package com.diamon.escenario;
 
 import android.graphics.Color;
-import com.diamon.actor.AndroidePatrullero;
+import com.diamon.actor.ambiente.Fondo;
+import com.diamon.actor.enemigo.AndroidePatrullero;
 import com.diamon.actor.Jugador;
+import com.diamon.graficos.Textura2D;
 import com.diamon.nucleo.Escena;
 import com.diamon.nucleo.Graficos;
+import com.diamon.nucleo.Juego;
 import com.diamon.nucleo.Pantalla;
 
 public class EscenarioFabricaDeDrones extends Escena {
 
-    
-    float x =0;
-    
+    AndroidePatrullero androideA;
+
     public EscenarioFabricaDeDrones(Pantalla pantalla, Jugador jugador) {
         super(pantalla, jugador);
-
-        // configuracionesDeJuego.setLeerDatosAsset(true);
-
-        actores.add(jugador);
-        
-        x= camara.getX();
     }
 
     @Override
     public void iniciar() {
-        
 
-        AndroidePatrullero androideA =
+        Fondo fondo =
+                new Fondo(
+                        pantalla,
+                        recurso.getTextura("texturas/fondo.png"),
+                        0,
+                        0,
+                        Juego.ANCHO_PANTALLA,
+                        Juego.ALTO_PANTALLA);
+
+        actores.add(fondo);
+
+        actores.add(jugador);
+
+        androideA =
                 new AndroidePatrullero(
                         this.pantalla,
                         recurso.getTextura("texturas/creditos.png"),
-                        1200,
+                        900,
                         20,
                         64,
                         64);
 
         actores.add(androideA);
-        
-        
-        
     }
 
     @Override
     public void actualizar(float delta) {
-        
-          
-        
+
+        if (blueTooth.getDatos() != null) {
+
+            androideA.setX(Long.parseLong(blueTooth.getDatos().leerDatos()));
+        }
         for (int i = 0; i < actores.size(); i++) {
 
             actores.get(i).actualizar(delta);
@@ -68,6 +75,15 @@ public class EscenarioFabricaDeDrones extends Escena {
                 250,
                 250,
                 Color.GREEN);
+
+        if (blueTooth.getDatos() != null) {
+
+            pincel.dibujarTexto(
+                    "x" + androideA.getX() + " y " + androideA.getY(), 300, 200, Color.GREEN);
+
+            pincel.dibujarTexto(
+                    "x" + Long.parseLong(blueTooth.getDatos().leerDatos()), 400, 300, Color.GREEN);
+        }
     }
 
     @Override

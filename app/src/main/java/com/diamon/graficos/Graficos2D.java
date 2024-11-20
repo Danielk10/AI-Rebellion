@@ -126,4 +126,9 @@ public class Graficos2D implements Graficos {
 
         return textura;
     }
+
+    public Canvas getCanvas() {
+        return this.canvas;
+    }
+
 }

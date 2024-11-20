@@ -22,7 +22,7 @@ public class DatoBluetooth implements Runnable {
 
         this.cliente = cliente;
 
-        this.texto = "";
+        this.texto = "0";
 
         InputStream entradaTemporal = null;
 
@@ -44,6 +44,7 @@ public class DatoBluetooth implements Runnable {
     }
 
     public void iniciar() {
+
         hilo = new Thread(this);
 
         if (hilo != null) {
@@ -52,12 +53,12 @@ public class DatoBluetooth implements Runnable {
         }
     }
 
-    public String leerDatos() {
+    public  String leerDatos() {
 
         return texto.toString();
     }
 
-    public void escribirDatos(String texto) {
+    public  void escribirDatos(String texto) {
 
         try {
 
@@ -66,35 +67,19 @@ public class DatoBluetooth implements Runnable {
         } catch (IOException e) {
 
             e.printStackTrace();
-
-        } finally {
-
-            if (salida != null) {
-
-                try {
-
-                    salida.close();
-
-                } catch (IOException e) {
-
-                    e.printStackTrace();
-                }
-            }
         }
     }
 
     @Override
-    public void run() {
+    public  void run() {
 
         final byte[] bufer = new byte[1024];
-
-        int dato;
 
         while (true) {
 
             try {
 
-                dato = entrada.read(bufer);
+                int dato = entrada.read(bufer);
 
                 this.texto = new String(bufer, 0, dato);
 
@@ -103,25 +88,11 @@ public class DatoBluetooth implements Runnable {
                 e.printStackTrace();
 
                 break;
-
-            } finally {
-
-                if (entrada != null) {
-
-                    try {
-
-                        entrada.close();
-
-                    } catch (IOException e) {
-
-                        e.printStackTrace();
-                    }
-                }
             }
         }
     }
 
-    public void cancelar() {
+    public  void cancelar() {
 
         try {
 

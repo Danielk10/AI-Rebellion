@@ -12,7 +12,7 @@ import java.util.List;
 
 public class ManejadorDeUnToque implements ManejadorDeToque {
 
-    boolean tocando;
+    private boolean tocando;
 
     private float x;
 

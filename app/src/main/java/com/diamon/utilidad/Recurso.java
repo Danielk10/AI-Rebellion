@@ -40,38 +40,53 @@ public class Recurso {
     }
 
     public Textura cargarTextura(String nombre) {
+
         InputStream entrada = null;
+
         Textura imagen = null;
+
         final BitmapFactory.Options options = new BitmapFactory.Options();
 
         try {
             // Primer paso: obtener solo las dimensiones
             entrada = contexto.getAssets().open(nombre);
+
             options.inJustDecodeBounds = true;
+
             BitmapFactory.decodeStream(entrada, null, options);
+
             entrada.close();
 
             // Calcular inSampleSize para reducir la imagen si es necesario
             options.inSampleSize = calculateInSampleSize(options, 800);
+
             options.inJustDecodeBounds = false;
 
             // Volver a abrir el InputStream para decodificar la imagen completa
             entrada = contexto.getAssets().open(nombre);
+
             Bitmap bitmap = BitmapFactory.decodeStream(entrada, null, options);
 
             // Crear la textura con el Bitmap decodificado
             imagen = new Textura2D(bitmap);
-            
+
             texturas.put(nombre, imagen);
 
         } catch (IOException e) {
+
             e.printStackTrace(); // Muestra cualquier excepción que ocurra
+
         } finally {
+
             if (entrada != null) {
+
                 try {
+
                     entrada.close();
+
                 } catch (IOException e) {
-                   
+
+                    e.printStackTrace();
                 }
             }
         }
@@ -80,19 +95,25 @@ public class Recurso {
     }
 
     private int calculateInSampleSize(BitmapFactory.Options options, int maxTextureSize) {
+
         // Obtener el ancho y alto originales
         final int height = options.outHeight;
+
         final int width = options.outWidth;
+
         int inSampleSize = 1;
 
         // Si las dimensiones originales superan el tamaño máximo permitido
         if (height > maxTextureSize || width > maxTextureSize) {
+
             final int halfHeight = height / 2;
+
             final int halfWidth = width / 2;
 
             // Calcular el valor adecuado de inSampleSize para reducir el bitmap
             while ((halfHeight / inSampleSize) >= maxTextureSize
                     && (halfWidth / inSampleSize) >= maxTextureSize) {
+
                 inSampleSize *= 2;
             }
         }
@@ -147,7 +168,6 @@ public class Recurso {
         return musica;
     }
 
-    
     public Sonido cargarSonido(String nombre) {
 
         AssetFileDescriptor descriptor = null;
@@ -160,7 +180,7 @@ public class Recurso {
 
         }
 
-        SoundPool sonidoPool = new SoundPool(200, AudioManager.STREAM_MUSIC, 0);
+        final SoundPool sonidoPool = new SoundPool(200, AudioManager.STREAM_MUSIC, 0);
 
         int id = sonidoPool.load(descriptor, 0);
 

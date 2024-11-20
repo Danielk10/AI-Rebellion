@@ -5,18 +5,17 @@ import com.diamon.nucleo.Actor;
 import com.diamon.nucleo.Pantalla;
 import com.diamon.nucleo.Textura;
 
-public class AndroidePatrullero extends Actor2D {
+public abstract class Ambiente extends Actor2D {
 
-    public AndroidePatrullero(
-            Pantalla pantalla, Textura textura, float x, float y, float ancho, float alto) {
+    public Ambiente(Pantalla pantalla, Textura textura, float x, float y, float ancho, float alto) {
         super(pantalla, textura, x, y, ancho, alto);
     }
 
-    public AndroidePatrullero(Pantalla pantalla, Textura textura, float x, float y) {
+    public Ambiente(Pantalla pantalla, Textura textura, float x, float y) {
         super(pantalla, textura, x, y);
     }
 
-    public AndroidePatrullero(
+    public Ambiente(
             Pantalla pantalla,
             Textura[] texturas,
             float x,
@@ -30,19 +29,11 @@ public class AndroidePatrullero extends Actor2D {
     @Override
     public void actualizar(float delta) {
         super.actualizar(delta);
-
-        x--;
     }
 
     @Override
     public void obtenerActores() {}
 
     @Override
-    public void colision(Actor actor) {
-
-        if (actor instanceof Jugador) {
-
-            remover = true;
-        }
-    }
+    public void colision(Actor actor) {}
 }

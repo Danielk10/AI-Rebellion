@@ -29,7 +29,7 @@ public class NotificacionScheduler {
         alarmManager.setRepeating(
                 AlarmManager.RTC_WAKEUP,
                 calendar.getTimeInMillis(),
-                AlarmManager.INTERVAL_HOUR/240, // Repite cada hora
+                AlarmManager.INTERVAL_HOUR, // Repite cada hora
                 pendingIntent);
     }
 }

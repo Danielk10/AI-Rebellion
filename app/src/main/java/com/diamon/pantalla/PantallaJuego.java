@@ -1,7 +1,9 @@
 package com.diamon.pantalla;
 
+import com.diamon.actor.jugador.Jugador1;
 import com.diamon.bluetooth.servicio.ServicioBluetooth;
 import com.diamon.actor.Jugador;
+import com.diamon.escenario.EscenarioBosqueCibernetico;
 import com.diamon.escenario.EscenarioCiudadDesolada;
 import com.diamon.escenario.EscenarioFabricaDeDrones;
 import com.diamon.graficos.Pantalla2D;
@@ -10,10 +12,11 @@ import com.diamon.nucleo.Escena;
 import com.diamon.nucleo.Graficos;
 import com.diamon.nucleo.Juego;
 import com.diamon.utilidad.Rectangulo;
+import android.graphics.Color;
 
 public class PantallaJuego extends Pantalla2D {
 
-    private Jugador jugador;
+    private Jugador1 jugador;
 
     private Escena escena;
 
@@ -38,6 +41,9 @@ public class PantallaJuego extends Pantalla2D {
             case 2:
                 escena = new EscenarioCiudadDesolada(this, jugador);
                 break;
+            case 3:
+                escena = new EscenarioBosqueCibernetico(this, jugador);
+                break;
             default:
                 break;
         }
@@ -53,9 +59,9 @@ public class PantallaJuego extends Pantalla2D {
 
         numeroEscenaro = 1;
 
-        jugador = new Jugador(this, recurso.getTextura("texturas/creditos.png"), 0, 0, 64, 64);
+        jugador = new Jugador1(this, recurso.getTextura("texturas/creditos.png"), 500, 500, 32, 32);
 
-        escena = new EscenarioFabricaDeDrones(this, jugador);
+        escena = null;
 
         cargarEscenario(numeroEscenaro);
     }
@@ -159,24 +165,42 @@ public class PantallaJuego extends Pantalla2D {
     }
 
     @Override
-    public void teclaPresionada(int codigoDeTecla) {}
+    public void teclaPresionada(int codigoDeTecla) {
+
+        jugador.teclaPresionada(codigoDeTecla);
+    }
 
     @Override
-    public void teclaLevantada(int codigoDeTecla) {}
+    public void teclaLevantada(int codigoDeTecla) {
+        jugador.teclaLevantada(codigoDeTecla);
+    }
 
     @Override
-    public void toquePresionado(float x, float y, int puntero) {}
+    public void toquePresionado(float x, float y, int puntero) {
+        jugador.toquePresionado(x, y, puntero);
+    }
 
     @Override
-    public void toqueLevantado(float x, float y, int puntero) {}
+    public void toqueLevantado(float x, float y, int puntero) {
+        jugador.toqueLevantado(x, y, puntero);
+        
+      
+    }
 
     @Override
     public void toqueDeslizando(float x, float y, int puntero) {
 
-        jugador.setPosicion(x, y);
+        jugador.toqueDeslizando(x, y, puntero);
+        
+         if (blueTooth.getDatos() != null) {
+
+            blueTooth.getDatos().escribirDatos("" + (long)x);
+        }
+        
     }
 
     @Override
-    public void acelerometro(float x, float y, float z) {}
-
+    public void acelerometro(float x, float y, float z) {
+        jugador.acelerometro(x, y, z);
     }
+}

@@ -41,6 +41,9 @@ public abstract class Pantalla2D implements Pantalla {
         blueTooth = juego.getBluetooth();
 
         camara = juego.getCamara();
+        
+        camara.setPosicion(Juego.ANCHO_PANTALLA / 2, Juego.ALTO_PANTALLA / 2);
+
     }
 
     public Juego getJuego() {

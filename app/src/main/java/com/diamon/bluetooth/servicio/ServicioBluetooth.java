@@ -31,13 +31,17 @@ public class ServicioBluetooth {
 
     private boolean conectado;
 
-    public ServicioBluetooth(BluetoothAdapter adaptador, int tipo) {
-
-        this.tipo = tipo;
+    public ServicioBluetooth(BluetoothAdapter adaptador) {
 
         this.adaptador = adaptador;
 
         conectado = false;
+
+        dato = null;
+    }
+
+    public void setTipo(int tipo) {
+        this.tipo = tipo;
     }
 
     public BluetoothDevice getDispositivo() {
@@ -45,7 +49,7 @@ public class ServicioBluetooth {
         return dispositivo;
     }
 
-    public void setDispositivo(BluetoothDevice dispositivo) {
+    public void setConectarCliente(BluetoothDevice dispositivo) {
 
         this.dispositivo = dispositivo;
 
@@ -54,40 +58,45 @@ public class ServicioBluetooth {
             conectarCliente = new ConectarCliente(adaptador, dispositivo);
 
             conectarCliente.iniciar();
-
-            conectado = conectarCliente.isConectado();
-
-            if (conectarCliente.getCliente() != null) {
-
-                dato = new DatoBluetooth(conectarCliente.getCliente());
-
-                dato.iniciar();
-            }
         }
+    }
+
+    public void setConectarServidor() {
 
         if (SERVIDOR == tipo) {
 
             conectarServidor = new ConectarServidor(adaptador);
 
             conectarServidor.iniciar();
-
-            conectado = conectarServidor.isConectado();
-
-            if (conectarServidor.getCliente() != null) {
-
-                dato = new DatoBluetooth(conectarServidor.getCliente());
-
-                dato.iniciar();
-            }
         }
     }
 
     public boolean isConectado() {
 
+        if (CLIENTE == tipo) {
+
+            conectado = conectarCliente.isConectado();
+        }
+
+        if (SERVIDOR == tipo) {
+
+            conectado = conectarServidor.isConectado();
+        }
+
         return conectado;
     }
 
     public DatoBluetooth getDatos() {
+
+        if (CLIENTE == tipo) {
+
+            dato = conectarCliente.getDato();
+        }
+
+        if (SERVIDOR == tipo) {
+
+            dato = conectarServidor.getDato();
+        }
 
         return dato;
     }
@@ -95,6 +104,4 @@ public class ServicioBluetooth {
     public BluetoothAdapter getAdaptador() {
         return this.adaptador;
     }
-
-    
 }

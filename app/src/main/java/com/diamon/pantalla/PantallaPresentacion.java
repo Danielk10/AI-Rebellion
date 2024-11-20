@@ -36,7 +36,7 @@ public class PantallaPresentacion extends Pantalla2D {
 
         tiempo += delta;
 
-        if (tiempo / 10 > 1) {
+        if (tiempo / 5 > 1) {
 
             juego.setPantalla(new PantallaMenu(juego));
 
