@@ -33,32 +33,54 @@ public class PantallaMenu extends Pantalla2D {
         fondo =
                 new Imagen(
                         this,
-                        recurso.getTextura("texturas/fondo.png"),
+                        recurso.getTextura("texturas/fondo.jpg"),
                         0,
                         0,
                         Juego.ANCHO_PANTALLA,
                         Juego.ALTO_PANTALLA,
                         "");
 
-        titulo = new EtiquetaTexto(this, Juego.ANCHO_PANTALLA / 2 - 100, 50,"AI Rebellion");
-
+        titulo =
+                new EtiquetaTexto(
+                        this,
+                        Juego.ANCHO_PANTALLA * 0.5f - 100,
+                        Juego.ALTO_PANTALLA * 0.1f,
+                        "AI Rebellion");
         titulo.setColor(Color.GREEN);
-
         titulo.setTamanoTexto(30);
 
         botonIniciar =
-                new Boton(this, texturaBoton, Juego.ANCHO_PANTALLA / 2 - 100, 200,200,50, "Iniciar Juego");
-
+                new Boton(
+                        this,
+                        texturaBoton,
+                        Juego.ANCHO_PANTALLA * 0.5f - 100,
+                        Juego.ALTO_PANTALLA * 0.3f,
+                        200,
+                        50,
+                        "Iniciar Juego");
         botonIniciar.setColor(Color.RED);
 
         botonOpciones =
-                new Boton(this, texturaBoton, Juego.ANCHO_PANTALLA / 2 - 100, 300, 200,50, "Opciones");
-        
+                new Boton(
+                        this,
+                        texturaBoton,
+                        Juego.ANCHO_PANTALLA * 0.5f - 100,
+                        Juego.ALTO_PANTALLA * 0.4f,
+                        200,
+                        50,
+                        "Opciones");
         botonOpciones.setColor(Color.RED);
 
-        botonSalir = new Boton(this, texturaBoton, Juego.ANCHO_PANTALLA / 2 - 100, 400,200,50, "Salir");
-        
-        botonSalir.setColor(Color.RED); 
+        botonSalir =
+                new Boton(
+                        this,
+                        texturaBoton,
+                        Juego.ANCHO_PANTALLA * 0.5f - 100,
+                        Juego.ALTO_PANTALLA * 0.5f,
+                        200,
+                        50,
+                        "Salir");
+        botonSalir.setColor(Color.RED);
 
         actores.add(fondo);
 

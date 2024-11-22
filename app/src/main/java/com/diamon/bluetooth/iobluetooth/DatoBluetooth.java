@@ -18,11 +18,19 @@ public class DatoBluetooth implements Runnable {
 
     private String texto;
 
+    private TransmisionDatos datosRecibido;
+
+    private TransmisionDatos datosEviado;
+
     public DatoBluetooth(BluetoothSocket cliente) {
 
         this.cliente = cliente;
 
         this.texto = "0";
+
+        datosRecibido = new DatosRecibido();
+
+        datosEviado = new DatosEnviado();
 
         InputStream entradaTemporal = null;
 
@@ -53,12 +61,12 @@ public class DatoBluetooth implements Runnable {
         }
     }
 
-    public  String leerDatos() {
+    public String leerDatos() {
 
         return texto.toString();
     }
 
-    public  void escribirDatos(String texto) {
+    public void escribirDatos(String texto) {
 
         try {
 
@@ -71,7 +79,7 @@ public class DatoBluetooth implements Runnable {
     }
 
     @Override
-    public  void run() {
+    public void run() {
 
         final byte[] bufer = new byte[1024];
 
@@ -83,6 +91,8 @@ public class DatoBluetooth implements Runnable {
 
                 this.texto = new String(bufer, 0, dato);
 
+                datosRecibido.recibirDatos(this.entrada);
+
             } catch (IOException e) {
 
                 e.printStackTrace();
@@ -92,7 +102,7 @@ public class DatoBluetooth implements Runnable {
         }
     }
 
-    public  void cancelar() {
+    public void cancelar() {
 
         try {
 
@@ -102,5 +112,23 @@ public class DatoBluetooth implements Runnable {
 
             e.printStackTrace();
         }
+    }
+
+    public TransmisionDatos resibirDatos() {
+        return this.datosRecibido;
+    }
+
+    public TransmisionDatos enviarDatos() {
+
+        try {
+
+            datosEviado.enviarDatos(this.salida);
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+        }
+
+        return this.datosEviado;
     }
 }

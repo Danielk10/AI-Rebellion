@@ -4,6 +4,14 @@ import android.graphics.Color;
 import com.diamon.actor.ambiente.Fondo;
 import com.diamon.actor.enemigo.AndroidePatrullero;
 import com.diamon.actor.Jugador;
+import com.diamon.actor.enemigo.Blaze;
+import com.diamon.actor.enemigo.Echo;
+import com.diamon.actor.enemigo.Gaia;
+import com.diamon.actor.enemigo.Lux;
+import com.diamon.actor.enemigo.Nebula;
+import com.diamon.actor.enemigo.Nyx;
+import com.diamon.actor.enemigo.Orion;
+import com.diamon.actor.enemigo.Zero;
 import com.diamon.graficos.Textura2D;
 import com.diamon.nucleo.Escena;
 import com.diamon.nucleo.Graficos;
@@ -24,7 +32,7 @@ public class EscenarioFabricaDeDrones extends Escena {
         Fondo fondo =
                 new Fondo(
                         pantalla,
-                        recurso.getTextura("texturas/fondo.png"),
+                        recurso.getTextura("texturas/escena1.jpg"),
                         0,
                         0,
                         Juego.ANCHO_PANTALLA,
@@ -43,7 +51,18 @@ public class EscenarioFabricaDeDrones extends Escena {
                         64,
                         64);
 
-        actores.add(androideA);
+        actores.add(androideA); 
+
+        Blaze dron =
+                new Blaze(
+                        this.pantalla,
+                        recurso.getTextura("texturas/creditos.png"),
+                        1000,
+                        400,
+                        64,
+                        64);  
+
+        actores.add(dron);
     }
 
     @Override
@@ -51,7 +70,8 @@ public class EscenarioFabricaDeDrones extends Escena {
 
         if (blueTooth.getDatos() != null) {
 
-            androideA.setX(Long.parseLong(blueTooth.getDatos().leerDatos()));
+            androideA.setX(blueTooth.getDatos().resibirDatos().getX());
+            androideA.setY(blueTooth.getDatos().resibirDatos().getY());
         }
         for (int i = 0; i < actores.size(); i++) {
 
@@ -76,14 +96,7 @@ public class EscenarioFabricaDeDrones extends Escena {
                 250,
                 Color.GREEN);
 
-        if (blueTooth.getDatos() != null) {
-
-            pincel.dibujarTexto(
-                    "x" + androideA.getX() + " y " + androideA.getY(), 300, 200, Color.GREEN);
-
-            pincel.dibujarTexto(
-                    "x" + Long.parseLong(blueTooth.getDatos().leerDatos()), 400, 300, Color.GREEN);
-        }
+        
     }
 
     @Override

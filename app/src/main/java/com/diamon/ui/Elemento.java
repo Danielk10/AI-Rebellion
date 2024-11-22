@@ -6,6 +6,7 @@ import android.graphics.Paint;
 import com.diamon.graficos.Actor2D;
 import com.diamon.nucleo.Actor;
 import com.diamon.nucleo.Graficos;
+import com.diamon.nucleo.Juego;
 import com.diamon.nucleo.Pantalla;
 import com.diamon.nucleo.Textura;
 
@@ -74,8 +75,9 @@ public abstract class Elemento extends Actor2D {
     public void dibujar(Graficos pincel, float delta) {
         super.dibujar(pincel, delta);
 
-        pincel.getLapiz().setTextSize(tamano);
-
+        pincel.getLapiz()
+                .setTextSize(
+                        tamano * (Juego.ANCHO_PANTALLA / Juego.ANCHO_PANTALLA )); // Ajuste de tamaño proporcional
         pincel.dibujarTexto(texto, x + ancho / 4, y + alto / 2, color);
     }
 

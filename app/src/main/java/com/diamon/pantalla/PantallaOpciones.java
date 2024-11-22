@@ -8,9 +8,11 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 
 import android.graphics.Color;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.diamon.bluetooth.gedtion.AdministradorBluetooth;
 import com.diamon.bluetooth.servicio.ServicioBluetooth;
 import com.diamon.graficos.Pantalla2D;
 import com.diamon.graficos.Textura2D;
@@ -27,8 +29,6 @@ import java.util.ArrayList;
 public class PantallaOpciones extends Pantalla2D {
 
     private ArrayList<BluetoothDevice> dispositivos;
-
-    private MainActivity actividad;
 
     private Boton cliente;
 
@@ -54,6 +54,8 @@ public class PantallaOpciones extends Pantalla2D {
 
     private boolean toque;
 
+    public static final int REQUEST_ENABLE_DISCOVERABLE = 1;
+
     public PantallaOpciones(final Juego juego) {
         super(juego);
 
@@ -61,9 +63,7 @@ public class PantallaOpciones extends Pantalla2D {
 
         busqueda = true;
 
-        dispositivos = ((MainActivity) juego.getActividad()).getDispositivos();
-
-        actividad = ((MainActivity) juego.getActividad());
+        dispositivos = AdministradorBluetooth.dispositivos;
 
         texturaBoton = new Textura2D(recurso.getTextura("texturas/creditos.png"), 100, 50);
 
@@ -84,97 +84,31 @@ public class PantallaOpciones extends Pantalla2D {
         esperando = new EtiquetaTexto(this, 500, 600, "Esperando...");
 
         aceptar = new Boton(this, texturaBoton, 500, 50, "Aceptar");
-
-        if (blueTooth.getAdaptador().isEnabled()) {
-
-            if (blueTooth.getAdaptador() != null) {
-
-                dispositivo = blueTooth.getAdaptador().getBondedDevices().iterator().next();
-
-                if (dispositivo != null) {
-
-                    texto.setTexto(dispositivo.getName());
-                }
-            }
-        }
-    }
-
-    public void activarBluetooth() {
-
-        if ((ContextCompat.checkSelfPermission(
-                        juego.getActividad().getApplicationContext(),
-                        Manifest.permission.BLUETOOTH_CONNECT)
-                != PackageManager.PERMISSION_GRANTED)) {
-
-            ActivityCompat.requestPermissions(
-                    juego.getActividad(),
-                    new String[] {Manifest.permission.BLUETOOTH_CONNECT},
-                    MainActivity.REQUEST_CODE_BLUETOOTH_CONNECT);
-        }
-
-        if (blueTooth.getAdaptador() != null) {
-
-            if (!blueTooth.getAdaptador().isEnabled()) {
-
-                Intent intencion = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-
-                juego.getActividad().startActivityForResult(intencion, ServicioBluetooth.ACTIVAR);
-            }
-        }
-    }
-
-    private void buscarDispositivo() {
-
-        if (registro < 1) {
-
-            if (blueTooth.getAdaptador().isEnabled()) {
-
-                try {
-                    if (blueTooth.getAdaptador().startDiscovery()) {
-
-                        IntentFilter intecionFiltrada =
-                                new IntentFilter(BluetoothDevice.ACTION_FOUND);
-
-                        juego.getActividad()
-                                .registerReceiver(actividad.getReservado(), intecionFiltrada);
-                    }
-                } catch (Exception e) {
-
-                    e.printStackTrace();
-                }
-
-                registro++;
-            }
-        }
     }
 
     private void blueTooth() {
 
-        if (dispositivos.size() > 0) {
+        if (dispositivos != null) {
 
-            if (busqueda) {
+            if (dispositivos.size() > 0) {
 
-                if (dispositivos != null) {
+                if (busqueda) {
 
                     for (int i = 0; i < dispositivos.size(); i++) {
 
-                        // if (dispositivos.get(i) != null) {
+                        if (dispositivos.get(i) != null) {
 
-                        // texto.setTexto(dispositivos.get(i).getName());
+                            texto.setTexto(dispositivos.get(i).getName());
 
-                        // actores.add(texto);
-
-                        //  actores.add(aceptar);
-
-                        /* dispositivo =
-                        blueTooth
-                                .getAdaptador()
-                                .getRemoteDevice(dispositivos.get(i).getAddress());*/
-                        // }
+                            dispositivo =
+                                    blueTooth
+                                            .getAdaptador()
+                                            .getRemoteDevice(dispositivos.get(i).getAddress());
+                        }
                     }
-                }
 
-                busqueda = false;
+                    busqueda = false;
+                }
             }
         }
     }
@@ -222,6 +156,8 @@ public class PantallaOpciones extends Pantalla2D {
 
             actor.dibujar(pincel, delta);
         }
+        
+                
     }
 
     @Override
@@ -267,9 +203,13 @@ public class PantallaOpciones extends Pantalla2D {
 
             actores.add(esperando);
 
-            activarBluetooth();
+            AdministradorBluetooth.activarBluetooth(juego.getActividad(), blueTooth.getAdaptador());
 
-            buscarDispositivo();
+            AdministradorBluetooth.buscarDispositivo(
+                    juego.getActividad(), blueTooth.getAdaptador());
+
+            AdministradorBluetooth.activarVisibilidad(
+                    juego.getActividad(), blueTooth.getAdaptador(), 300);
 
             servidor.setPosicion(-100, -100);
 
@@ -291,9 +231,13 @@ public class PantallaOpciones extends Pantalla2D {
 
             actores.add(esperando);
 
-            activarBluetooth();
+            AdministradorBluetooth.activarBluetooth(juego.getActividad(), blueTooth.getAdaptador());
 
-            buscarDispositivo();
+            AdministradorBluetooth.buscarDispositivo(
+                    juego.getActividad(), blueTooth.getAdaptador());
+
+            AdministradorBluetooth.activarVisibilidad(
+                    juego.getActividad(), blueTooth.getAdaptador(), 300);
 
             cliente.setPosicion(-100, -100);
 
@@ -307,13 +251,18 @@ public class PantallaOpciones extends Pantalla2D {
 
             if (tipo == 1) {
 
-                if (blueTooth.getAdaptador() != null) {
+                if (dispositivo != null) {
 
-                    if (blueTooth.getAdaptador().isEnabled()) {
+                    AdministradorBluetooth.vincularDispoditivo(dispositivo);
 
-                        blueTooth.setTipo(ServicioBluetooth.SERVIDOR);
+                    if (blueTooth.getAdaptador() != null) {
 
-                        blueTooth.setConectarServidor();
+                        if (blueTooth.getAdaptador().isEnabled()) {
+
+                            blueTooth.setTipo(ServicioBluetooth.SERVIDOR);
+
+                            blueTooth.setConectarServidor();
+                        }
                     }
                 }
             }
@@ -321,6 +270,8 @@ public class PantallaOpciones extends Pantalla2D {
             if (tipo == 2) {
 
                 if (dispositivo != null) {
+
+                    AdministradorBluetooth.vincularDispoditivo(dispositivo);
 
                     dispositivo =
                             blueTooth.getAdaptador().getRemoteDevice(dispositivo.getAddress());

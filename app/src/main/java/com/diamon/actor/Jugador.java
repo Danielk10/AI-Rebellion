@@ -44,7 +44,7 @@ public class Jugador extends Actor2D {
 
     private int ladoJugador;
 
-    private int vida;
+    private float vida;
 
     private boolean inmune;
 
@@ -199,7 +199,7 @@ public class Jugador extends Actor2D {
 
             y += velocidadY / Juego.DELTA_A_PIXEL * delta;
 
-           /* if (dezplazamientoInicial) {
+            /* if (dezplazamientoInicial) {
 
                 if (x <= (Juego.ANCHO_PANTALLA / 2) - ancho) {
 
@@ -379,7 +379,7 @@ public class Jugador extends Actor2D {
         }
     }
 
-    public int getVida() {
+    public float getVida() {
         return vida;
     }
 
@@ -512,8 +512,8 @@ public class Jugador extends Actor2D {
 
             deltaYTactil = (int) yPantalla - y1;
 
-            if (x1 <=  32) {
-                x1 =  32;
+            if (x1 <= 32) {
+                x1 = 32;
             }
 
             if (y1 >= ((Juego.ALTO_PANTALLA - 32) - alto)) {
@@ -705,4 +705,30 @@ public class Jugador extends Actor2D {
     }
 
     public void acelerometro(float x, float y, float z) {}
+
+    
+
+    public void setVida(float vida) {
+        this.vida = vida;
+    }
+    
+    
+    public void reducirVelocidad(float velocidadX, float velecidadY)
+    {
+        
+        
+        
+        
+    }
+    
+    public void desactivarArmas(float tiempo)
+    {
+        
+        
+        
+        
+    }
+    
+    
+    
 }

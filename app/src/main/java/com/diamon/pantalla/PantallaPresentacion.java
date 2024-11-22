@@ -1,6 +1,5 @@
 package com.diamon.pantalla;
 
-import com.diamon.bluetooth.servicio.ServicioBluetooth;
 import com.diamon.graficos.Textura2D;
 import com.diamon.nucleo.Graficos;
 import com.diamon.nucleo.Juego;

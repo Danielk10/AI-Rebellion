@@ -8,6 +8,7 @@ import android.media.AudioManager;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.diamon.bluetooth.servicio.ServicioBluetooth;
@@ -318,8 +319,6 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
             this.camara.setPosicion(Juego.ANCHO_PANTALLA / 2, Juego.ALTO_PANTALLA / 2);
 
-            this.pantalla.reajustarPantalla(getWidth(), getHeight());
-
             this.pantalla.mostrar();
         }
     }
@@ -443,7 +442,10 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
     public void surfaceCreated(SurfaceHolder surfeceHolder) {}
 
     @Override
-    public void surfaceChanged(SurfaceHolder surfeceHolder, int p2, int p3, int p4) {}
+    public void surfaceChanged(SurfaceHolder surfeceHolder, int p2, int ancho, int alto) {
+
+        this.pantalla.reajustarPantalla(ancho, alto);
+    }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder surfeceHolder) {}

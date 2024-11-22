@@ -194,7 +194,9 @@ public class PantallaJuego extends Pantalla2D {
         
          if (blueTooth.getDatos() != null) {
 
-            blueTooth.getDatos().escribirDatos("" + (long)x);
+            blueTooth.getDatos().enviarDatos().setX(x);
+            
+            blueTooth.getDatos().enviarDatos().setY(y);
         }
         
     }

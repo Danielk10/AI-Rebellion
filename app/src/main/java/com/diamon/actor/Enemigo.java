@@ -9,6 +9,8 @@ public abstract class Enemigo extends Actor2D {
 
     protected Jugador jugador;
 
+    protected float dureza;
+
     public Enemigo(Pantalla pantalla, Textura textura, float x, float y, float ancho, float alto) {
         super(pantalla, textura, x, y, ancho, alto);
     }
@@ -28,16 +30,9 @@ public abstract class Enemigo extends Actor2D {
         super(pantalla, texturas, x, y, ancho, alto, tiempoAnimacion);
     }
 
-    @Override
-    public void actualizar(float delta) {
-        super.actualizar(delta);
-
-        patrullar();
-    }
 
     public void patrullar() {
-        // Lógica de patrullaje o movimiento simple para el enemigo
-
+        
     }
 
     @Override
@@ -59,5 +54,18 @@ public abstract class Enemigo extends Actor2D {
 
             remover = true;
         }
+    }
+
+    public float getDureza() {
+        return this.dureza;
+    }
+    
+   public float getDurezaMaxima() {
+        return this.dureza;
+    }
+    
+
+    public void setDureza(float dureza) {
+        this.dureza = dureza;
     }
 }
