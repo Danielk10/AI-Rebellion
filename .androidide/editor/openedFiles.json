@@ -1,0 +1,20 @@
+{
+  "allFiles": [
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/iarebellion/MainActivity.java",
+      "selection": {
+        "end": {
+          "column": 31,
+          "index": 871,
+          "line": 25
+        },
+        "start": {
+          "column": 31,
+          "index": 871,
+          "line": 25
+        }
+      }
+    }
+  ],
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/iarebellion/MainActivity.java"
+}

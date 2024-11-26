@@ -23,7 +23,7 @@ import com.diamon.utilidad.Recurso;
 
 public class MainActivity extends AppCompatActivity {
 
-    private WakeLock wakeLock;
+    private WakeLock wakeLock; 
 
     private IARebellion juego;
 
