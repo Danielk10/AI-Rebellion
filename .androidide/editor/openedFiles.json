@@ -1,20 +1,20 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/iarebellion/MainActivity.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/bluetooth/permiso/BluetoothPermissions.java",
       "selection": {
         "end": {
-          "column": 31,
-          "index": 871,
-          "line": 25
+          "column": 18,
+          "index": 199,
+          "line": 7
         },
         "start": {
-          "column": 31,
-          "index": 871,
-          "line": 25
+          "column": 18,
+          "index": 199,
+          "line": 7
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/iarebellion/MainActivity.java"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/AI-Rebellion/app/src/main/java/com/diamon/bluetooth/permiso/BluetoothPermissions.java"
 }

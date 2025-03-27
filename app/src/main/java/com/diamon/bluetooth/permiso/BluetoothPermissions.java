@@ -8,7 +8,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-public class BluetoothPermissions {
+public class BluetoothPermissions { 
 
     public static final int REQUEST_BLUETOOTH_PERMISSIONS = 1;
 
