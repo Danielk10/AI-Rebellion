@@ -1,2 +1,2 @@
 # AI-Rebellion
-Juego de acción escrito Java, con las APIS nativas de Android
+Juego de acción escrito en Java, con las APIS nativas de Android
