@@ -3,41 +3,30 @@ package com.diamon.actor;
 import android.view.KeyEvent;
 
 import com.diamon.graficos.Actor2D;
+import com.diamon.graficos.Camara2D;
 import com.diamon.nucleo.Actor;
 import com.diamon.nucleo.Graficos;
 import com.diamon.nucleo.Juego;
 import com.diamon.nucleo.Pantalla;
 import com.diamon.nucleo.Textura;
 
-/**
- * Clase del Jugador - Actor principal del juego IA Rebellion
- * Gestiona el movimiento, entrada del usuario y estado del jugador
- * Sistema de límites basado en el mundo de la cámara
- */
 public class Jugador extends Actor2D {
 
-    // ========== VARIABLES DE ENTRADA ==========
     private float deltaXTactil, deltaYTactil;
     private float coordenadaPantallaX, coordenadaPantallaY;
     private float direccionDezplazamientoX1, direccionDezplazamientoY1;
     private float direccionDezplazamientoX2, direccionDezplazamientoY2;
     private float x1 = 0;
     private float y1 = 0;
-
-    // ========== VARIABLES DE MOVIMIENTO ==========
     private float velocidadX;
     private float velocidadY;
     private static final float VELOCIDAD_JUGADOR = 5;
     private boolean arriba, abajo, izquierda, derecha, disparar;
-
-    // ========== VARIABLES DE TIEMPO ==========
     private float tiemoDisparo;
     private float tiemoDisparoL;
     private float tiemoDisparoB;
     private float tiempoParpadeo;
     protected int frames = 0;
-
-    // ========== VARIABLES DE ESTADO ==========
     private boolean dezplazamientoInicial;
     private boolean parpadeo;
     private int ladoJugador;
@@ -48,8 +37,6 @@ public class Jugador extends Actor2D {
     private float velocidad;
     private static final int LADO_DERECHO = 1;
     private static final int LADO_IZQUIERDO = 2;
-
-    // ========== VARIABLES DE DESPLAZAMIENTO ==========
     private float igual1;
     private float igual2;
     private int ciclo;
@@ -58,34 +45,23 @@ public class Jugador extends Actor2D {
     private int dedos;
     private boolean deltaToque;
 
-    // ========== VARIABLES DE LÍMITES DEL MUNDO ==========
+    // MEJORA: Variables para los límites basados en cámara
     private static final int MARGEN_SEGURIDAD = 32;
-    private float limiteMundoIzquierdo = MARGEN_SEGURIDAD;
-    private float limiteMundoDerecho = Float.MAX_VALUE;
-    private float limiteMundoArriba = MARGEN_SEGURIDAD;
-    private float limiteMundoAbajo = Float.MAX_VALUE;
+    private float limiteMundoIzquierdo;
+    private float limiteMundoDerecho;
+    private float limiteMundoArriba;
+    private float limiteMundoAbajo;
 
-    // ========== CONSTRUCTORES ==========
-
-    /**
-     * Constructor con parámetros básicos
-     */
     public Jugador(Pantalla pantalla, Textura textura, float x, float y, float ancho, float alto) {
         super(pantalla, textura, x, y, ancho, alto);
         inicializarVariables();
     }
 
-    /**
-     * Constructor sin dimensiones explícitas
-     */
     public Jugador(Pantalla pantalla, Textura textura, float x, float y) {
         super(pantalla, textura, x, y);
         inicializarVariables();
     }
 
-    /**
-     * Constructor con animación
-     */
     public Jugador(
             Pantalla pantalla,
             Textura[] texturas,
@@ -98,10 +74,8 @@ public class Jugador extends Actor2D {
         inicializarVariables();
     }
 
-    // ========== INICIALIZACIÓN ==========
-
     /**
-     * Inicializa todas las variables del jugador
+     * MEJORA: Inicializar variables comunes
      */
     private void inicializarVariables() {
         velocidadX = 0;
@@ -120,43 +94,18 @@ public class Jugador extends Actor2D {
         dedos = -1;
     }
 
-    // ========== GESTIÓN DE LÍMITES DEL MUNDO ==========
-
     /**
-     * Configura los límites del mundo basado en la cámara
-     * DEBE llamarse después de crear el jugador
-     *
+     * MEJORA: Configurar los límites del mundo basado en la cámara
      * @param mundoAncho ancho total del mundo del juego
      * @param mundoAlto alto total del mundo del juego
      */
     public void configurarLimitesDelMundo(float mundoAncho, float mundoAlto) {
+        // Los límites del jugador son el mundo menos el margen de seguridad
         limiteMundoIzquierdo = MARGEN_SEGURIDAD;
         limiteMundoArriba = MARGEN_SEGURIDAD;
         limiteMundoDerecho = mundoAncho - MARGEN_SEGURIDAD - ancho;
         limiteMundoAbajo = mundoAlto - MARGEN_SEGURIDAD - alto;
     }
-
-    /**
-     * Aplica los límites del mundo al jugador
-     * Asegura que el jugador no salga de los límites definidos
-     */
-    private void aplicarLimitesDelMundo() {
-        // Limitar X
-        if (x < limiteMundoIzquierdo) {
-            x = limiteMundoIzquierdo;
-        } else if (x > limiteMundoDerecho) {
-            x = limiteMundoDerecho;
-        }
-
-        // Limitar Y
-        if (y < limiteMundoArriba) {
-            y = limiteMundoArriba;
-        } else if (y > limiteMundoAbajo) {
-            y = limiteMundoAbajo;
-        }
-    }
-
-    // ========== MÉTODOS PRINCIPALES ==========
 
     @Override
     public void obtenerActores() {
@@ -180,7 +129,7 @@ public class Jugador extends Actor2D {
             x += velocidadX / Juego.DELTA_A_PIXEL * delta;
             y += velocidadY / Juego.DELTA_A_PIXEL * delta;
 
-            // Aplicar límites basados en el mundo
+            // MEJORA: Aplicar límites basados en el mundo de la cámara
             aplicarLimitesDelMundo();
 
             // Actualizar temporizadores de disparo
@@ -193,6 +142,7 @@ public class Jugador extends Actor2D {
                 if (!poder) {
                     disparar();
                 }
+
                 if (poder) {
                     disparoEspecial();
                 }
@@ -240,6 +190,7 @@ public class Jugador extends Actor2D {
                     if ((int) direccionDezplazamientoX1 > (int) direccionDezplazamientoX2) {
                         lado = Jugador.LADO_IZQUIERDO;
                     }
+
                     if ((int) direccionDezplazamientoX1 < (int) direccionDezplazamientoX2) {
                         lado = Jugador.LADO_DERECHO;
                     }
@@ -247,6 +198,26 @@ public class Jugador extends Actor2D {
 
                 ciclo++;
             }
+        }
+    }
+
+    /**
+     * MEJORA: Aplicar límites del mundo al jugador
+     * Asegura que el jugador no salga de los límites definidos por la cámara
+     */
+    private void aplicarLimitesDelMundo() {
+        // Limitar X
+        if (x < limiteMundoIzquierdo) {
+            x = limiteMundoIzquierdo;
+        } else if (x > limiteMundoDerecho) {
+            x = limiteMundoDerecho;
+        }
+
+        // Limitar Y
+        if (y < limiteMundoArriba) {
+            y = limiteMundoArriba;
+        } else if (y > limiteMundoAbajo) {
+            y = limiteMundoAbajo;
         }
     }
 
@@ -258,6 +229,7 @@ public class Jugador extends Actor2D {
                     if (ladoJugador == Jugador.LADO_DERECHO) {
                         super.dibujar(pincel, delta);
                     }
+
                     if (ladoJugador == Jugador.LADO_IZQUIERDO) {
                         super.dibujar(pincel, delta);
                     }
@@ -265,6 +237,7 @@ public class Jugador extends Actor2D {
                     if (ladoJugador == Jugador.LADO_DERECHO) {
                         super.dibujar(pincel, delta);
                     }
+
                     if (ladoJugador == Jugador.LADO_IZQUIERDO) {
                         super.dibujar(pincel, delta);
                     }
@@ -296,26 +269,23 @@ public class Jugador extends Actor2D {
         if (abajo) {
             velocidadY = velocidad;
         }
+
         if (arriba) {
             velocidadY = -velocidad;
         }
+
         if (izquierda) {
             velocidadX = -velocidad;
         }
+
         if (derecha) {
             velocidadX = velocidad;
         }
     }
 
-    public void disparar() {
-        // Implementar lógica de disparo
-    }
+    public void disparar() {}
 
-    public void disparoEspecial() {
-        // Implementar lógica de disparo especial
-    }
-
-    // ========== ENTRADA DE TECLADO ==========
+    public void disparoEspecial() {}
 
     public void teclaPresionada(int codigoDeTecla) {
         switch (codigoDeTecla) {
@@ -345,6 +315,7 @@ public class Jugador extends Actor2D {
             default:
                 break;
         }
+
         actualizarVelocidad();
     }
 
@@ -372,58 +343,41 @@ public class Jugador extends Actor2D {
             default:
                 break;
         }
+
         actualizarVelocidad();
     }
 
-    // ========== ENTRADA TÁCTIL ==========
-
     public void toquePresionado(float xPantalla, float yPantalla, int puntero) {
-        dedos++;
-
         if (dedos == 0) {
             dezplazamiento = false;
             disparar = true;
             x1 = this.x;
             y1 = this.y;
-            deltaXTactil = xPantalla - x1;
-            deltaYTactil = yPantalla - y1;
+            deltaXTactil = (int) xPantalla - (int) x1;
+            deltaYTactil = (int) yPantalla - (int) y1;
 
             // Aplicar límites al presionar
-            if (x1 < limiteMundoIzquierdo) {
-                x1 = limiteMundoIzquierdo;
-            }
-            if (y1 < limiteMundoArriba) {
-                y1 = limiteMundoArriba;
-            }
-            if (x1 > limiteMundoDerecho) {
-                x1 = limiteMundoDerecho;
-            }
-            if (y1 > limiteMundoAbajo) {
-                y1 = limiteMundoAbajo;
-            }
+            if (x1 <= limiteMundoIzquierdo) x1 = limiteMundoIzquierdo;
+            if (y1 <= limiteMundoArriba) y1 = limiteMundoArriba;
+            if (x1 >= limiteMundoDerecho) x1 = limiteMundoDerecho;
+            if (y1 >= limiteMundoAbajo) y1 = limiteMundoAbajo;
 
         } else if (puntero == 0) {
             dezplazamiento = false;
             disparar = true;
             x1 = this.x;
             y1 = this.y;
-            deltaXTactil = xPantalla - x1;
-            deltaYTactil = yPantalla - y1;
+            deltaXTactil = (int) xPantalla - (int) x1;
+            deltaYTactil = (int) yPantalla - (int) y1;
 
             // Aplicar límites al presionar
-            if (x1 < limiteMundoIzquierdo) {
-                x1 = limiteMundoIzquierdo;
-            }
-            if (y1 < limiteMundoArriba) {
-                y1 = limiteMundoArriba;
-            }
-            if (x1 > limiteMundoDerecho) {
-                x1 = limiteMundoDerecho;
-            }
-            if (y1 > limiteMundoAbajo) {
-                y1 = limiteMundoAbajo;
-            }
+            if (x1 <= limiteMundoIzquierdo) x1 = limiteMundoIzquierdo;
+            if (y1 <= limiteMundoArriba) y1 = limiteMundoArriba;
+            if (x1 >= limiteMundoDerecho) x1 = limiteMundoDerecho;
+            if (y1 >= limiteMundoAbajo) y1 = limiteMundoAbajo;
         }
+
+        dedos++;
     }
 
     public void toqueLevantado(float x, float y, int puntero) {
@@ -465,22 +419,14 @@ public class Jugador extends Actor2D {
             dezplazamiento = true;
             this.coordenadaPantallaX = xPantalla;
             this.coordenadaPantallaY = yPantalla;
-            x1 = xPantalla - deltaXTactil;
-            y1 = yPantalla - deltaYTactil;
+            x1 = (int) xPantalla - deltaXTactil;
+            y1 = (int) yPantalla - deltaYTactil;
 
-            // Aplicar límites del mundo al deslizar
-            if (x1 < limiteMundoIzquierdo) {
-                x1 = limiteMundoIzquierdo;
-            }
-            if (y1 < limiteMundoArriba) {
-                y1 = limiteMundoArriba;
-            }
-            if (x1 > limiteMundoDerecho) {
-                x1 = limiteMundoDerecho;
-            }
-            if (y1 > limiteMundoAbajo) {
-                y1 = limiteMundoAbajo;
-            }
+            // MEJORA: Aplicar límites del mundo al deslizar
+            if (x1 <= limiteMundoIzquierdo) x1 = limiteMundoIzquierdo;
+            if (y1 <= limiteMundoArriba) y1 = limiteMundoArriba;
+            if (x1 >= limiteMundoDerecho) x1 = limiteMundoDerecho;
+            if (y1 >= limiteMundoAbajo) y1 = limiteMundoAbajo;
 
             this.x = x1;
             this.y = y1;
@@ -502,22 +448,14 @@ public class Jugador extends Actor2D {
             dezplazamiento = true;
             this.coordenadaPantallaX = xPantalla;
             this.coordenadaPantallaY = yPantalla;
-            x1 = xPantalla - deltaXTactil;
-            y1 = yPantalla - deltaYTactil;
+            x1 = (int) xPantalla - deltaXTactil;
+            y1 = (int) yPantalla - deltaYTactil;
 
-            // Aplicar límites del mundo al deslizar
-            if (x1 < limiteMundoIzquierdo) {
-                x1 = limiteMundoIzquierdo;
-            }
-            if (y1 < limiteMundoArriba) {
-                y1 = limiteMundoArriba;
-            }
-            if (x1 > limiteMundoDerecho) {
-                x1 = limiteMundoDerecho;
-            }
-            if (y1 > limiteMundoAbajo) {
-                y1 = limiteMundoAbajo;
-            }
+            // MEJORA: Aplicar límites del mundo al deslizar
+            if (x1 <= limiteMundoIzquierdo) x1 = limiteMundoIzquierdo;
+            if (y1 <= limiteMundoArriba) y1 = limiteMundoArriba;
+            if (x1 >= limiteMundoDerecho) x1 = limiteMundoDerecho;
+            if (y1 >= limiteMundoAbajo) y1 = limiteMundoAbajo;
 
             this.x = x1;
             this.y = y1;
@@ -525,23 +463,13 @@ public class Jugador extends Actor2D {
         }
     }
 
-    // ========== ENTRADA ACELERÓMETRO ==========
-
-    public void acelerometro(float x, float y, float z) {
-        // Implementar lógica del acelerómetro
-    }
-
-    // ========== SETTERS Y GETTERS ==========
+    public void acelerometro(float x, float y, float z) {}
 
     public void setVida(float vida) {
         this.vida = vida;
     }
 
-    public void reducirVelocidad(float velocidadX, float velocidadY) {
-        // Implementar lógica de reducción de velocidad
-    }
+    public void reducirVelocidad(float velocidadX, float velecidadY) {}
 
-    public void desactivarArmas(float tiempo) {
-        // Implementar lógica de desactivación de armas
-    }
+    public void desactivarArmas(float tiempo) {}
 }

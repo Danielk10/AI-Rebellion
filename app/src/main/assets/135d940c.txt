@@ -1,0 +1,148 @@
+
+// EJEMPLO DE INTEGRACIÓN EN TU PANTALLA DE JUEGO
+// Esto muestra cómo configurar y usar los límites del mundo con la cámara y el jugador
+
+package com.diamon.pantalla;
+
+import com.diamon.actor.Jugador;
+import com.diamon.graficos.Camara2D;
+import com.diamon.graficos.Pantalla2D;
+import com.diamon.nucleo.Graficos;
+import com.diamon.nucleo.Juego;
+import com.diamon.nucleo.Pantalla;
+import com.diamon.nucleo.Textura;
+import com.diamon.utilidad.GestorDeMundoJuego;
+import java.util.ArrayList;
+
+public class PantallaJuegoNivel1 extends Pantalla2D {
+
+    private Jugador jugador;
+    private GestorDeMundoJuego gestorMundo;
+
+    // Dimensiones del mundo en píxeles
+    private static final float MUNDO_ANCHO = 5000;
+    private static final float MUNDO_ALTO = 10000;
+
+    public PantallaJuegoNivel1(Juego juego) {
+        super(juego);
+
+        // Crear el gestor del mundo
+        gestorMundo = new GestorDeMundoJuego(
+            MUNDO_ANCHO,
+            MUNDO_ALTO,
+            Juego.ANCHO_PANTALLA,
+            Juego.ALTO_PANTALLA
+        );
+    }
+
+    @Override
+    public void mostrar() {
+        // Configurar los límites de la cámara
+        camara.setLimitesMundo(MUNDO_ANCHO, MUNDO_ALTO);
+
+        // Crear el jugador
+        // Asumiendo que tienes texturas cargadas
+        Textura texturaJugador = recurso.getTextura("sprites/jugador.png");
+        jugador = new Jugador(this, texturaJugador, 100, 100, 32, 32);
+
+        // IMPORTANTE: Configurar los límites del mundo en el jugador
+        // El jugador necesita saber cuáles son los límites del mundo
+        jugador.configurarLimitesDelMundo(MUNDO_ANCHO, MUNDO_ALTO);
+
+        // Agregar el jugador a la lista de actores
+        actores.add(jugador);
+
+        // Posicionar la cámara en el jugador
+        float[] posCamara = gestorMundo.calcularPosicionCamara(
+            jugador.getX() + jugador.getAncho() / 2,
+            jugador.getY() + jugador.getAlto() / 2,
+            Juego.ANCHO_PANTALLA,
+            Juego.ALTO_PANTALLA
+        );
+        camara.moverA(posCamara[0], posCamara[1]);
+    }
+
+    @Override
+    public void actualizar(float delta) {
+        // Actualizar todos los actores
+        for (Actor actor : actores) {
+            actor.actualizar(delta);
+        }
+
+        // IMPORTANTE: Mantener la cámara siguiendo al jugador
+        // pero respetando los límites del mundo
+        float jugadorCentroX = jugador.getX() + jugador.getAncho() / 2;
+        float jugadorCentroY = jugador.getY() + jugador.getAlto() / 2;
+
+        // Calcular la posición ideal de la cámara
+        float[] posCamara = gestorMundo.calcularPosicionCamara(
+            jugadorCentroX,
+            jugadorCentroY,
+            Juego.ANCHO_PANTALLA,
+            Juego.ALTO_PANTALLA
+        );
+
+        // Aplicar seguimiento suave de la cámara
+        camara.seguirSuave(posCamara[0], posCamara[1], 0.1f);
+    }
+
+    @Override
+    public void dibujar(Graficos pincel, float delta) {
+        // Dibujar todos los actores
+        for (Actor actor : actores) {
+            // Usar culling para no dibujar actores fuera de la cámara
+            if (camara.esVisible(actor.getX(), actor.getY(), actor.getAncho(), actor.getAlto())) {
+                actor.dibujar(pincel, delta);
+            }
+        }
+    }
+
+    @Override
+    public void colisiones() {
+        // Detectar colisiones entre actores
+    }
+
+    // Resto de métodos...
+}
+
+
+// ============================================================================
+// CONFIGURACIÓN EN LA CLASE PRINCIPAL DEL JUEGO
+// ============================================================================
+
+public class MiJuego extends Juego {
+
+    public MiJuego(AppCompatActivity actividad, ServicioBluetooth blueTooth) {
+        super(actividad, blueTooth);
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Crear y mostrar la pantalla del juego
+        PantallaJuegoNivel1 pantallaJuego = new PantallaJuegoNivel1(this);
+        this.setPantalla(pantallaJuego);
+    }
+}
+
+
+// ============================================================================
+// CONFIGURACIÓN DE MÚLTIPLES NIVELES CON DIFERENTES TAMAÑOS DE MUNDO
+// ============================================================================
+
+public class ManagerDeNiveles {
+
+    // Definir diferentes tamaños de mundo para cada nivel
+    public static final float[][] TAMANOS_MUNDO = {
+        {5000, 10000},   // Nivel 1: 5000x10000
+        {8000, 12000},   // Nivel 2: 8000x12000
+        {10000, 15000},  // Nivel 3: 10000x15000
+    };
+
+    public static PantallaJuego crearNivel(Juego juego, int numeroNivel) {
+        float[] tamano = TAMANOS_MUNDO[numeroNivel];
+        PantallaJuego pantalla = new PantallaJuego(juego, tamano[0], tamano[1]);
+        return pantalla;
+    }
+}

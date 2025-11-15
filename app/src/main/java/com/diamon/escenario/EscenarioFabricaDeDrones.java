@@ -21,8 +21,7 @@ import com.diamon.nucleo.Pantalla;
 public class EscenarioFabricaDeDrones extends Escena {
 
     AndroidePatrullero androideA;
-    
-    float dis = 0.014f;
+
 
     public EscenarioFabricaDeDrones(Pantalla pantalla, Jugador jugador) {
         super(pantalla, jugador);
@@ -53,7 +52,7 @@ public class EscenarioFabricaDeDrones extends Escena {
                         64,
                         64);
 
-        actores.add(androideA); 
+        actores.add(androideA);
 
         Blaze dron =
                 new Blaze(
@@ -62,27 +61,23 @@ public class EscenarioFabricaDeDrones extends Escena {
                         1000,
                         400,
                         64,
-                        64);  
+                        64);
 
         actores.add(dron);
+
+        // En tu PantallaJuego.mostrar()
+        camara.setLimitesMundo(5000, 10000);
         
-        
-        
-        camara.setLimitesMundo(2000,2000);
-        
+        jugador.configurarLimitesDelMundo(5000, 10000);
     }
 
     @Override
     public void actualizar(float delta) {
-    
-        dis++;
-        
-        
-       // camara.moverA(dis,0);
-        
-        camara.seguirSuave(jugador.getX(),jugador.getY(),0.5f);
-        
-        
+
+     
+
+        camara.seguirSuave(jugador.getX(), jugador.getY(), 0.5f);
+
         if (blueTooth.getDatos() != null) {
 
             androideA.setX(blueTooth.getDatos().resibirDatos().getX());
@@ -110,8 +105,6 @@ public class EscenarioFabricaDeDrones extends Escena {
                 250,
                 250,
                 Color.GREEN);
-
-        
     }
 
     @Override
