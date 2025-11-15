@@ -110,12 +110,16 @@ public class Graficos2D implements Graficos {
         return this.canvas;
     }
 
-    /** Habilita o deshabilita antialiasing */
+    /**
+     * Habilita o deshabilita antialiasing
+     */
     public void setAntiAlias(boolean antiAlias) {
         this.paint.setAntiAlias(antiAlias);
     }
 
-    /** Habilita o deshabilita filtrado de bitmap (útil para pixel art) */
+    /**
+     * Habilita o deshabilita filtrado de bitmap (útil para pixel art)
+     */
     public void setFilterBitmap(boolean filter) {
         this.paint.setFilterBitmap(filter);
     }

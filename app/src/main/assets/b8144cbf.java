@@ -100,7 +100,9 @@ public class Textura2D implements Textura {
             formatoTextura = Graficos.FormatoTextura.ARGB8888;
         }
 
-        this.bitmap = Bitmap.createBitmap(textura.getBipmap(), 0, 0, (int) w, (int) h, max, false);
+        this.bitmap = Bitmap.createBitmap(
+            textura.getBipmap(), 0, 0, (int) w, (int) h, max, false
+        );
         new BitmapFactory.Options().inPreferredConfig = this.bitmap.getConfig();
     }
 
@@ -133,7 +135,9 @@ public class Textura2D implements Textura {
         }
     }
 
-    /** MEJORA: Método para verificar si la textura está reciclada */
+    /**
+     * MEJORA: Método para verificar si la textura está reciclada
+     */
     public boolean isReciclada() {
         return reciclado || (bitmap != null && bitmap.isRecycled());
     }

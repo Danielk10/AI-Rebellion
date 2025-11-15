@@ -21,6 +21,8 @@ import com.diamon.nucleo.Pantalla;
 public class EscenarioFabricaDeDrones extends Escena {
 
     AndroidePatrullero androideA;
+    
+    float dis = 0.014f;
 
     public EscenarioFabricaDeDrones(Pantalla pantalla, Jugador jugador) {
         super(pantalla, jugador);
@@ -63,11 +65,24 @@ public class EscenarioFabricaDeDrones extends Escena {
                         64);  
 
         actores.add(dron);
+        
+        
+        
+        camara.setLimitesMundo(2000,2000);
+        
     }
 
     @Override
     public void actualizar(float delta) {
-
+    
+        dis++;
+        
+        
+       // camara.moverA(dis,0);
+        
+        camara.seguirSuave(jugador.getX(),jugador.getY(),0.5f);
+        
+        
         if (blueTooth.getDatos() != null) {
 
             androideA.setX(blueTooth.getDatos().resibirDatos().getX());

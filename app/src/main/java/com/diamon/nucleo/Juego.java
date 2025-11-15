@@ -187,20 +187,40 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
             pincel = holder.getSurface().lockHardwareCanvas();
 
+            if (pincel == null) {
+                continue;
+            }
+
             pincel.getClipBounds(rectangulo);
 
             pincel.drawRGB(
                     (Color.BLUE & 0xff0000) >> 16, (Color.BLUE & 0xff00) >> 8, (Color.BLUE & 0xff));
 
-            camara.aplicarTransformacion(pincelBufer.getCanvas());
+            try {
+                // Aplicar transformación para el mundo del juego
+                camara.aplicarTransformacion(pincelBufer.getCanvas());
 
-            pincelBufer.limpiar(Color.BLUE);
+                pincelBufer.limpiar(Color.BLUE);
+                
+                renderizar(pincelBufer, (float) delta);
 
-            renderizar(pincelBufer, (float) delta);
+                pincel.drawBitmap(bufer.getBipmap(), null, rectangulo, null);
 
-            pincel.drawBitmap(bufer.getBipmap(), null, rectangulo, null);
+                // Resetear para UI estática
+                camara.resetearTransformacion(pincelBufer.getCanvas());
 
-            holder.getSurface().unlockCanvasAndPost(pincel);
+                pincelBufer.getLapiz().setTextSize(18);
+
+                pincelBufer.dibujarTexto(
+                        getFPS() + " FPS",
+                        camara.getX() - Juego.ANCHO_PANTALLA / 2 + 20,
+                        20,
+                        Color.GREEN);
+
+            } finally {
+                // Siempre liberar el canvas
+                holder.getSurface().unlockCanvasAndPost(pincel);
+            }
 
             referencia = tiempoInicial;
 
@@ -218,11 +238,6 @@ public abstract class Juego extends SurfaceView implements Runnable, SurfaceHold
 
             pantalla.dibujar(pincel, delta);
         }
-
-        pincel.getLapiz().setTextSize(18);
-
-        pincel.dibujarTexto(
-                getFPS() + " FPS", camara.getX() - Juego.ANCHO_PANTALLA / 2 + 20, 20, Color.GREEN);
     }
 
     public void actualizar(float delta) {

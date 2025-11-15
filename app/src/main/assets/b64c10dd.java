@@ -32,7 +32,9 @@ public class Camara2D {
         actualizarTransformacion();
     }
 
-    /** Configura los límites del mundo para la cámara */
+    /**
+     * Configura los límites del mundo para la cámara
+     */
     public void setLimitesMundo(float ancho, float alto) {
         this.mundoAncho = ancho;
         this.mundoAlto = alto;
@@ -41,12 +43,16 @@ public class Camara2D {
         actualizarTransformacion();
     }
 
-    /** Deshabilita los límites del mundo */
+    /**
+     * Deshabilita los límites del mundo
+     */
     public void deshabilitarLimitesMundo() {
         this.usarLimitesMundo = false;
     }
 
-    /** Aplica límites para que la cámara no salga del mundo */
+    /**
+     * Aplica límites para que la cámara no salga del mundo
+     */
     private void aplicarLimites() {
         if (!usarLimitesMundo) {
             return;
@@ -70,7 +76,9 @@ public class Camara2D {
         }
     }
 
-    /** Actualiza la matriz de transformación y el área de visualización */
+    /**
+     * Actualiza la matriz de transformación y el área de visualización
+     */
     private void actualizarTransformacion() {
         matrizTransformacion.reset();
 
@@ -86,10 +94,16 @@ public class Camara2D {
         float mitadAltoVista = (alto / 2) / zoom;
 
         areaDeVisualizacion.set(
-                x - mitadAnchoVista, y - mitadAltoVista, x + mitadAnchoVista, y + mitadAltoVista);
+            x - mitadAnchoVista,
+            y - mitadAltoVista,
+            x + mitadAnchoVista,
+            y + mitadAltoVista
+        );
     }
 
-    /** Mueve la cámara a una posición específica */
+    /**
+     * Mueve la cámara a una posición específica
+     */
     public void moverA(float x, float y) {
         this.x = x;
         this.y = y;
@@ -99,7 +113,6 @@ public class Camara2D {
 
     /**
      * Mueve la cámara de forma suave hacia un objetivo (para seguimiento)
-     *
      * @param objetivoX posición X del objetivo
      * @param objetivoY posición Y del objetivo
      * @param velocidad velocidad de seguimiento (0-1, donde 1 es instantáneo)
@@ -112,7 +125,9 @@ public class Camara2D {
         actualizarTransformacion();
     }
 
-    /** Cambia el zoom de la cámara */
+    /**
+     * Cambia el zoom de la cámara
+     */
     public void setZoom(float zoom) {
         // Prevenir zoom inválido
         this.zoom = Math.max(0.1f, Math.min(10.0f, zoom));
@@ -120,7 +135,9 @@ public class Camara2D {
         actualizarTransformacion();
     }
 
-    /** Convierte las coordenadas de pantalla a las del mundo */
+    /**
+     * Convierte las coordenadas de pantalla a las del mundo
+     */
     public float[] convertirPantallaAMundo(float pantallaX, float pantallaY) {
         float[] punto = new float[] {pantallaX, pantallaY};
         Matrix matrizInvertida = new Matrix();
@@ -130,29 +147,39 @@ public class Camara2D {
         return punto;
     }
 
-    /** Convierte las coordenadas del mundo a las de pantalla */
+    /**
+     * Convierte las coordenadas del mundo a las de pantalla
+     */
     public float[] convertirMundoAPantalla(float mundoX, float mundoY) {
         float[] punto = new float[] {mundoX, mundoY};
         matrizTransformacion.mapPoints(punto);
         return punto;
     }
 
-    /** Obtiene el área visible de la cámara en coordenadas del mundo */
+    /**
+     * Obtiene el área visible de la cámara en coordenadas del mundo
+     */
     public RectF getAreaDeVisualizacion() {
         return areaDeVisualizacion;
     }
 
-    /** Verifica si un rectángulo está visible en la cámara (para culling) */
+    /**
+     * Verifica si un rectángulo está visible en la cámara (para culling)
+     */
     public boolean esVisible(float x, float y, float ancho, float alto) {
         return areaDeVisualizacion.intersects(x, y, x + ancho, y + alto);
     }
 
-    /** Aplica la transformación de la cámara al canvas */
+    /**
+     * Aplica la transformación de la cámara al canvas
+     */
     public void aplicarTransformacion(Canvas canvas) {
         canvas.setMatrix(matrizTransformacion);
     }
 
-    /** Resetea la transformación del canvas (útil para UI estática) */
+    /**
+     * Resetea la transformación del canvas (útil para UI estática)
+     */
     public void resetearTransformacion(Canvas canvas) {
         canvas.setMatrix(null);
     }
