@@ -4,7 +4,10 @@
 
 Inspirado en las obras maestras retro de NES / Famicom creadas por Natsume: **Final Mission** (*Action in New York / S.C.A.T.*) y **Abadox: The Deadly Inner Deep** (versión Japón 1989/1990), fusionando sus mecánicas clásicas con una historia de rebelión de inteligencias artificiales en el Sistema Solar y la Tierra.
 
+![Captura de Pantalla Real en Dispositivo (TECNO BF7 - Android 12)](docs_gameplay_screenshot.png)
+
 ---
+
 
 ## 🌟 Características Principales
 

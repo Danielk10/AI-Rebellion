@@ -243,3 +243,18 @@ El protocolo binario `multiplayer.rs` opera sobre UUID SPP estándar:
 - **Desarrollador**: Daniel Diamond ([@Danielk10](https://github.com/Danielk10))
 - **Inspiración**: *Final Mission* (Natsume Japón, 1990) & *Abadox* (Natsume, 1989).
 - **Tecnología**: 100% Rust (`cdylib`, ARM64, 16 KB Page Aligned, PIE), OGG Vorbis, Java Android SurfaceView/SoundPool.
+
+---
+
+## 7. Validación y Pruebas en Dispositivo Real (TECNO BF7)
+
+* **Dispositivo Físico:** TECNO BF7 / SPARK Go 2023 (Android 12, ARM64 Cortex-A53).
+* **Conexión:** Túnel inverso SSH ADB en `localhost:5555`.
+* **Compilación Nativa:** Módulo Rust compilado directamente en Termux con `cargo build --release` (tiempo: 2m 49s). Binario resultante `libai_rebellion.so` de 934 KB con alineación estricta de 16 KB (`Align 0x4000`) y tipo `DYN`.
+* **Empaquetado Gradle:** APK generado desatendidamente en `/tmp/ai_rebellion/outputs/apk/debug/app-debug.apk` (9.0 MB) aislando el almacenamiento temporal y protegiendo la cuota de disco de `$HOME`.
+* **Instalación y Ejecución:**
+  * Instalado exitosamente vía `adb install -r`.
+  * Lanzado en modo apaisado inmersivo (`1612x720`).
+  * Validación de jugabilidad fluida a 60 FPS: motor táctil "Zero Buttons", auto-disparo continuo de proyectiles de plasma, satélites orbitales de apoyo interceptando amenazas y simulación de resplandor aditivo (bloom) sobre el escenario de la Órbita Terrestre.
+  * Captura de pantalla real extraída y documentada: [`docs_gameplay_screenshot.png`](docs_gameplay_screenshot.png).
+
