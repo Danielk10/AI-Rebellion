@@ -1,6 +1,6 @@
-# Guía de Desarrollo, Compilación y Configuración: IA R3bellion (Rust + Android 2026)
+# Guía de Desarrollo, Compilación y Configuración: IA Rebellion (Rust + Android 2026)
 
-> **IA R3bellion** es un shoot 'em up (shmup) de acción arcade espacial de **nueva generación (2026)** programado 100% en **Rust nativo**, inspirado en las mecánicas clásicas de **Final Mission** (versión japonesa de Natsume para Famicom/NES) y **Abadox**. Integra una **experiencia táctil pura sin botones virtuales en pantalla**, gráficos modernos con **luz ambiental dinámica**, simulación de **resplandor aditivo (bloom)**, sistema de partículas avanzado, texturas detalladas, soporte para **shaders/OpenGL ES 3** y audio moderno **OGG Vorbis** con música darksynth.
+> **IA Rebellion** es un shoot 'em up (shmup) de acción arcade espacial de **nueva generación (2026)** programado 100% en **Rust nativo**, inspirado en las mecánicas clásicas de **Final Mission** (versión japonesa de Natsume para Famicom/NES) y **Abadox**. Integra una **experiencia táctil pura sin botones virtuales en pantalla**, gráficos modernos con **luz ambiental dinámica**, simulación de **resplandor aditivo (bloom)**, sistema de partículas avanzado, texturas detalladas, soporte para **shaders/OpenGL ES 3** y audio moderno **OGG Vorbis** con música darksynth.
 
 ![Captura de Gameplay en Dispositivo Real (TECNO BF7)](docs_gameplay_screenshot.png)
 
@@ -16,10 +16,24 @@
    - **16 KB Page Alignment**: Totalmente compatible con **Android 15+**, compilando con banderas de enlazador `-Wl,-z,max-page-size=16384` y `-Wl,-z,common-page-size=16384`. Segmentos `LOAD` alineados a `0x4000`.
    - **PIE / PIC (Position Independent Executable / Code)**: Biblioteca compartida `DYN` de código independiente de posición (`relocation-model=pic`).
 
-3. **Experiencia Táctil Pura (Zero Virtual Buttons)**:
-   - **Pantalla 100% limpia**: Ni palancas virtuales, ni D-Pads, ni círculos de botones que obstruyan la acción.
-   - **Arrastre Relativo 1:1**: Inspirado en el algoritmo original del código Java (`toquePresionado`, `toqueDeslizando`, `toqueLevantado`). El usuario toca y arrastra desde cualquier sector de la pantalla. El soldado humano se desplaza en delta directo (`dx`, `dy`), asegurando que el dedo nunca tape el personaje ni la mira.
-   - **Auto-Disparo Reactivo**: Al mantener el contacto táctil, el rifle de asalto de plasma dispara automáticamente a cadencia óptima.
+3. **Diferenciación de Vehículo según el Escenario**:
+   - **Espacio Exterior / Migración Interplanetaria (Fases 1, 6, 7)**: El jugador pilota la **Nave Caza de Combate Estelar** con toberas de iones gemelas, alas delta, alerones y cañones gemelos frontales.
+   - **Dentro de los Planetas (Fases 2, 3, 4, 5, 8)**: El jugador comanda al **Soldado Humano Cibernético con Jetpack** (mecánica de Final Mission Famicom Japón), equipado con exoesqueleto de titanio, botas gravitatorias, visor táctico y satélites orbitales rotatorios.
+
+4. **Experiencia Táctil Pura (Algoritmo Directo de `Jugador.java`)**:
+   - **Pantalla 100% limpia**: Ni palancas virtuales, ni D-Pads, ni botones virtuales.
+   - **Fórmula de Arrastre 1:1 de `Jugador.java`**:
+     ```rust
+     // Al presionar la pantalla (on_touch_down):
+     delta_x_tactil = touch_x - player.x;
+     delta_y_tactil = touch_y - player.y;
+
+     // Al deslizar el dedo (on_touch_move):
+     player.x = (touch_x - delta_x_tactil).clamp(36.0, screen_width - 36.0);
+     player.y = (touch_y - delta_y_tactil).clamp(36.0, screen_height - 36.0);
+     ```
+     El jugador responde inmediatamente al dedo con latencia cero sin ocultar el sprite.
+   - **Auto-Disparo Continuo**: Disparo constante de plasma mientras el dedo mantenga el contacto táctil.
    - **Doble Toque Rápido (Double-Tap < 0.35 s)**: Detona la Bomba de Pulso Electromagnético (EMP) de pantalla completa.
    - **Multi-Touch (Segundo Dedo)**: Al apoyar un segundo dedo simultáneo, se activa el *Satellite Lock* y se direcciona el ángulo de tiro de los satélites orbitales.
 

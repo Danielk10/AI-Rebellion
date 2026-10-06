@@ -77,6 +77,77 @@ impl Game {
         self.renderer.resize(w, h);
     }
 
+    /// Evento táctil: dedo presiona la pantalla (Jugador.java toquePresionado)
+    pub fn on_touch_down(&mut self, id: i32, x: f32, y: f32) {
+        if self.state == GameState::TitleMenu {
+            self.start_game(1);
+            return;
+        }
+        if (self.state == GameState::GameOver || self.state == GameState::Victory) && self.state_timer > 2.0 {
+            self.start_game(1);
+            return;
+        }
+
+        let local_id = self.multiplayer.local_player_id as usize;
+        let (px, py) = if let Some(p) = self.players.get(local_id) {
+            (p.x, p.y)
+        } else {
+            (160.0, 270.0)
+        };
+
+        self.touch_controls.on_touch_down(id, x, y, px, py);
+
+        // Bomba especial EMP activada por doble toque rápido (< 0.35s)
+        if self.touch_controls.trigger_bomb {
+            if let Some(p) = self.players.get_mut(local_id) {
+                if p.bombs > 0 {
+                    p.bombs -= 1;
+                    let bx = p.x;
+                    let by = p.y;
+                    self.trigger_bomb(bx, by);
+                }
+            }
+        }
+    }
+
+    /// Evento táctil: dedo se desliza por la pantalla (Jugador.java toqueDeslizando)
+    pub fn on_touch_move(&mut self, id: i32, x: f32, y: f32) {
+        let w_f = self.width as f32;
+        let h_f = self.height as f32;
+        let local_id = self.multiplayer.local_player_id as usize;
+
+        if let Some((target_x, target_y)) = self.touch_controls.on_touch_move(id, x, y) {
+            if let Some(p) = self.players.get_mut(local_id) {
+                let old_x = p.x;
+                // Límites exactos de Jugador.java:
+                p.x = target_x.clamp(36.0, w_f - 36.0);
+                p.y = target_y.clamp(36.0, h_f - 36.0);
+
+                if p.x > old_x + 0.3 {
+                    p.facing_right = true;
+                } else if p.x < old_x - 0.3 {
+                    p.facing_right = false;
+                }
+                p.jetpack_active = true;
+            }
+        }
+    }
+
+    /// Evento táctil: dedo se levanta (Jugador.java toqueLevantado)
+    pub fn on_touch_up(&mut self, id: i32, x: f32, y: f32) {
+        let local_id = self.multiplayer.local_player_id as usize;
+        self.touch_controls.on_touch_up(id, x, y);
+
+        // Si se promovió el segundo dedo a primario, inicializar delta con la posición actual
+        if self.touch_controls.primary_id != -1 && !self.touch_controls.touch_initialized {
+            if let Some(p) = self.players.get(local_id) {
+                self.touch_controls.delta_x_tactil = self.touch_controls.primary_x - p.x;
+                self.touch_controls.delta_y_tactil = self.touch_controls.primary_y - p.y;
+                self.touch_controls.touch_initialized = true;
+            }
+        }
+    }
+
     pub fn update(&mut self, dt: f32) {
         let w_f = self.width as f32;
         let h_f = self.height as f32;
@@ -93,10 +164,11 @@ impl Game {
                 }
             }
             GameState::StageIntro => {
-                if self.state_timer > 2.5 {
+                if self.state_timer > 1.2 {
                     self.state = GameState::InGame;
                     self.state_timer = 0.0;
                 }
+                self.update_gameplay(dt, w_f, h_f);
             }
             GameState::InGame => {
                 // Actualizar nivel y verificar si debe entrar el Boss
@@ -138,7 +210,7 @@ impl Game {
                 }
             }
             GameState::GameOver => {
-                if self.state_timer > 2.5 && self.touch_controls.is_touching {
+                if self.state_timer > 2.0 && self.touch_controls.is_touching {
                     self.start_game(1);
                 }
             }
@@ -155,7 +227,7 @@ impl Game {
         let h_f = self.height as f32;
         self.level_manager.set_stage(stage);
         self.audio_engine.stage_theme = stage;
-        self.state = GameState::StageIntro;
+        self.state = GameState::InGame;
         self.state_timer = 0.0;
         self.boss = None;
         self.enemies.clear();
@@ -168,27 +240,37 @@ impl Game {
             p.active = true;
             p.invulnerable_timer = 2.0;
         }
+
+        // Reinicializar desplazamiento relativo táctil con la posición inicial
+        let local_id = self.multiplayer.local_player_id as usize;
+        if self.touch_controls.primary_id != -1 {
+            if let Some(p) = self.players.get(local_id) {
+                self.touch_controls.delta_x_tactil = self.touch_controls.primary_x - p.x;
+                self.touch_controls.delta_y_tactil = self.touch_controls.primary_y - p.y;
+                self.touch_controls.touch_initialized = true;
+            }
+        }
     }
 
     fn update_gameplay(&mut self, dt: f32, w_f: f32, h_f: f32) {
         let local_id = self.multiplayer.local_player_id as usize;
-        let delta_x = self.touch_controls.delta_x;
-        let delta_y = self.touch_controls.delta_y;
         let is_firing = self.touch_controls.is_firing;
         let sat_lock = self.touch_controls.satellite_lock;
         let sat_angle = self.touch_controls.satellite_target_angle;
         let trigger_bomb = self.touch_controls.trigger_bomb;
 
-        // 1. Transmitir controles locales vía Bluetooth (Vector normalizado de arrastre)
-        let norm_mx = (delta_x / 20.0).clamp(-1.0, 1.0);
-        let norm_my = (delta_y / 20.0).clamp(-1.0, 1.0);
-        self.multiplayer.encode_input_packet(
-            norm_mx,
-            norm_my,
-            is_firing,
-            trigger_bomb,
-            sat_lock,
-        );
+        // 1. Transmitir controles vía Bluetooth (Vector normalizado de posición)
+        if let Some(p) = self.players.get(local_id) {
+            let norm_mx = (p.x / w_f * 2.0 - 1.0).clamp(-1.0, 1.0);
+            let norm_my = (p.y / h_f * 2.0 - 1.0).clamp(-1.0, 1.0);
+            self.multiplayer.encode_input_packet(
+                norm_mx,
+                norm_my,
+                is_firing,
+                trigger_bomb,
+                sat_lock,
+            );
+        }
 
         // 2. Si es anfitrión, emitir sincronización de estado periódica (20 Hz)
         if self.multiplayer.is_host {
@@ -210,9 +292,8 @@ impl Game {
             }
         }
 
-        // 3. Actualizar soldado humano local con experiencia táctil pura (Arrastre 1:1)
+        // 3. Actualizar satélites orbitales y auto-disparo continuo de Jugador.java
         if let Some(p_local) = self.players.get_mut(local_id) {
-            p_local.apply_touch_drag(delta_x, delta_y, w_f, h_f);
             p_local.update(dt, sat_lock, sat_angle);
 
             if is_firing {
@@ -223,7 +304,7 @@ impl Game {
                 }
             }
 
-            // Bomba especial EMP activada por doble toque rápido (< 0.35s)
+            // Bomba especial EMP
             if trigger_bomb && p_local.bombs > 0 {
                 p_local.bombs -= 1;
                 let bx = p_local.x;

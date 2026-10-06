@@ -1,6 +1,6 @@
-# IA R3bellion 🚀⚡
+# IA Rebellion 🚀⚡
 
-**IA R3bellion** (anteriormente *AI-Rebellion*) es un juego de acción shoot 'em up (shmup) de ciencia ficción de ritmo trepidante, desarrollado con un motor nativo escrito **100% en lenguaje Rust** para Android.
+**IA Rebellion** (anteriormente *AI-Rebellion*) es un juego de acción shoot 'em up (shmup) de ciencia ficción de ritmo trepidante, desarrollado con un motor nativo escrito **100% en lenguaje Rust** para Android.
 
 Inspirado en las obras maestras retro de NES / Famicom creadas por Natsume: **Final Mission** (*Action in New York / S.C.A.T.*) y **Abadox: The Deadly Inner Deep** (versión Japón 1989/1990), fusionando sus mecánicas clásicas con una historia de rebelión de inteligencias artificiales en el Sistema Solar y la Tierra.
 
@@ -82,7 +82,7 @@ Inspirado en las obras maestras retro de NES / Famicom creadas por Natsume: **Fi
 
 ## 🌿 Ramas del Repositorio
 
-* `main`: Motor moderno 100% Rust nativo (**IA R3bellion**), arquitectura 16 KB, pantalla táctil y multijugador Bluetooth.
+* `main`: Motor moderno 100% Rust nativo (**IA Rebellion**), arquitectura 16 KB, pantalla táctil y multijugador Bluetooth.
 * `legacy-java`: Código original histórico del juego escrito en Java puro antes de la migración.
 
 ---

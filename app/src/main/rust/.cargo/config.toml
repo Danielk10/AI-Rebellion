@@ -1,3 +1,12 @@
+
+[target.aarch64-linux-android]
+linker = "/tmp/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+rustflags = [
+    "-C", "relocation-model=pic",
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,-z,common-page-size=16384"
+]
+
 [build]
 rustflags = [
     "-C", "relocation-model=pic",

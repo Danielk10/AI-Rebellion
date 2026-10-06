@@ -204,12 +204,17 @@ impl Renderer {
             self.draw_point_light(buffer, px, py, sz + 12, p.color, 0.4);
         }
 
-        // 7. Soldados Humanos con Traje Cibernético y Jetpack (Mecánica Final Mission Japón)
+        // 7. Personaje: Nave Caza en migración interplanetaria (fases 1, 6, 7) o Soldado con Jetpack dentro de planetas (fases 2, 3, 4, 5, 8)
+        let is_space_stage = stage_num == 1 || stage_num == 6 || stage_num == 7;
         for player in players.iter() {
             if !player.active {
                 continue;
             }
-            self.draw_human_cyber_soldier(buffer, player);
+            if is_space_stage {
+                self.draw_cyber_starship(buffer, player);
+            } else {
+                self.draw_human_cyber_soldier(buffer, player);
+            }
         }
 
         // 8. HUD Limpio Superior (Salud, Bombas, Vidas, Escenario) - CERO BOTONES VIRTUALES
@@ -430,6 +435,74 @@ impl Renderer {
             self.draw_circle(buffer, sat_x, sat_y, 3, 0xFFFFFFFF);
 
             // Haz de mira láser direccional si está fijado (Satellite Lock)
+            if sat.is_locked {
+                let lx = sat_x + (sat.angle.cos() * 26.0) as isize;
+                let ly = sat_y + (sat.angle.sin() * 26.0) as isize;
+                self.draw_circle(buffer, lx, ly, 2, 0xFFFF0055);
+            }
+        }
+    }
+
+    /// Renderiza la Nave Caza de Combate para escenarios espaciales interplanetarios (Fases 1, 6, 7)
+    pub fn draw_cyber_starship(&self, buffer: &mut [u32], player: &Player) {
+        let px = player.x as isize;
+        let py = player.y as isize;
+        let dir = if player.facing_right { 1 } else { -1 };
+        let col = player.color;
+        let t = self.anim_time;
+
+        // Efecto parpadeo de invulnerabilidad
+        if player.invulnerable_timer > 0.0 && ((player.invulnerable_timer * 18.0) as usize % 2 == 0) {
+            return;
+        }
+
+        // 1. Estela y Toberas Gemelas de Iones (Llamas de plasma pulsantes)
+        let flame_len = 16 + ((t * 24.0).sin() * 5.0) as isize;
+        let jet_x = px - dir * 24;
+        self.draw_rect(buffer, jet_x - dir * flame_len, py - 6, flame_len as usize, 4, 0xFFFF4500);
+        self.draw_rect(buffer, jet_x - dir * flame_len, py + 3, flame_len as usize, 4, 0xFFFF4500);
+        self.draw_rect(buffer, jet_x - dir * (flame_len / 2), py - 5, (flame_len / 2) as usize, 2, 0xFF00E5FF);
+        self.draw_rect(buffer, jet_x - dir * (flame_len / 2), py + 4, (flame_len / 2) as usize, 2, 0xFF00E5FF);
+        self.draw_point_light(buffer, jet_x, py, 28, 0xFF00E5FF, 0.65);
+
+        // 2. Alas Delta en Flecha con cañones láser
+        self.draw_rect(buffer, px - dir * 14, py - 16, 18, 6, 0xFF2A2E3D);
+        self.draw_rect(buffer, px - dir * 14, py + 11, 18, 6, 0xFF2A2E3D);
+        self.draw_rect(buffer, px - dir * 6, py - 14, 14, 4, col);
+        self.draw_rect(buffer, px - dir * 6, py + 11, 14, 4, col);
+        self.draw_rect(buffer, px + dir * 12, py - 16, 12, 3, 0xFF7D8597);
+        self.draw_rect(buffer, px + dir * 12, py + 14, 12, 3, 0xFF7D8597);
+
+        // 3. Fuselaje Blindado Central (Titanio y Aleación Rebelde)
+        self.draw_rect(buffer, px - dir * 20, py - 8, 38, 17, 0xFF1E222D);
+        self.draw_rect(buffer, px - dir * 12, py - 6, 32, 13, col);
+
+        // Morro aerodinámico en punta
+        self.draw_rect(buffer, px + dir * 18, py - 4, 12, 9, 0xFFD8D8E0);
+        self.draw_circle(buffer, px + dir * 28, py, 3, 0xFFFFFFFF);
+
+        // 4. Cabina de Mando Holográfica (Cristal de Plasma Reflectivo)
+        self.draw_rect(buffer, px - dir * 4, py - 4, 14, 8, 0xFF00FFFF);
+        self.draw_rect(buffer, px + dir * 2, py - 3, 4, 3, 0xFFFFFFFF);
+
+        // 5. Fogonazo de Disparo (Muzzle Flash)
+        if player.fire_timer > 0.05 {
+            let fx = px + dir * 32;
+            self.draw_circle(buffer, fx, py - 14, 5, 0xFFFFFF00);
+            self.draw_circle(buffer, fx, py + 15, 5, 0xFFFFFF00);
+            self.draw_point_light(buffer, fx, py, 26, 0xFFFFFF55, 0.7);
+        }
+
+        // 6. Satélites Orbitales de Apoyo (Escoltando la Nave)
+        for sat in player.satellites.iter() {
+            let sat_x = (player.x + sat.angle.cos() * sat.distance) as isize;
+            let sat_y = (player.y + sat.angle.sin() * sat.distance) as isize;
+            let sat_color = if sat.is_locked { 0xFFFF0055 } else { 0xFF00E5FF };
+
+            self.draw_circle(buffer, sat_x, sat_y, 9, 0xFF333344);
+            self.draw_circle(buffer, sat_x, sat_y, 7, sat_color);
+            self.draw_circle(buffer, sat_x, sat_y, 3, 0xFFFFFFFF);
+
             if sat.is_locked {
                 let lx = sat_x + (sat.angle.cos() * 26.0) as isize;
                 let ly = sat_y + (sat.angle.sin() * 26.0) as isize;

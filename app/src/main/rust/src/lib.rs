@@ -107,7 +107,7 @@ pub extern "system" fn Java_com_diamon_iarebellion_GameBridge_nativeTouchDown<'l
 ) {
     if let Ok(mut g) = GAME.lock() {
         if let Some(game) = g.as_mut() {
-            game.touch_controls.on_touch_down(pointer_id, x, y);
+            game.on_touch_down(pointer_id, x, y);
         }
     }
 }
@@ -122,7 +122,7 @@ pub extern "system" fn Java_com_diamon_iarebellion_GameBridge_nativeTouchMove<'l
 ) {
     if let Ok(mut g) = GAME.lock() {
         if let Some(game) = g.as_mut() {
-            game.touch_controls.on_touch_move(pointer_id, x, y);
+            game.on_touch_move(pointer_id, x, y);
         }
     }
 }
@@ -137,7 +137,7 @@ pub extern "system" fn Java_com_diamon_iarebellion_GameBridge_nativeTouchUp<'loc
 ) {
     if let Ok(mut g) = GAME.lock() {
         if let Some(game) = g.as_mut() {
-            game.touch_controls.on_touch_up(pointer_id, x, y);
+            game.on_touch_up(pointer_id, x, y);
         }
     }
 }
