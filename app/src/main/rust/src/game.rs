@@ -357,6 +357,7 @@ impl Game {
     fn trigger_bomb(&mut self, bx: f32, by: f32) {
         self.renderer.add_explosion(bx, by, 60, 0xFF00FFFF);
         self.audio_engine.play_sfx(SoundEffect::BombExplosion);
+        self.audio_engine.play_sfx(SoundEffect::EmpShockwave);
 
         // Elimina proyectiles enemigos
         for b in self.bullets.iter_mut() {
@@ -440,6 +441,7 @@ impl Game {
                                 b.active = false;
                                 blocked_by_sat = true;
                                 self.renderer.add_explosion(sx, sy, 5, 0xFF00FFFF);
+                                self.audio_engine.play_sfx(SoundEffect::Ricochet);
                                 break;
                             }
                         }
@@ -477,6 +479,9 @@ impl Game {
         let bg = self.level_manager.config.bg_color;
         let s_num = self.level_manager.current_stage;
         let s_name = self.level_manager.config.name.clone();
+
+        self.renderer.stage_progress = self.level_manager.stage_progress;
+        self.renderer.scroll_x = self.level_manager.scroll_pos;
 
         self.renderer.render_frame(
             buffer,

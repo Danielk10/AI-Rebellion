@@ -1,7 +1,8 @@
 //! Módulo del Jugador: Comando Cibernético Humano con Traje Avanzado y Jetpack
 //! Inspirado en Final Mission (Famicom/NES Japón) de Natsume en la Rebelión de la IA.
 //! Cuenta con vuelo multidireccional 1:1, orientación independiente adelante/atrás,
-//! propulsor jetpack animado de plasma y 2 satélites tácticos bivalvos orbitales.
+//! propulsor jetpack animado de plasma, micro-animaciones de retroceso e inclinación de vuelo,
+//! y 2 satélites tácticos bivalvos orbitales.
 
 use crate::bullet::{Bullet, BulletOwner, BulletType};
 
@@ -82,14 +83,16 @@ pub struct Player {
     pub facing_right: bool,
     pub anim_timer: f32,
     pub jetpack_active: bool,
+    pub recoil_anim: f32, // Micro-animación de retroceso del rifle (1.0 = disparo, decae a 0.0)
+    pub bank_angle: f32,  // Micro-animación de inclinación de vuelo (-15°..+15°)
 }
 
 impl Player {
     pub fn new(id: u8, start_x: f32, start_y: f32) -> Self {
         let color = match id {
-            0 => 0xFF00D2FF, // Arnold: Armadura azul cobalto / cian
-            1 => 0xFFFF3344, // Sigourney: Armadura carmesí / rubí
-            2 => 0xFF00FF77, // Jax: Verde plasma / esmeralda
+            0 => 0xFF00D2FF, // Arnold (P1): Cobalto con acento cian
+            1 => 0xFFFF2233, // Sigourney (P2): Carmesí escarlata con filigrana dorada
+            2 => 0xFF00FF77, // Jax: Verde plasma esmeralda
             _ => 0xFFFFD700, // Orion: Titanio solar dorado
         };
 
@@ -115,6 +118,8 @@ impl Player {
             facing_right: true,
             anim_timer: 0.0,
             jetpack_active: true,
+            recoil_anim: 0.0,
+            bank_angle: 0.0,
         }
     }
 
@@ -127,7 +132,6 @@ impl Player {
     }
 
     /// Desplazamiento por arrastre táctil directo 1:1 (Algoritmo de Jugador.java)
-    /// Conserva orientación independiente adelante/atrás estilo Final Mission NES
     pub fn apply_touch_drag(&mut self, dx: f32, dy: f32, screen_w: f32, screen_h: f32) {
         if !self.active {
             return;
@@ -158,6 +162,22 @@ impl Player {
             self.fire_timer -= dt;
         }
 
+        // Amortiguación del retroceso del arma (recoil kickback)
+        if self.recoil_anim > 0.0 {
+            self.recoil_anim = (self.recoil_anim - dt * 14.0).max(0.0);
+        }
+
+        // Micro-animación de inclinación de vuelo (Flight Banking)
+        let dir_sign = if self.facing_right { 1.0 } else { -1.0 };
+        let pitch_target = (self.vy * 0.045).clamp(-14.0, 14.0);
+        let surge_target = (self.vx * dir_sign * 0.018).clamp(-6.0, 6.0);
+        let desired_bank = pitch_target + surge_target;
+        self.bank_angle += (desired_bank - self.bank_angle) * (16.0 * dt).min(1.0);
+
+        // Amortiguación inercial para retorno suave al hover neutro
+        self.vx *= (1.0 - dt * 4.0).max(0.0);
+        self.vy *= (1.0 - dt * 4.0).max(0.0);
+
         // Actualizar satélites tácticos bivalvos
         for sat in self.satellites.iter_mut() {
             sat.update(dt, sat_lock, target_angle);
@@ -175,6 +195,9 @@ impl Player {
             WeaponType::Spread => 0.17,
             WeaponType::Homing => 0.26,
         };
+
+        // Gatilla el retroceso físico del arma instantáneamente
+        self.recoil_anim = 1.0;
 
         let owner = BulletOwner::Player(self.id);
         let dir = if self.facing_right { 1.0 } else { -1.0 };

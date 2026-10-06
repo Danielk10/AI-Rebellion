@@ -41,6 +41,7 @@ pub struct Renderer {
     pub height: usize,
     pub anim_time: f32,
     pub scroll_x: f32,
+    pub stage_progress: f32,
 }
 
 impl Renderer {
@@ -69,6 +70,7 @@ impl Renderer {
             height: h,
             anim_time: 0.0,
             scroll_x: 0.0,
+            stage_progress: 0.0,
         }
     }
 
@@ -304,106 +306,184 @@ impl Renderer {
         self.render_clean_hud(buffer, players, stage_num, stage_name);
     }
 
-    /// Renderiza escenarios temáticos basados en Final Mission NES y el lore de Rebelión de IA
+/// Renderiza escenarios temáticos basados en Final Mission NES y el lore planetario de Rebelión de IA
     fn render_stage_environment(&self, buffer: &mut [u32], stage: u8) {
         let w = self.width;
         let h = self.height;
         let s = self.scroll_x;
         let t = self.anim_time;
+        let progress = if self.stage_progress > 0.0 {
+            self.stage_progress.clamp(0.0, 1.0)
+        } else {
+            (s / 3150.0).clamp(0.0, 1.0)
+        };
 
         match stage {
-            // Nivel 1: RUINED NEW YORK CITY (Paleta NES 14 colores de Final Mission)
+            // Nivel 1: RUINED NEW YORK CITY (Earth Zero Zone - 3 Fases de Final Mission)
             1 => {
-                // Cielo negro profundo de medianoche
-                buffer.fill(0xFF000000);
+                buffer.fill(0xFF000000); // Cielo negro profundo de medianoche NES
 
-                // A. Capa de Nubes de Tormenta Púrpuras en el Techo (y: 0..40)
-                for nx in 0..(w / 16 + 2) {
-                    let rx = (nx * 16) as isize;
-                    let cloud_h = 24 + (((nx as f32 * 0.4 + t * 0.5).sin() * 8.0) as usize);
-                    self.draw_rect(buffer, rx, 0, 16, cloud_h, 0xFF44009B); // Púrpura oscuro
-                    self.draw_rect(buffer, rx, 0, 16, cloud_h.saturating_sub(6), 0xFF7F00EF); // Violeta eléctrico
-                }
-
-                // B. Rascacielos Lejanos en Paralaje Lento (s * 0.25)
-                let bld_offset1 = (s * 0.25) as usize % 96;
-                for i in 0..(w / 96 + 2) {
-                    let bx = (i * 96) as isize - bld_offset1 as isize;
-                    let bld_h = 160 + ((i * 47) % 110);
-                    let by = h as isize - 70 - bld_h as isize;
-                    // Silueta pizarra/azulada lejana
-                    self.draw_rect(buffer, bx, by, 76, bld_h, 0xFF183C5C);
-                    // Antena en la azotea
-                    self.draw_rect(buffer, bx + 36, by - 18, 3, 18, 0xFF737373);
-                    // Puntos de luz lejanos
-                    for wy in 0..(bld_h / 28) {
-                        self.draw_rect(buffer, bx + 20, by + 16 + (wy * 28) as isize, 4, 4, 0xFFFBFBFB);
+                if progress < 0.35 {
+                    // === FASE A: Lower Ruined Street & Pipe Platforms ===
+                    // Nubes de tormenta púrpuras en el techo
+                    for nx in 0..(w / 16 + 2) {
+                        let rx = (nx * 16) as isize;
+                        let cloud_h = 24 + (((nx as f32 * 0.4 + t * 0.5).sin() * 8.0) as usize);
+                        self.draw_rect(buffer, rx, 0, 16, cloud_h, 0xFF44009B);
+                        self.draw_rect(buffer, rx, 0, 16, cloud_h.saturating_sub(6), 0xFF7F00EF);
                     }
-                }
 
-                // C. Rascacielos Medios con Ventanas en Código de Barras (s * 0.50, Paleta NES #7F00EF)
-                let bld_offset2 = (s * 0.50) as usize % 120;
-                for i in 0..(w / 120 + 2) {
-                    let bx = (i * 120) as isize - bld_offset2 as isize;
-                    let bld_h = 210 + ((i * 31) % 95);
-                    let by = h as isize - 65 - bld_h as isize;
-                    // Fachada púrpura
-                    self.draw_rect(buffer, bx, by, 90, bld_h, 0xFF44009B);
-                    // Lamas verticales de ventanas (alternando púrpura y negro)
-                    for wx in 0..7 {
-                        self.draw_rect(buffer, bx + 10 + (wx * 11) as isize, by + 12, 5, bld_h - 24, 0xFF7F00EF);
+                    // Rascacielos lejanos en paralaje lento
+                    let bld_offset1 = (s * 0.25) as usize % 96;
+                    for i in 0..(w / 96 + 2) {
+                        let bx = (i * 96) as isize - bld_offset1 as isize;
+                        let bld_h = 160 + ((i * 47) % 110);
+                        let by = h as isize - 70 - bld_h as isize;
+                        self.draw_rect(buffer, bx, by, 76, bld_h, 0xFF183C5C);
+                        self.draw_rect(buffer, bx + 36, by - 18, 3, 18, 0xFF737373);
+                        for wy in 0..(bld_h / 28) {
+                            self.draw_rect(buffer, bx + 20, by + 16 + (wy * 28) as isize, 4, 4, 0xFFFBFBFB);
+                        }
                     }
-                }
 
-                // D. Tuberías Industriales de Cromo en Techo y Plataforma Inferior (s * 0.85)
-                let pipe_scroll = (s * 0.85) as usize % 64;
-                let top_pipe_y = 50;
-                let bot_pipe_y = h as isize - 64;
-
-                // Tubería continua superior
-                self.draw_rect(buffer, 0, top_pipe_y, w, 14, 0xFF737373);
-                self.draw_rect(buffer, 0, top_pipe_y + 2, w, 5, 0xFFBBBBBB);
-                self.draw_rect(buffer, 0, top_pipe_y + 3, w, 2, 0xFFFBFBFB); // Brillo cromo puro
-
-                // Tubería continua inferior
-                self.draw_rect(buffer, 0, bot_pipe_y, w, 16, 0xFF737373);
-                self.draw_rect(buffer, 0, bot_pipe_y + 3, w, 6, 0xFFBBBBBB);
-                self.draw_rect(buffer, 0, bot_pipe_y + 4, w, 2, 0xFFFBFBFB);
-
-                // Bridas y juntas de tuberías cada 64 px
-                for f in 0..(w / 64 + 2) {
-                    let fx = (f * 64) as isize - pipe_scroll as isize;
-                    self.draw_rect(buffer, fx, top_pipe_y - 2, 6, 18, 0xFFBBBBBB);
-                    self.draw_rect(buffer, fx, bot_pipe_y - 2, 6, 20, 0xFFBBBBBB);
-                }
-
-                // E. Vigas de Celosía (Trusses) de Acero Naranja/Óxido conectando plataformas
-                let girder_scroll = (s * 0.85) as usize % 80;
-                for g in 0..(w / 80 + 2) {
-                    let gx = (g * 80) as isize - girder_scroll as isize;
-                    let gy = bot_pipe_y - 18;
-                    // Viga Warren con crucetas naranja #C74C0C
-                    self.draw_rect(buffer, gx, gy, 74, 16, 0xFFC74C0C);
-                    self.draw_rect(buffer, gx, gy, 74, 2, 0xFFA30000);
-                    self.draw_rect(buffer, gx, gy + 14, 74, 2, 0xFFA30000);
-                    // Cruces en X
-                    for x_i in 0..3 {
-                        self.draw_rect(buffer, gx + 8 + (x_i * 20) as isize, gy + 3, 10, 10, 0xFF181C26);
+                    // Rascacielos medios con lamas verticales púrpuras
+                    let bld_offset2 = (s * 0.50) as usize % 120;
+                    for i in 0..(w / 120 + 2) {
+                        let bx = (i * 120) as isize - bld_offset2 as isize;
+                        let bld_h = 210 + ((i * 31) % 95);
+                        let by = h as isize - 65 - bld_h as isize;
+                        self.draw_rect(buffer, bx, by, 90, bld_h, 0xFF44009B);
+                        for wx in 0..7 {
+                            self.draw_rect(buffer, bx + 10 + (wx * 11) as isize, by + 12, 5, bld_h - 24, 0xFF7F00EF);
+                        }
                     }
-                }
 
-                // F. Suelo de Escombros y Concreto Ocre (#877000) en la base inferior
-                let ground_y = h as isize - 38;
-                self.draw_rect(buffer, 0, ground_y, w, 38, 0xFF877000);
-                self.draw_rect(buffer, 0, ground_y, w, 3, 0xFFFBD7A7); // Aristas iluminadas
-                // Detalle estocástico de cascotes
-                for deb in (0..w).step_by(18) {
-                    let dy = ground_y + 6 + ((deb * 13) % 24) as isize;
-                    self.draw_rect(buffer, deb as isize, dy, 5, 4, 0xFF44009B);
-                    self.draw_rect(buffer, deb as isize + 2, dy + 1, 2, 2, 0xFFFBFBFB);
+                    // Tuberías continuas de cromo superior e inferior
+                    let pipe_scroll = (s * 0.85) as usize % 64;
+                    let top_pipe_y = 50;
+                    let bot_pipe_y = h as isize - 64;
+
+                    self.draw_rect(buffer, 0, top_pipe_y, w, 14, 0xFF737373);
+                    self.draw_rect(buffer, 0, top_pipe_y + 2, w, 5, 0xFFBBBBBB);
+                    self.draw_rect(buffer, 0, top_pipe_y + 3, w, 2, 0xFFFBFBFB);
+
+                    self.draw_rect(buffer, 0, bot_pipe_y, w, 16, 0xFF737373);
+                    self.draw_rect(buffer, 0, bot_pipe_y + 3, w, 6, 0xFFBBBBBB);
+                    self.draw_rect(buffer, 0, bot_pipe_y + 4, w, 2, 0xFFFBFBFB);
+
+                    for f in 0..(w / 64 + 2) {
+                        let fx = (f * 64) as isize - pipe_scroll as isize;
+                        self.draw_rect(buffer, fx, top_pipe_y - 2, 6, 18, 0xFFBBBBBB);
+                        self.draw_rect(buffer, fx, bot_pipe_y - 2, 6, 20, 0xFFBBBBBB);
+                    }
+
+                    // Vigas de celosía Warren anaranjadas (#C74C0C)
+                    let girder_scroll = (s * 0.85) as usize % 80;
+                    for g in 0..(w / 80 + 2) {
+                        let gx = (g * 80) as isize - girder_scroll as isize;
+                        let gy = bot_pipe_y - 18;
+                        self.draw_rect(buffer, gx, gy, 74, 16, 0xFFC74C0C);
+                        self.draw_rect(buffer, gx, gy, 74, 2, 0xFFA30000);
+                        self.draw_rect(buffer, gx, gy + 14, 74, 2, 0xFFA30000);
+                        for x_i in 0..3 {
+                            self.draw_rect(buffer, gx + 8 + (x_i * 20) as isize, gy + 3, 10, 10, 0xFF181C26);
+                        }
+                    }
+
+                    // Suelo de escombros y concreto ocre (#877000)
+                    let ground_y = h as isize - 38;
+                    self.draw_rect(buffer, 0, ground_y, w, 38, 0xFF877000);
+                    self.draw_rect(buffer, 0, ground_y, w, 3, 0xFFFBD7A7);
+                    for deb in (0..w).step_by(18) {
+                        let dy = ground_y + 6 + ((deb * 13) % 24) as isize;
+                        self.draw_rect(buffer, deb as isize, dy, 5, 4, 0xFF44009B);
+                        self.draw_rect(buffer, deb as isize + 2, dy + 1, 2, 2, 0xFFFBFBFB);
+                    }
+                } else if progress < 0.70 {
+                    // === FASE B: Vertical Tower Ascent with Hanging Sentry Turrets ===
+                    // Rascacielos colosales con lamas verticales ocupando el plano completo
+                    let tower_offset = (s * 0.45) as usize % 140;
+                    for t_idx in 0..(w / 140 + 2) {
+                        let tx = (t_idx * 140) as isize - tower_offset as isize;
+                        self.draw_rect(buffer, tx, 0, 110, h, 0xFF2B0A4E);
+                        for wx in 0..8 {
+                            self.draw_rect(buffer, tx + 10 + (wx * 12) as isize, 0, 6, h, 0xFF6500B8);
+                        }
+                    }
+
+                    // Vigas de acero verticales / columnas de ascensor estructurales
+                    let column_offset = (s * 0.70) as usize % 90;
+                    for c_idx in 0..(w / 90 + 2) {
+                        let cx = (c_idx * 90) as isize - column_offset as isize;
+                        self.draw_rect(buffer, cx, 0, 14, h, 0xFFC74C0C);
+                        self.draw_rect(buffer, cx + 2, 0, 4, h, 0xFFA30000);
+                        self.draw_rect(buffer, cx + 8, 0, 3, h, 0xFFFBD7A7);
+                    }
+
+                    // Tubería de techo continua con bridas donde anclan las torretas colgantes
+                    self.draw_rect(buffer, 0, 44, w, 16, 0xFF737373);
+                    self.draw_rect(buffer, 0, 47, w, 6, 0xFFBBBBBB);
+                    self.draw_rect(buffer, 0, 49, w, 2, 0xFFFBFBFB);
+
+                    let bracket_scroll = (s * 0.85) as usize % 70;
+                    for b_i in 0..(w / 70 + 2) {
+                        let bx = (b_i * 70) as isize - bracket_scroll as isize;
+                        self.draw_rect(buffer, bx, 40, 10, 24, 0xFFBBBBBB);
+                        self.draw_rect(buffer, bx + 2, 60, 6, 8, 0xFF4A4E69);
+                        self.draw_circle(buffer, bx + 5, 20, 3, 0xFFFF2020); // Baliza de advertencia roja
+                    }
+
+                    // Abismo inferior: oscuridad y niebla de altitud
+                    self.draw_rect(buffer, 0, h as isize - 50, w, 50, 0xFF0D0B18);
+                    self.draw_rect(buffer, 0, h as isize - 20, w, 20, 0xFF05050A);
+                } else {
+                    // === FASE C: Elevated Sky-Highway Leading to TITAN-01 Warcrawler ===
+                    // Ruinas distantes en el fondo profundo
+                    let dist_offset = (s * 0.20) as usize % 110;
+                    for d_i in 0..(w / 110 + 2) {
+                        let dx = (d_i * 110) as isize - dist_offset as isize;
+                        self.draw_rect(buffer, dx, (h / 2) as isize, 90, (h / 2) as usize, 0xFF0F1726);
+                    }
+
+                    // Destellos de tormenta eléctrica en la atmósfera superior
+                    let storm_flash = (t * 5.0).sin() > 0.85;
+                    if storm_flash {
+                        self.draw_rect(buffer, 0, 0, w, 60, 0x339400D3);
+                    }
+
+                    // Autopista aérea suspendida cortando la mitad inferior
+                    let hw_y = h as isize - 75;
+                    self.draw_rect(buffer, 0, hw_y, w, 55, 0xFF2B303A); // Losa de concreto asfáltico
+                    self.draw_rect(buffer, 0, hw_y, w, 4, 0xFF737373);   // Borde de la calzada
+                    self.draw_rect(buffer, 0, hw_y + 4, w, 2, 0xFFFBFBFB);
+
+                    // Líneas continuas y discontinuas de tráfico en la autopista
+                    let lane_scroll = (s * 1.10) as usize % 48;
+                    for l_i in 0..(w / 48 + 2) {
+                        let lx = (l_i * 48) as isize - lane_scroll as isize;
+                        self.draw_rect(buffer, lx, hw_y + 24, 24, 3, 0xFFFFD700); // Línea amarilla divisoria
+                        self.draw_rect(buffer, lx, hw_y + 42, 18, 2, 0xFFE2E8F0); // Línea blanca
+                    }
+
+                    // Guardarraíl con bandas de advertencia (Chevron Hazard Stripes)
+                    let rail_scroll = (s * 1.10) as usize % 40;
+                    self.draw_rect(buffer, 0, hw_y - 12, w, 12, 0xFFC74C0C);
+                    for r_i in 0..(w / 40 + 2) {
+                        let rx = (r_i * 40) as isize - rail_scroll as isize;
+                        self.draw_rect(buffer, rx, hw_y - 12, 14, 12, 0xFF111111); // Franjas negras
+                    }
+
+                    // Luces estroboscópicas de alarma en los postes de la autopista
+                    for post_i in 0..(w / 120 + 2) {
+                        let px = (post_i * 120) as isize - rail_scroll as isize;
+                        self.draw_rect(buffer, px, hw_y - 30, 4, 18, 0xFFBBBBBB);
+                        let alarm_on = ((t * 8.0) as usize + post_i) % 2 == 0;
+                        let al_col = if alarm_on { 0xFFFF0033 } else { 0xFF440011 };
+                        self.draw_circle(buffer, px + 2, hw_y - 32, 4, al_col);
+                    }
                 }
             }
-            // Nivel 2: Fábrica de Drones
+            // Nivel 2: Fábrica de Drones (Earth)
             2 => {
                 buffer.fill(0xFF140D07);
                 let beam_offset = (s * 0.4) as usize % 120;
@@ -419,49 +499,70 @@ impl Renderer {
                 self.draw_rect(buffer, 0, h as isize - 24, w, 24, 0xFFFF5500);
                 self.draw_rect(buffer, 0, h as isize - 12, w, 12, 0xFFFFCC00);
             }
-            // Nivel 3: Megaciudad Desolada
+            // Nivel 3: Mars Cyber-Foundry (Mars)
             3 => {
-                buffer.fill(0xFF0D0B18);
-                let city_scroll = (s * 0.35) as usize % 90;
-                for bld in 0..(w / 90 + 2) {
-                    let bx = (bld * 90) as isize - city_scroll as isize;
-                    let bld_h = 160 + ((bld * 43) % 180);
-                    let by = h as isize - bld_h as isize;
-                    self.draw_rect(buffer, bx, by, 75, bld_h, 0xFF17142B);
-                    for wy in 0..(bld_h / 24) {
-                        for wx in 0..3 {
-                            let win_col = if (bld + wx + wy) % 3 == 0 { 0xFF00F0FF } else { 0xFFFF007F };
-                            self.draw_rect(buffer, bx + 12 + (wx * 20) as isize, by + 18 + (wy * 24) as isize, 8, 10, win_col);
-                        }
-                    }
+                buffer.fill(0xFF1A0802);
+                let canyon_scroll = (s * 0.35) as usize % 100;
+                for c in 0..(w / 100 + 2) {
+                    let cx = (c * 100) as isize - canyon_scroll as isize;
+                    let c_h = 140 + ((c * 43) % 120);
+                    let cy = h as isize - c_h as isize;
+                    self.draw_rect(buffer, cx, cy, 85, c_h, 0xFF541B08);
+                    self.draw_rect(buffer, cx + 10, cy + 15, 65, 4, 0xFFFF3300); // Excavadora minera
                 }
             }
-            // Nivel 4: Colmena Bio-Orgánica (Abadox)
+            // Nivel 4: Europa Sub-Glacial Network (Jupiter)
             4 => {
-                buffer.fill(0xFF1F0812);
-                let wave_step = (s * 0.6) as f32;
-                for x_col in (0..w).step_by(8) {
-                    let wave_top = (35.0 + ((x_col as f32 + wave_step) * 0.04).sin() * 22.0) as isize;
-                    let wave_bot = (35.0 + ((x_col as f32 - wave_step) * 0.04).cos() * 22.0) as isize;
-                    self.draw_rect(buffer, x_col as isize, 0, 8, wave_top as usize, 0xFF4A1024);
-                    self.draw_rect(buffer, x_col as isize, h as isize - wave_bot, 8, wave_bot as usize, 0xFF4A1024);
-                    let acid_y = wave_top - 4;
-                    self.draw_rect(buffer, x_col as isize, acid_y, 8, 4, 0xFF39FF14);
+                buffer.fill(0xFF03141C);
+                let ice_scroll = (s * 0.5) as usize % 80;
+                for ic in 0..(w / 80 + 2) {
+                    let ix = (ic * 80) as isize - ice_scroll as isize;
+                    let stalac = 50 + ((ic * 29) % 60);
+                    self.draw_rect(buffer, ix, 0, 24, stalac, 0xFF0A3C52);
+                    self.draw_rect(buffer, ix + 4, 0, 8, stalac - 6, 0xFF00E5FF);
                 }
             }
-            // Niveles 5 a 8: Fondos cósmicos y estaciones orbitales
-            _ => {
-                buffer.fill(0xFF04060C);
-                let grid_offset = (s * 0.5) as usize % 60;
-                for gx in 0..(w / 60 + 2) {
-                    let rx = (gx * 60) as isize - grid_offset as isize;
-                    self.draw_rect(buffer, rx, 0, 1, h, 0x2200D2FF);
+            // Nivel 5: Hephaestus Solar Bastion (Mercury / Solar Orbit)
+            5 => {
+                buffer.fill(0xFF1F0F00);
+                let flare = ((t * 2.0).sin().abs() * 30.0) as isize;
+                self.draw_rect(buffer, 0, 0, w, 40 + flare as usize, 0xFFFF7700);
+                self.draw_rect(buffer, 0, 0, w, 20 + (flare / 2) as usize, 0xFFFFDD00);
+            }
+            // Nivel 6: Titan Methane Spire (Saturn)
+            6 => {
+                buffer.fill(0xFF191004);
+                // Anillos de Saturno en la parte superior
+                self.draw_rect(buffer, 0, 30, w, 8, 0xFFC29B38);
+                self.draw_rect(buffer, 0, 34, w, 2, 0xFFF7E294);
+            }
+            // Nivel 7: Nemesis Mothership Fleet (Deep Space)
+            7 => {
+                buffer.fill(0xFF0D0614);
+                let hull_offset = (s * 0.4) as usize % 140;
+                for h_i in 0..(w / 140 + 2) {
+                    let hx = (h_i * 140) as isize - hull_offset as isize;
+                    self.draw_rect(buffer, hx, h as isize - 100, 120, 100, 0xFF1E172E);
+                    self.draw_rect(buffer, hx + 20, h as isize - 80, 80, 14, 0xFFFF007F); // Hangar
                 }
+            }
+            // Nivel 8: Quantum Singularity Core (The AI Overmind)
+            _ => {
+                buffer.fill(0xFF000000);
+                let grid_offset = (s * 0.6) as usize % 50;
+                for gx in 0..(w / 50 + 2) {
+                    let rx = (gx * 50) as isize - grid_offset as isize;
+                    self.draw_rect(buffer, rx, 0, 1, h, 0x44FF0033);
+                }
+                // Vórtice de singularidad central
+                let vortex_r = 50 + ((t * 4.0).sin().abs() * 14.0) as usize;
+                self.draw_point_light(buffer, (w / 2) as isize, (h / 2) as isize, vortex_r, 0xFFFF0055, 0.7);
             }
         }
     }
 
-    /// Renderiza un Soldado Humano Cibernético estilo Final Mission con animaciones completas
+/// Renderiza un Soldado Humano Cibernético con diseño individualizado para Arnold y Sigourney,
+    /// micro-animación de retroceso (recoil) y flight banking dinámico
     fn draw_human_cyber_soldier(&self, buffer: &mut [u32], player: &Player) {
         let px = player.x as isize;
         let py = player.y as isize;
@@ -473,84 +574,106 @@ impl Renderer {
             return;
         }
 
-        // Inclinación dinámica al moverlo en pantalla:
-        // vy negativo (subiendo) -> inclinación hacia arriba (-10°)
-        // vy positivo (bajando) -> inclinación hacia abajo (+10°)
-        let tilt_y = (player.vy * 0.035).clamp(-12.0, 12.0) as isize;
+        // Inclinación dinámica de vuelo (Flight Banking)
+        let tilt_deg = player.bank_angle;
+        let tilt_y = (tilt_deg * 0.8).clamp(-12.0, 12.0) as isize;
 
         // Flotación / oscilación natural de vuelo (hovering)
-        let hover_y = (t * 6.0).sin() * 2.5;
+        let hover_y = (t * 6.0).sin() * 2.2;
         let cy = py + hover_y as isize;
 
-        // 1. Llama de Plasma del Jetpack (animada, reactiva a la aceleración)
-        let thrust_bonus = if player.jetpack_active { 8 } else { 0 };
-        let flame_osc = ((t * 32.0).sin().abs() * (8.0 + thrust_bonus as f32)) as isize;
-        let jet_x = px - dir * 16;
+        // Paletas personalizadas:
+        // Arnold (P1): Cobalto (#0D47A1), acento cian (#00E5FF), visor cian neón (#00FFFF), escape plasma cian
+        // Sigourney (P2): Carmesí (#B71C1C), filigrana oro (#FFD700), visor ámbar/dorado (#FFD700), escape fusión oro/rojo
+        let is_p1 = player.id == 0;
+        let is_p2 = player.id == 1;
+
+        let (armor_base, armor_accent, visor_color, visor_glow) = if is_p1 {
+            (0xFF0D47A1, 0xFF00E5FF, 0xFF00FFFF, 0xFF00D2FF)
+        } else if is_p2 {
+            (0xFFB71C1C, 0xFFFFD700, 0xFFFFD700, 0xFFFF4500)
+        } else if player.id == 2 {
+            (0xFF1B5E20, 0xFF00FF77, 0xFF00FF66, 0xFF00E676)
+        } else {
+            (0xFF424242, 0xFFFFAB00, 0xFFFFD700, 0xFFFF8F00)
+        };
+
+        let (flame_core, flame_outer, spark_color) = if is_p1 {
+            (0xFFE0FFFF, 0xFF0066FF, 0xFF80D8FF)
+        } else if is_p2 {
+            (0xFFFFF9C4, 0xFFFF2200, 0xFFFFD700)
+        } else if player.id == 2 {
+            (0xFFCCFF90, 0xFF00C853, 0xFF69F0AE)
+        } else {
+            (0xFFFFF59D, 0xFFFF6D00, 0xFFFFD54F)
+        };
+
+        // Micro-animación de retroceso del arma (recoil kickback)
+        let recoil_px = (player.recoil_anim * 4.5) as isize;
+
+        // 1. LLAMA DE PLASMA DEL JETPACK (Animada y reactiva)
+        let thrust_bonus = if player.jetpack_active { 9 } else { 0 };
+        let flame_osc = ((t * 34.0).sin().abs() * (7.0 + thrust_bonus as f32)) as isize;
+        let jet_x = px - dir * 17;
         let jet_y = cy - 2 - (tilt_y / 2);
 
-        // Llamarada naranja fuego exterior
-        self.draw_rect(buffer, jet_x - dir * (12 + flame_osc), jet_y - 3, (12 + flame_osc) as usize, 8, 0xFFFF4500);
-        // Núcleo de plasma cian/blanco interior
-        self.draw_rect(buffer, jet_x - dir * (6 + flame_osc / 2), jet_y - 1, (6 + flame_osc / 2) as usize, 4, 0xFF00FFFF);
+        self.draw_rect(buffer, jet_x - dir * (12 + flame_osc), jet_y - 3, (12 + flame_osc) as usize, 8, flame_outer);
+        self.draw_rect(buffer, jet_x - dir * (6 + flame_osc / 2), jet_y - 1, (6 + flame_osc / 2) as usize, 4, flame_core);
 
-        // Chispas de propulsión al volar
-        if player.jetpack_active && ((t * 20.0) as usize % 2 == 0) {
-            let spark_x = jet_x - dir * (14 + flame_osc);
-            self.draw_circle(buffer, spark_x, jet_y + 1, 2, 0xFFFFD700);
+        if player.jetpack_active && ((t * 22.0) as usize % 2 == 0) {
+            let spark_x = jet_x - dir * (15 + flame_osc);
+            self.draw_circle(buffer, spark_x, jet_y + 1, 2, spark_color);
         }
 
-        // 2. Mochila Propulsora Jetpack (en la espalda del soldado)
-        self.draw_rect(buffer, px - dir * 14, cy - 8 + tilt_y, 8, 18, 0xFF3D4452); // Cilindro metálico
-        self.draw_rect(buffer, px - dir * 16, cy + 8 + tilt_y, 6, 6, 0xFF6C7A89);  // Tobera propulsora
-        self.draw_circle(buffer, px - dir * 10, cy - 4 + tilt_y, 2, 0xFF00FF66);   // LED verde
+        // 2. MOCHILA PROPULSORA JETPACK (Espalda)
+        self.draw_rect(buffer, px - dir * 15, cy - 8 + tilt_y, 8, 18, 0xFF37474F);
+        self.draw_rect(buffer, px - dir * 17, cy + 8 + tilt_y, 6, 6, 0xFF546E7A);
+        self.draw_circle(buffer, px - dir * 11, cy - 4 + tilt_y, 2, armor_accent);
 
-        // 3. Piernas y Botas Gravitacionales con balanceo al volar
-        let leg_sway = if player.jetpack_active { ((t * 14.0).sin() * 4.0) as isize } else { 0 };
-        self.draw_rect(buffer, px - dir * 4 + leg_sway, cy + 10 + tilt_y, 6, 12, 0xFF2038EB); // Azul cobalto
-        self.draw_rect(buffer, px + dir * 2 - leg_sway, cy + 8 + tilt_y, 6, 14, 0xFF2B303A);
-        self.draw_rect(buffer, px + dir * 2 - leg_sway, cy + 20 + tilt_y, 8, 4, player.color); // Bota
+        // 3. PIERNAS Y BOTAS GRAVITACIONALES (Con balanceo dinámico)
+        let leg_sway = if player.jetpack_active { ((t * 15.0).sin() * 4.0) as isize } else { 0 };
+        self.draw_rect(buffer, px - dir * 5 + leg_sway, cy + 10 + tilt_y, 6, 12, armor_base);
+        self.draw_rect(buffer, px + dir * 2 - leg_sway, cy + 8 + tilt_y, 6, 14, 0xFF263238);
+        self.draw_rect(buffer, px + dir * 2 - leg_sway, cy + 20 + tilt_y, 8, 4, armor_accent);
 
-        // 4. Torso y Peto de Combate Blindado (Armadura Exo-esqueleto)
-        self.draw_rect(buffer, px - dir * 6, cy - 6 + tilt_y, 14, 16, player.color);
+        // 4. TORSO Y CORAZA BLINDADA (Exoesqueleto)
+        self.draw_rect(buffer, px - dir * 7, cy - 6 + tilt_y, 15, 16, armor_base);
+        self.draw_rect(buffer, px - dir * 4, cy - 5 + tilt_y, 10, 4, armor_accent);
         self.draw_circle(buffer, px + dir * 2, cy - 1 + tilt_y, 3, 0xFFFFFFFF);
-        self.draw_rect(buffer, px - dir * 8, cy - 8 + tilt_y, 10, 6, 0xFFD8D8E0);
+        self.draw_circle(buffer, px + dir * 2, cy - 1 + tilt_y, 1, armor_accent);
+        self.draw_rect(buffer, px - dir * 9, cy - 8 + tilt_y, 10, 5, 0xFF90A4AE);
 
-        // 5. Cabeza y Casco Táctico con Visor Cibernético
-        self.draw_circle(buffer, px + dir * 2, cy - 14 + tilt_y, 7, 0xFF2F3542);
-        let visor_col = if player.id == 0 { 0xFF00FFFF } else { 0xFFFFD700 };
-        self.draw_rect(buffer, px + dir * 4, cy - 16 + tilt_y, 6, 4, visor_col);
+        // 5. CASCO TÁCTICO Y VISOR HUD CIBERNÉTICO
+        self.draw_circle(buffer, px + dir * 2, cy - 14 + tilt_y, 7, 0xFF263238);
+        self.draw_rect(buffer, px + dir * 4, cy - 16 + tilt_y, 6, 4, visor_color);
         self.draw_rect(buffer, px + dir * 6, cy - 16 + tilt_y, 2, 2, 0xFFFFFFFF);
+        self.draw_point_light(buffer, px + dir * 14, cy - 14 + tilt_y, 22, visor_glow, 0.4);
 
-        // Luz proyectada hacia adelante por el visor
-        self.draw_point_light(buffer, px + dir * 14, cy - 14 + tilt_y, 22, visor_col, 0.4);
-
-        // 6. Brazo y Rifle de Asalto de Plasma Pesado con retroceso (recoil)
-        let recoil = if player.fire_timer > 0.06 { 3 } else { 0 };
-        let gun_x = px + dir * (10 - recoil);
+        // 6. RIFLE DE ASALTO CON RETROCESO (Weapon Recoil)
+        let gun_x = px + dir * (10 - recoil_px);
         let gun_y = cy - 2 + tilt_y;
-        self.draw_rect(buffer, gun_x, gun_y, 18, 6, 0xFF737373);
-        self.draw_rect(buffer, gun_x + dir * 14, gun_y + 1, 6, 4, 0xFFBBBBBB);
-        self.draw_rect(buffer, gun_x + 4, gun_y - 3, 5, 3, 0xFFFF0055);
+        self.draw_rect(buffer, gun_x, gun_y, 18, 6, 0xFF455A64);
+        self.draw_rect(buffer, gun_x + dir * 14, gun_y + 1, 6, 4, 0xFFB0BEC5);
+        self.draw_rect(buffer, gun_x + 4, gun_y - 3, 6, 3, armor_accent);
 
-        // Fogonazo de disparo animado (Muzzle Flash)
-        if player.fire_timer > 0.05 {
+        // Fogonazo de disparo animado con Bloom
+        if player.fire_timer > 0.04 || player.recoil_anim > 0.6 {
             let flash_x = gun_x + dir * 20;
-            self.draw_circle(buffer, flash_x, gun_y + 3, 6, 0xFFFFFF00);
+            self.draw_circle(buffer, flash_x, gun_y + 3, 6, 0xFFFFFF80);
             self.draw_circle(buffer, flash_x, gun_y + 3, 3, 0xFFFFFFFF);
+            self.draw_point_light(buffer, flash_x, gun_y + 3, 20, armor_accent, 0.6);
         }
 
-        // 7. Satélites Orbitales de Apoyo Bivalvos (Final Mission Pods)
+        // 7. SATÉLITES ORBITALES BIVALVOS
         for sat in player.satellites.iter() {
             let sat_x = (player.x + sat.angle.cos() * sat.distance) as isize;
             let sat_y = (player.y + sat.angle.sin() * sat.distance) as isize;
-            let sat_color = if sat.is_locked { 0xFFFF0055 } else { 0xFF00E5FF };
+            let sat_pod_color = if sat.is_locked { 0xFFFF0055 } else { armor_accent };
 
-            // Cápsula bivalva con armadura de titanio
-            self.draw_circle(buffer, sat_x, sat_y, 9, 0xFF3A4250);
-            self.draw_circle(buffer, sat_x, sat_y, 7, sat_color);
+            self.draw_circle(buffer, sat_x, sat_y, 9, 0xFF263238);
+            self.draw_circle(buffer, sat_x, sat_y, 7, sat_pod_color);
             self.draw_circle(buffer, sat_x, sat_y, 3, 0xFFFFFFFF);
 
-            // Haz de mira láser direccional en 360 grados si está fijado (Satellite Lock)
             if sat.is_locked {
                 for step in 1..=3 {
                     let d = step as f32 * 10.0;
