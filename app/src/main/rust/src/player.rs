@@ -1,4 +1,7 @@
-//! Módulo del Jugador y Mecánica de Satélites Orbitales (Inspirado en Final Mission)
+//! Módulo del Jugador: Soldado Humano con Traje Avanzado y Jetpack
+//! Inspirado en Final Mission (Famicom/NES Japón) y Abadox de Natsume.
+//! Cuenta con vuelo multidireccional, orientación dinámica, retroceso de disparo,
+//! propulsor jetpack animado y 2 satélites orbitales de protección y asistencia táctica.
 
 use crate::bullet::{Bullet, BulletOwner, BulletType};
 
@@ -22,16 +25,22 @@ impl Satellite {
     pub fn new(initial_angle: f32) -> Self {
         Self {
             angle: initial_angle,
-            distance: 48.0,
+            distance: 46.0,
             is_locked: false,
             fire_cooldown: 0.0,
         }
     }
 
-    pub fn update(&mut self, dt: f32, lock_requested: bool) {
+    pub fn update(&mut self, dt: f32, lock_requested: bool, target_angle: Option<f32>) {
         self.is_locked = lock_requested;
-        if !self.is_locked {
-            self.angle += 3.5 * dt; // Rotación continua estilo Final Mission
+        if self.is_locked {
+            if let Some(target) = target_angle {
+                // Orientar suavemente hacia el ángulo deseado
+                let diff = target - self.angle;
+                self.angle += diff * (8.0 * dt).min(1.0);
+            }
+        } else {
+            self.angle += 3.8 * dt; // Rotación continua estilo Final Mission
             if self.angle > std::f32::consts::PI * 2.0 {
                 self.angle -= std::f32::consts::PI * 2.0;
             }
@@ -62,15 +71,18 @@ pub struct Player {
     pub fire_timer: f32,
     pub active: bool,
     pub color: u32,
+    pub facing_right: bool,
+    pub anim_timer: f32,
+    pub jetpack_active: bool,
 }
 
 impl Player {
     pub fn new(id: u8, start_x: f32, start_y: f32) -> Self {
         let color = match id {
-            0 => 0xFF00D2FF, // Azul eléctrico (P1)
-            1 => 0xFF3B3BFF, // Rojo cibernético (P2)
-            2 => 0xFF3BFF3B, // Verde plasma (P3)
-            _ => 0xFFFFD700, // Dorado solar (P4)
+            0 => 0xFF00D2FF, // Azul cobalto / cian (P1 - Arnold)
+            1 => 0xFFFF3344, // Rojo carmesí / rubí (P2 - Sigourney)
+            2 => 0xFF00FF77, // Verde plasma / esmeralda (P3 - Jax)
+            _ => 0xFFFFD700, // Dorado solar / titanio (P4 - Orion)
         };
 
         Self {
@@ -79,7 +91,7 @@ impl Player {
             y: start_y,
             vx: 0.0,
             vy: 0.0,
-            speed: 420.0,
+            speed: 460.0,
             health: 100.0,
             max_health: 100.0,
             lives: 3,
@@ -92,23 +104,41 @@ impl Player {
             fire_timer: 0.0,
             active: true,
             color,
+            facing_right: true,
+            anim_timer: 0.0,
+            jetpack_active: true,
         }
     }
 
-    pub fn update(&mut self, dt: f32, move_x: f32, move_y: f32, sat_lock: bool, screen_w: f32, screen_h: f32) {
+    /// Desplazamiento por arrastre táctil directo (Algoritmo de Jugador.java)
+    pub fn apply_touch_drag(&mut self, dx: f32, dy: f32, screen_w: f32, screen_h: f32) {
         if !self.active {
             return;
         }
 
-        // Movimiento suave con inercia controlada
-        self.vx = move_x * self.speed;
-        self.vy = move_y * self.speed;
-        self.x += self.vx * dt;
-        self.y += self.vy * dt;
+        self.x = (self.x + dx).clamp(36.0, screen_w - 36.0);
+        self.y = (self.y + dy).clamp(36.0, screen_h - 36.0);
 
-        // Limitar dentro de la pantalla
-        self.x = self.x.clamp(40.0, screen_w - 40.0);
-        self.y = self.y.clamp(40.0, screen_h - 40.0);
+        if dx > 0.8 {
+            self.facing_right = true;
+        } else if dx < -0.8 {
+            self.facing_right = false;
+        }
+
+        self.jetpack_active = dx.abs() > 0.2 || dy.abs() > 0.2;
+    }
+
+    pub fn update(
+        &mut self,
+        dt: f32,
+        sat_lock: bool,
+        target_angle: Option<f32>,
+    ) {
+        if !self.active {
+            return;
+        }
+
+        self.anim_timer += dt;
 
         if self.invulnerable_timer > 0.0 {
             self.invulnerable_timer -= dt;
@@ -117,9 +147,9 @@ impl Player {
             self.fire_timer -= dt;
         }
 
-        // Actualizar satélites
+        // Actualizar satélites orbitales
         for sat in self.satellites.iter_mut() {
-            sat.update(dt, sat_lock);
+            sat.update(dt, sat_lock, target_angle);
         }
     }
 
@@ -129,25 +159,28 @@ impl Player {
         }
 
         self.fire_timer = match self.weapon {
-            WeaponType::Vulcan => 0.12,
-            WeaponType::Laser => 0.22,
-            WeaponType::Spread => 0.18,
-            WeaponType::Homing => 0.28,
+            WeaponType::Vulcan => 0.11,
+            WeaponType::Laser => 0.20,
+            WeaponType::Spread => 0.17,
+            WeaponType::Homing => 0.26,
         };
 
         let owner = BulletOwner::Player(self.id);
+        let dir = if self.facing_right { 1.0 } else { -1.0 };
+        let gun_x = self.x + dir * 28.0;
+        let gun_y = self.y - 2.0;
 
-        // Disparo principal del caza
+        // Disparo principal del rifle de asalto del soldado humano
         match self.weapon {
             WeaponType::Vulcan => {
-                bullets.push(Bullet::new(self.x + 25.0, self.y, 900.0, 0.0, 6.0, 25.0, owner, BulletType::NormalVulcan, 0xFF00FFFF));
+                bullets.push(Bullet::new(gun_x, gun_y, dir * 950.0, 0.0, 6.0, 26.0, owner, BulletType::NormalVulcan, 0xFF00FFFF));
                 if self.weapon_power >= 2 {
-                    bullets.push(Bullet::new(self.x + 20.0, self.y - 12.0, 880.0, -80.0, 5.0, 20.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
-                    bullets.push(Bullet::new(self.x + 20.0, self.y + 12.0, 880.0, 80.0, 5.0, 20.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
+                    bullets.push(Bullet::new(gun_x, gun_y - 10.0, dir * 920.0, -90.0, 5.0, 22.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
+                    bullets.push(Bullet::new(gun_x, gun_y + 10.0, dir * 920.0, 90.0, 5.0, 22.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
                 }
             }
             WeaponType::Laser => {
-                bullets.push(Bullet::new(self.x + 35.0, self.y, 1400.0, 0.0, 10.0, 65.0, owner, BulletType::LaserBeam, 0xFFFF4500));
+                bullets.push(Bullet::new(gun_x, gun_y, dir * 1500.0, 0.0, 11.0, 70.0, owner, BulletType::LaserBeam, 0xFFFF4500));
             }
             WeaponType::Spread => {
                 let count = if self.weapon_power >= 2 { 5 } else { 3 };
@@ -155,24 +188,27 @@ impl Player {
                 let start_vy = -((count - 1) as f32 * spread_step * 0.5);
                 for i in 0..count {
                     let vy = start_vy + (i as f32 * spread_step);
-                    bullets.push(Bullet::new(self.x + 20.0, self.y, 820.0, vy, 7.0, 30.0, owner, BulletType::SpreadWave, 0xFF7CFC00));
+                    bullets.push(Bullet::new(gun_x, gun_y, dir * 850.0, vy, 7.0, 32.0, owner, BulletType::SpreadWave, 0xFF7CFC00));
                 }
             }
             WeaponType::Homing => {
-                bullets.push(Bullet::new(self.x + 20.0, self.y - 15.0, 500.0, -180.0, 6.0, 40.0, owner, BulletType::HomingMissile, 0xFFFF1493));
-                bullets.push(Bullet::new(self.x + 20.0, self.y + 15.0, 500.0, 180.0, 6.0, 40.0, owner, BulletType::HomingMissile, 0xFFFF1493));
+                bullets.push(Bullet::new(gun_x, gun_y - 12.0, dir * 550.0, -180.0, 6.0, 42.0, owner, BulletType::HomingMissile, 0xFFFF1493));
+                bullets.push(Bullet::new(gun_x, gun_y + 12.0, dir * 550.0, 180.0, 6.0, 42.0, owner, BulletType::HomingMissile, 0xFFFF1493));
             }
         }
 
-        // Disparo de apoyo de los Satélites Orbitales (Estilo Final Mission)
+        // Disparo de apoyo de los Satélites Orbitales
         for sat in self.satellites.iter_mut() {
             if sat.fire_cooldown <= 0.0 {
-                sat.fire_cooldown = 0.16;
+                sat.fire_cooldown = 0.15;
                 let sx = self.x + sat.angle.cos() * sat.distance;
                 let sy = self.y + sat.angle.sin() * sat.distance;
-                let vx = sat.angle.cos() * 800.0 + 300.0;
-                let vy = sat.angle.sin() * 800.0;
-                bullets.push(Bullet::new(sx, sy, vx, vy, 5.0, 18.0, BulletOwner::Satellite(self.id), BulletType::NormalVulcan, 0xFF00FFFF));
+                let (vx, vy) = if sat.is_locked {
+                    (sat.angle.cos() * 900.0, sat.angle.sin() * 900.0)
+                } else {
+                    (dir * 850.0, sat.angle.sin() * 400.0)
+                };
+                bullets.push(Bullet::new(sx, sy, vx, vy, 5.0, 19.0, BulletOwner::Satellite(self.id), BulletType::NormalVulcan, 0xFF00FFFF));
             }
         }
     }
@@ -193,7 +229,7 @@ impl Player {
             } else {
                 self.active = false;
             }
-            true // Murió o perdió vida
+            true
         } else {
             false
         }

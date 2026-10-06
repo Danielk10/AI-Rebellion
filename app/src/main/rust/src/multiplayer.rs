@@ -163,7 +163,7 @@ impl MultiplayerManager {
                                 remote_p.y = (remote_p.y + remote_p.vy * 0.016).clamp(40.0, screen_h - 40.0);
 
                                 for sat in remote_p.satellites.iter_mut() {
-                                    sat.update(0.016, sat_lock);
+                                    sat.update(0.016, sat_lock, None);
                                 }
 
                                 if fire {

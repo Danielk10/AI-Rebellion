@@ -1,37 +1,42 @@
-//! Módulo de Gestión de Controles Táctiles Multi-touch
-//! Incluye palanca virtual flotante, botones de acción (disparo, bomba, fijación de satélites)
+//! Módulo de Gestión de Experiencia Táctil Pura (Touch Puro, Sin Botones Virtuales)
+//! Inspirado en el algoritmo del código Java original (toquePresionado, toqueDeslizando, toqueLevantado)
+//! El jugador se desplaza suavemente por arrastre directo en cualquier punto de la pantalla,
+//! dispara automáticamente al mantener el toque, fija satélites con un segundo dedo y
+//! activa la bomba EMP con doble toque rápido (Double-Tap).
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct TouchPointer {
+pub struct ActivePointer {
     pub id: i32,
     pub x: f32,
     pub y: f32,
-    pub down: bool,
+    pub start_x: f32,
+    pub start_y: f32,
+    pub last_x: f32,
+    pub last_y: f32,
+    pub active: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct TouchControls {
-    pub pointers: [TouchPointer; 10],
+    pub pointers: [ActivePointer; 10],
+    pub primary_id: i32,
+    pub secondary_id: i32,
 
-    // Estado del joystick virtual
-    pub joystick_active: bool,
-    pub joystick_pointer_id: i32,
-    pub joystick_base_x: f32,
-    pub joystick_base_y: f32,
-    pub joystick_current_x: f32,
-    pub joystick_current_y: f32,
+    // Acumulador de desplazamiento relativo de arrastre (delta touch)
+    pub delta_x: f32,
+    pub delta_y: f32,
 
-    // Entradas analógicas normalizadas (-1.0 a 1.0)
-    pub move_x: f32,
-    pub move_y: f32,
+    // Estado de acciones de juego
+    pub is_touching: bool,
+    pub is_firing: bool,
+    pub satellite_lock: bool,
+    pub satellite_target_angle: Option<f32>,
+    pub trigger_bomb: bool,
 
-    // Estado de botones de acción
-    pub btn_fire: bool,
-    pub btn_special_bomb: bool,
-    pub btn_satellite_lock: bool,
-    pub btn_pause: bool,
+    // Detección de doble toque (Double-Tap) para activar Bomba EMP
+    pub last_tap_time: f32,
+    pub time_since_last_tap: f32,
 
-    // Configuración visual de botones
     pub screen_width: f32,
     pub screen_height: f32,
 }
@@ -39,19 +44,18 @@ pub struct TouchControls {
 impl TouchControls {
     pub fn new(w: f32, h: f32) -> Self {
         Self {
-            pointers: [TouchPointer::default(); 10],
-            joystick_active: false,
-            joystick_pointer_id: -1,
-            joystick_base_x: 200.0,
-            joystick_base_y: h - 200.0,
-            joystick_current_x: 200.0,
-            joystick_current_y: h - 200.0,
-            move_x: 0.0,
-            move_y: 0.0,
-            btn_fire: false,
-            btn_special_bomb: false,
-            btn_satellite_lock: false,
-            btn_pause: false,
+            pointers: [ActivePointer::default(); 10],
+            primary_id: -1,
+            secondary_id: -1,
+            delta_x: 0.0,
+            delta_y: 0.0,
+            is_touching: false,
+            is_firing: false,
+            satellite_lock: false,
+            satellite_target_angle: None,
+            trigger_bomb: false,
+            last_tap_time: 0.0,
+            time_since_last_tap: 10.0,
             screen_width: w,
             screen_height: h,
         }
@@ -60,111 +64,136 @@ impl TouchControls {
     pub fn resize(&mut self, w: f32, h: f32) {
         self.screen_width = w;
         self.screen_height = h;
-        if !self.joystick_active {
-            self.joystick_base_x = 220.0;
-            self.joystick_base_y = h - 220.0;
-            self.joystick_current_x = self.joystick_base_x;
-            self.joystick_current_y = self.joystick_base_y;
-        }
     }
 
+    pub fn update(&mut self, dt: f32) {
+        self.time_since_last_tap += dt;
+        // Reset de bomba de un solo cuadro si ya fue consumida
+        self.trigger_bomb = false;
+
+        // Reset de deltas de movimiento para el cuadro actual
+        self.delta_x = 0.0;
+        self.delta_y = 0.0;
+    }
+
+    /// Evento: dedo presiona la pantalla
     pub fn on_touch_down(&mut self, id: i32, x: f32, y: f32) {
         let idx = (id.abs() as usize) % self.pointers.len();
-        self.pointers[idx] = TouchPointer { id, x, y, down: true };
+        self.pointers[idx] = ActivePointer {
+            id,
+            x,
+            y,
+            start_x: x,
+            start_y: y,
+            last_x: x,
+            last_y: y,
+            active: true,
+        };
 
-        // Mitad izquierda de la pantalla -> Joystick virtual
-        if x < self.screen_width * 0.5 {
-            if !self.joystick_active {
-                self.joystick_active = true;
-                self.joystick_pointer_id = id;
-                self.joystick_base_x = x;
-                self.joystick_base_y = y;
-                self.joystick_current_x = x;
-                self.joystick_current_y = y;
-                self.update_joystick();
+        let active_count = self.count_active_pointers();
+
+        // 1. Asignar puntero primario (control de movimiento y auto-fire)
+        if self.primary_id == -1 {
+            self.primary_id = id;
+            self.is_touching = true;
+            self.is_firing = true;
+
+            // Detección de doble toque rápido (< 0.35s) para lanzar Bomba EMP
+            if self.time_since_last_tap < 0.35 {
+                self.trigger_bomb = true;
+                self.time_since_last_tap = 10.0; // Reset
+            } else {
+                self.time_since_last_tap = 0.0;
             }
-        } else {
-            // Mitad derecha -> Botones de acción
-            self.check_action_buttons(x, y, true);
+        } else if self.secondary_id == -1 && id != self.primary_id {
+            // 2. Segundo dedo presionado -> Activar Satellite Lock y orientar satélites
+            self.secondary_id = id;
+            self.satellite_lock = true;
+            self.update_satellite_aim();
+        }
+
+        if active_count >= 2 {
+            self.satellite_lock = true;
         }
     }
 
+    /// Evento: dedo se desliza por la pantalla (Algoritmo de arrastre relativo de Jugador.java)
     pub fn on_touch_move(&mut self, id: i32, x: f32, y: f32) {
         let idx = (id.abs() as usize) % self.pointers.len();
-        if self.pointers[idx].id == id {
+        if self.pointers[idx].id == id && self.pointers[idx].active {
+            let dx = x - self.pointers[idx].last_x;
+            let dy = y - self.pointers[idx].last_y;
+
             self.pointers[idx].x = x;
             self.pointers[idx].y = y;
-        }
+            self.pointers[idx].last_x = x;
+            self.pointers[idx].last_y = y;
 
-        if self.joystick_active && self.joystick_pointer_id == id {
-            self.joystick_current_x = x;
-            self.joystick_current_y = y;
-            self.update_joystick();
-        } else if x >= self.screen_width * 0.5 {
-            self.check_action_buttons(x, y, true);
+            // Si es el dedo principal, trasladar el desplazamiento al jugador
+            if self.primary_id == id {
+                self.delta_x += dx;
+                self.delta_y += dy;
+                self.is_firing = true;
+            } else if self.secondary_id == id {
+                // Segundo dedo ajusta el ángulo de fuego de los satélites
+                self.update_satellite_aim();
+            }
         }
     }
 
-    pub fn on_touch_up(&mut self, id: i32, x: f32, y: f32) {
+    /// Evento: dedo se levanta de la pantalla
+    pub fn on_touch_up(&mut self, id: i32, _x: f32, _y: f32) {
         let idx = (id.abs() as usize) % self.pointers.len();
-        self.pointers[idx].down = false;
+        self.pointers[idx].active = false;
 
-        if self.joystick_active && self.joystick_pointer_id == id {
-            self.joystick_active = false;
-            self.joystick_pointer_id = -1;
-            self.move_x = 0.0;
-            self.move_y = 0.0;
+        if self.primary_id == id {
+            // Buscar si queda otro dedo activo para promoverlo a primario
+            self.primary_id = -1;
+            for p in self.pointers.iter() {
+                if p.active {
+                    self.primary_id = p.id;
+                    break;
+                }
+            }
+            if self.primary_id == -1 {
+                self.is_touching = false;
+                self.is_firing = false;
+            }
         }
 
-        if x >= self.screen_width * 0.5 {
-            self.check_action_buttons(x, y, false);
+        if self.secondary_id == id {
+            self.secondary_id = -1;
         }
-    }
 
-    fn update_joystick(&mut self) {
-        let dx = self.joystick_current_x - self.joystick_base_x;
-        let dy = self.joystick_current_y - self.joystick_base_y;
-        let max_radius = 120.0f32;
-        let dist = (dx * dx + dy * dy).sqrt();
-
-        if dist > 0.0 {
-            let clamped_dist = dist.min(max_radius);
-            self.move_x = (dx / dist) * (clamped_dist / max_radius);
-            self.move_y = (dy / dist) * (clamped_dist / max_radius);
-        } else {
-            self.move_x = 0.0;
-            self.move_y = 0.0;
+        if self.count_active_pointers() < 2 {
+            self.satellite_lock = false;
+            self.satellite_target_angle = None;
         }
     }
 
-    fn check_action_buttons(&mut self, x: f32, y: f32, is_down: bool) {
-        let w = self.screen_width;
-        let h = self.screen_height;
+    fn count_active_pointers(&self) -> usize {
+        self.pointers.iter().filter(|p| p.active).count()
+    }
 
-        // Botón Disparo (Gran botón circular abajo a la derecha)
-        let fire_cx = w - 160.0;
-        let fire_cy = h - 160.0;
-        if ((x - fire_cx).powi(2) + (y - fire_cy).powi(2)).sqrt() < 100.0 {
-            self.btn_fire = is_down;
+    fn update_satellite_aim(&mut self) {
+        let mut p_pos = None;
+        let mut s_pos = None;
+
+        for p in self.pointers.iter() {
+            if p.active && p.id == self.primary_id {
+                p_pos = Some((p.x, p.y));
+            }
+            if p.active && p.id == self.secondary_id {
+                s_pos = Some((p.x, p.y));
+            }
         }
 
-        // Botón Bomba Especial (Arriba del botón de disparo)
-        let bomb_cx = w - 290.0;
-        let bomb_cy = h - 230.0;
-        if ((x - bomb_cx).powi(2) + (y - bomb_cy).powi(2)).sqrt() < 65.0 {
-            self.btn_special_bomb = is_down;
-        }
-
-        // Botón Satélites: Bloqueo de Ángulo / Modo Libre (Estilo Final Mission)
-        let sat_cx = w - 130.0;
-        let sat_cy = h - 310.0;
-        if ((x - sat_cx).powi(2) + (y - sat_cy).powi(2)).sqrt() < 65.0 {
-            self.btn_satellite_lock = is_down;
-        }
-
-        // Botón Pausa (Esquina superior derecha)
-        if x > w - 100.0 && y < 100.0 {
-            self.btn_pause = is_down;
+        if let (Some((px, py)), Some((sx, sy))) = (p_pos, s_pos) {
+            let dx = sx - px;
+            let dy = sy - py;
+            if dx.abs() > 5.0 || dy.abs() > 5.0 {
+                self.satellite_target_angle = Some(dy.atan2(dx));
+            }
         }
     }
 }

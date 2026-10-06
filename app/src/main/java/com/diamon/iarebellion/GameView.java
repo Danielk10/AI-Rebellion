@@ -42,6 +42,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
 
     private BluetoothSocket bluetoothSocket;
     private Thread bluetoothThread;
+    private ModernAudioManager modernAudio;
 
     public GameView(Context context) {
         super(context);
@@ -63,10 +64,12 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
         dstRect = new Rect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
         renderPaint = new Paint();
-        renderPaint.setFilterBitmap(false); // Estilo píxel art retro nítido
+        renderPaint.setFilterBitmap(true); // Suavizado de texturas y shaders modernos 2026
 
         setFocusable(true);
         setKeepScreenOn(true);
+
+        modernAudio = new ModernAudioManager(getContext());
 
         // Inicializar motor en Rust
         GameBridge.nativeInit(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
@@ -92,6 +95,9 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         pause();
+        if (modernAudio != null) {
+            modernAudio.release();
+        }
     }
 
     public void resume() {
@@ -100,6 +106,10 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
             renderThread = new Thread(this, "GameRenderThread");
             renderThread.start();
 
+            if (modernAudio != null) {
+                modernAudio.startBgm();
+            }
+
             startAudioThread();
             startBluetoothSync();
         }
@@ -107,6 +117,9 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
 
     public void pause() {
         isRunning = false;
+        if (modernAudio != null) {
+            modernAudio.pauseBgm();
+        }
         if (renderThread != null) {
             try {
                 renderThread.join(500);

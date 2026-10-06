@@ -82,12 +82,13 @@ impl Game {
         let h_f = self.height as f32;
         self.state_timer += dt;
 
-        // 1. Efectos visuales de fondo
+        // 1. Actualizar controles táctiles y efectos de fondo
+        self.touch_controls.update(dt);
         self.renderer.update_fx(dt);
 
         match self.state {
             GameState::TitleMenu => {
-                if self.touch_controls.btn_fire {
+                if self.touch_controls.is_touching {
                     self.start_game(1);
                 }
             }
@@ -137,12 +138,12 @@ impl Game {
                 }
             }
             GameState::GameOver => {
-                if self.state_timer > 3.0 && self.touch_controls.btn_fire {
+                if self.state_timer > 2.5 && self.touch_controls.is_touching {
                     self.start_game(1);
                 }
             }
             GameState::Victory => {
-                if self.state_timer > 5.0 && self.touch_controls.btn_fire {
+                if self.state_timer > 4.0 && self.touch_controls.is_touching {
                     self.start_game(1);
                 }
             }
@@ -171,16 +172,21 @@ impl Game {
 
     fn update_gameplay(&mut self, dt: f32, w_f: f32, h_f: f32) {
         let local_id = self.multiplayer.local_player_id as usize;
-        let move_x = self.touch_controls.move_x;
-        let move_y = self.touch_controls.move_y;
-        let sat_lock = self.touch_controls.btn_satellite_lock;
+        let delta_x = self.touch_controls.delta_x;
+        let delta_y = self.touch_controls.delta_y;
+        let is_firing = self.touch_controls.is_firing;
+        let sat_lock = self.touch_controls.satellite_lock;
+        let sat_angle = self.touch_controls.satellite_target_angle;
+        let trigger_bomb = self.touch_controls.trigger_bomb;
 
-        // 1. Transmitir controles locales vía Bluetooth
+        // 1. Transmitir controles locales vía Bluetooth (Vector normalizado de arrastre)
+        let norm_mx = (delta_x / 20.0).clamp(-1.0, 1.0);
+        let norm_my = (delta_y / 20.0).clamp(-1.0, 1.0);
         self.multiplayer.encode_input_packet(
-            move_x,
-            move_y,
-            self.touch_controls.btn_fire,
-            self.touch_controls.btn_special_bomb,
+            norm_mx,
+            norm_my,
+            is_firing,
+            trigger_bomb,
             sat_lock,
         );
 
@@ -204,19 +210,22 @@ impl Game {
             }
         }
 
-        // 3. Actualizar jugador local con controles táctiles
+        // 3. Actualizar soldado humano local con experiencia táctil pura (Arrastre 1:1)
         if let Some(p_local) = self.players.get_mut(local_id) {
-            p_local.update(dt, move_x, move_y, sat_lock, w_f, h_f);
+            p_local.apply_touch_drag(delta_x, delta_y, w_f, h_f);
+            p_local.update(dt, sat_lock, sat_angle);
 
-            if self.touch_controls.btn_fire {
+            if is_firing {
+                let bullets_before = self.bullets.len();
                 p_local.fire(&mut self.bullets);
-                self.audio_engine.play_sfx(SoundEffect::Laser);
+                if self.bullets.len() > bullets_before {
+                    self.audio_engine.play_sfx(SoundEffect::Laser);
+                }
             }
 
-            // Bomba especial EMP
-            if self.touch_controls.btn_special_bomb && p_local.bombs > 0 {
+            // Bomba especial EMP activada por doble toque rápido (< 0.35s)
+            if trigger_bomb && p_local.bombs > 0 {
                 p_local.bombs -= 1;
-                self.touch_controls.btn_special_bomb = false;
                 let bx = p_local.x;
                 let by = p_local.y;
                 self.trigger_bomb(bx, by);
@@ -367,7 +376,6 @@ impl Game {
             &self.enemies,
             &self.boss,
             &self.bullets,
-            &self.touch_controls,
             s_num,
             &s_name,
         );
