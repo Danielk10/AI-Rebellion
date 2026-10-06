@@ -76,14 +76,7 @@ tasks.register('buildRust', Exec) {
     description = "Compila el motor nativo en Rust con soporte PIE y páginas de 16 KB"
     workingDir "${projectDir}/src/main/rust"
     environment 'CARGO_BUILD_JOBS', '2'
-    def cargoBin = file('/tmp/cargo/bin/cargo').exists() ? '/tmp/cargo/bin/cargo' : 'cargo'
-    if (file('/tmp/cargo/bin').exists()) {
-        environment 'PATH', "/tmp/cargo/bin:" + System.getenv('PATH')
-        environment 'RUSTUP_HOME', '/tmp/rustup'
-        environment 'CARGO_HOME', '/tmp/cargo'
-        environment 'RUSTUP_TOOLCHAIN', 'stable'
-    }
-    commandLine cargoBin, 'build', '--target', 'aarch64-linux-android', '--release'
+    commandLine 'cargo', 'build', '--release'
     ignoreExitValue = true
 
     doLast {
