@@ -14,9 +14,12 @@ if ! adb -s "$DEVICE" get-state &>/dev/null; then
     adb-phone connect
 fi
 
+TERMUX_HOME="/data/data/com.termux/files/home"
+
 echo "🦀 1. Sincronizando código fuente Rust hacia Termux..."
-adb -s "$DEVICE" shell "run-as com.termux mkdir -p ~/AI-Rebellion/app/src/main/rust"
-tar -cz -C "$SCRIPT_DIR/app/src/main" rust | adb -s "$DEVICE" shell "run-as com.termux tar -xz -C ~/AI-Rebellion/app/src/main"
+adb -s "$DEVICE" shell "run-as com.termux sh -c 'mkdir -p $TERMUX_HOME/AI-Rebellion/app/src/main/rust'"
+tar --exclude='target' -cz -C "$SCRIPT_DIR/app/src/main" rust | adb -s "$DEVICE" shell "run-as com.termux sh -c 'tar -xz -C $TERMUX_HOME/AI-Rebellion/app/src/main'"
+
 
 echo "⚙️ 2. Compilando en Termux con 4 núcleos nativos Cortex-A53..."
 adb -s "$DEVICE" shell "run-as com.termux sh -c '
@@ -27,14 +30,15 @@ adb -s "$DEVICE" shell "run-as com.termux sh -c '
     export HOME=/data/data/com.termux/files/home
     export GOMAXPROCS=4
     export CARGO_BUILD_JOBS=4
-    cd ~/AI-Rebellion/app/src/main/rust
+    cd /data/data/com.termux/files/home/AI-Rebellion/app/src/main/rust
     cargo build --release
 '"
 
 echo "📥 3. Extrayendo libai_rebellion.so compilado..."
 DEST_DIR="$SCRIPT_DIR/app/src/main/jniLibs/arm64-v8a"
 mkdir -p "$DEST_DIR"
-adb -s "$DEVICE" exec-out "run-as com.termux cat ~/AI-Rebellion/app/src/main/rust/target/release/libai_rebellion.so" > "$DEST_DIR/libai_rebellion.so"
+adb -s "$DEVICE" exec-out "run-as com.termux cat /data/data/com.termux/files/home/AI-Rebellion/app/src/main/rust/target/release/libai_rebellion.so" > "$DEST_DIR/libai_rebellion.so"
+
 
 echo "✅ Binario nativo actualizado exitosamente en $DEST_DIR/libai_rebellion.so:"
 ls -lh "$DEST_DIR/libai_rebellion.so"

@@ -45,18 +45,24 @@ Inspirado en las obras maestras retro de NES / Famicom creadas por Natsume: **Fi
 
 ---
 
-## 🎮 Controles Táctiles Optimizados
-* **Palanca Virtual Flotante:** Detección táctil analógica dinámica en la mitad izquierda de la pantalla para maniobras evasivas fluidas.
-* **Botones de Acción Virtuales:** En la mitad derecha:
-  * **FIRE:** Disparo continuo y activación de satélites.
-  * **BOMB:** Disparo de la bomba de pulso electromagnético EMP.
-  * **LOCK:** Fijación del ángulo de rotación de los satélites orbitales.
+---
+
+## 🎮 Controles Táctiles Puros "Zero Buttons" (Experiencia Inmersiva)
+
+* **Pantalla 100% Limpia:** Eliminación total de D-Pads, palancas o botones virtuales para máxima visibilidad de los 8 escenarios.
+* **Fórmula de Arrastre Relativo 1:1:**
+  * Al apoyar el dedo, se calcula el vector relativo (`delta = touch - player`).
+  * Desplaza a la nave o soldado con latencia cero desde cualquier zona de la pantalla **sin que el dedo cubra el sprite**.
+* **Auto-Disparo Continuo:** Fuego constante de plasma mientras se mantenga contacto táctil.
+* **Giro Automático:** La orientación del soldado cambia automáticamente según la dirección del desplazamiento.
+* **Doble Toque Rápido (Double-Tap < 0.35 s):** Detona la **Bomba EMP Cuántica** de pantalla completa.
+* **Multi-Touch (Segundo Dedo):** Apoyar un segundo dedo activa el *Satellite Lock* y orienta el ángulo de fuego de los satélites orbitales.
 
 ---
 
 ## ⚙️ Arquitectura Técnica y Requisitos Nativos
 
-* **100% Rust Nativo:** Todo el núcleo de juego, la física, el rasterizador RGBA, el sintetizador de audio y el protocolo de red están implementados en Rust en `app/src/main/rust/`.
+* **100% Rust Nativo:** Todo el núcleo de juego, la física, el rasterizador RGBA con iluminación dinámica y bloom, el sintetizador de audio y el protocolo de red están implementados en Rust en `app/src/main/rust/`.
 * **PIE / PIC Compliant:** Binario generado con `-C relocation-model=pic` (Position-Independent Executable).
 * **Alineación de Páginas de 16 KB (Android 15+ / Google Play):**
   * Compilado con flags de enlace:
@@ -69,6 +75,8 @@ Inspirado en las obras maestras retro de NES / Famicom creadas por Natsume: **Fi
     LOAD ... R E 0x4000 (16384 bytes)
     LOAD ... RW  0x4000 (16384 bytes)
     ```
+* **Aislamiento de Compilación en `/tmp/ai_rebellion`:**
+  * Construcción intermedia y caché redirigidas a `/tmp` (`GRADLE_USER_HOME=/tmp/.gradle`) para proteger el espacio en disco en Cloud Shell.
 * **Compatibilidad de Herramientas:**
   * **Target SDK:** Android 37 (Android 16 / 15+)
   * **Min SDK:** 23 (Android 6.0+)
@@ -80,29 +88,31 @@ Inspirado en las obras maestras retro de NES / Famicom creadas por Natsume: **Fi
 
 ---
 
-## 🌿 Ramas del Repositorio
+## 🛠️ Compilación y Flujo de Trabajo
 
-* `main`: Motor moderno 100% Rust nativo (**IA Rebellion**), arquitectura 16 KB, pantalla táctil y multijugador Bluetooth.
-* `legacy-java`: Código original histórico del juego escrito en Java puro antes de la migración.
-
----
-
-## 🛠️ Compilación y Ejecución
-
-### Compilación desde Termux en Android
+### Opción 1: Compilación Automática en Termux vía ADB (Recomendado)
+Desde Cloud Shell o tu máquina anfitriona con el móvil conectado:
 ```bash
-cd app/src/main/rust
-cargo build --release -j 2
-cp target/release/libai_rebellion.so ../jniLibs/arm64-v8a/
+chmod +x ./compilar_en_termux.sh
+./compilar_en_termux.sh
+```
+*Este script sincroniza el código fuente hacia Termux, compila con los 4 núcleos nativos Cortex-A53 del teléfono y extrae automáticamente `libai_rebellion.so` hacia `app/src/main/jniLibs/arm64-v8a/`.*
+
+### Opción 2: Compilación Manual dentro de Termux
+Dentro del móvil:
+```bash
+chmod +x ./build_rust.sh
+./build_rust.sh
 ```
 
-### Generación del APK con Gradle
+### Opción 3: Generación e Instalación del APK
+Una vez compilado el módulo nativo:
 ```bash
+# 1. Empaquetar APK (salida aislada en /tmp/ai_rebellion)
 ./gradlew assembleDebug
+
+# 2. Instalar y lanzar en el dispositivo vía ADB
+adb -s localhost:5555 install -r /tmp/ai_rebellion/outputs/apk/debug/app-debug.apk
+adb -s localhost:5555 shell am start -n com.diamon.iarebellion/.MainActivity
 ```
 
-### Instalación en el dispositivo vía ADB
-```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.diamon.iarebellion/.MainActivity
-```

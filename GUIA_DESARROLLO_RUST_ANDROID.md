@@ -152,42 +152,41 @@ AI-Rebellion/
 
 ---
 
-### Opción B: Flujo de Trabajo con ADB desde PC / Host
+### Opción B: Flujo de Trabajo Automatizado desde Cloud Shell / PC con ADB
 
 1. **Conectar el dispositivo**:
    ```bash
-   adb devices
-   # Si usas ADB inalámbrico:
+   adb-phone connect
+   # O manualmente:
    adb connect localhost:5555
    ```
 
-2. **Transferir y compilar en Termux remotamente**:
+2. **Compilar en Termux y sincronizar el binario automáticamente**:
    ```bash
-   tar -czf /tmp/rust_src.tar.gz -C app/src/main rust
-   adb -s localhost:5555 push /tmp/rust_src.tar.gz /data/local/tmp/
-   adb -s localhost:5555 shell "run-as com.termux sh -c 'tar -xzf /data/local/tmp/rust_src.tar.gz -C ~/AI-Rebellion/app/src/main && cd ~/AI-Rebellion/app/src/main/rust && CARGO_BUILD_JOBS=2 cargo build --release'"
+   chmod +x ./compilar_en_termux.sh
+   ./compilar_en_termux.sh
    ```
+   *(El script sincroniza el código fuente hacia Termux excluyendo temporales, compila con los 4 núcleos Cortex-A53 y extrae `libai_rebellion.so` hacia `app/src/main/jniLibs/arm64-v8a/`).*
 
-3. **Extraer el binario compilado**:
-   ```bash
-   adb -s localhost:5555 exec-out "run-as com.termux cat ~/AI-Rebellion/app/src/main/rust/target/release/libai_rebellion.so" > app/src/main/jniLibs/arm64-v8a/libai_rebellion.so
-   ```
-
-4. **Compilar el APK con Gradle**:
+3. **Compilar el APK con Gradle (salida aislada en `/tmp/ai_rebellion`)**:
    ```bash
    ./gradlew assembleDebug
    ```
+   *Toda la compilación intermedia y caché se almacena en `/tmp` (`GRADLE_USER_HOME=/tmp/.gradle`), protegiendo el almacenamiento de `$HOME`.*
 
-5. **Instalar y Ejecutar en el Teléfono**:
+4. **Instalar y Ejecutar en el Teléfono**:
    ```bash
-   adb -s localhost:5555 install -r app/build/outputs/apk/debug/app-debug.apk
+   adb -s localhost:5555 install -r /tmp/ai_rebellion/outputs/apk/debug/app-debug.apk
    adb -s localhost:5555 shell am start -n com.diamon.iarebellion/.MainActivity
    ```
 
-6. **Capturar Pantalla del Juego en Tiempo Real**:
+5. **Capturar Pantalla del Juego en Tiempo Real**:
    ```bash
+   adb-phone screenshot
+   # O manualmente:
    adb -s localhost:5555 exec-out screencap -p > captura.png
    ```
+
 
 ---
 
