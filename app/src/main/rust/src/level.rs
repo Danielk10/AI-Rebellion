@@ -1,5 +1,5 @@
 //! Módulo de Gestión de los 8 Niveles de IA Rebellion
-//! Controla el desplazamiento del escenario, oleadas de enemigos y activación del jefe
+//! Controla el desplazamiento del escenario, oleadas de enemigos inspiradas en Final Mission y activación del jefe
 
 use crate::enemy::{Enemy, EnemyType};
 
@@ -50,12 +50,12 @@ impl LevelManager {
         match stage {
             1 => StageConfig {
                 number: 1,
-                name: "STAGE 1: EARTH ORBIT".to_string(),
-                subtitle: "Entrada Atmosférica y Escuadrón Centinela".to_string(),
+                name: "STAGE 1: RUINED NEW YORK CITY".to_string(),
+                subtitle: "Alzamiento de las Máquinas y Bastión Autónomo".to_string(),
                 scroll_speed: 160.0,
-                stage_length: 3200.0,
-                bg_color: 0xFF050515,
-                grid_color: 0x3300D2FF,
+                stage_length: 3400.0,
+                bg_color: 0xFF000000,
+                grid_color: 0x337F00EF,
             },
             2 => StageConfig {
                 number: 2,
@@ -154,35 +154,37 @@ impl LevelManager {
 
         match p {
             0 => {
-                // Formación V de drones patrulleros
+                // Formación V de drones cruciformes centinela (+)
                 enemies.push(Enemy::new(spawn_x, screen_h * 0.3, EnemyType::PatrolDrone));
                 enemies.push(Enemy::new(spawn_x + 60.0, screen_h * 0.5, EnemyType::PatrolDrone));
                 enemies.push(Enemy::new(spawn_x, screen_h * 0.7, EnemyType::PatrolDrone));
             }
             1 => {
-                // Enjambre kamikaze rápido
+                // Enjambre senoidal de drones bivalvos (almejas) estilo Final Mission
                 for i in 0..4 {
-                    let y = screen_h * 0.2 + (i as f32 * 140.0);
-                    enemies.push(Enemy::new(spawn_x + (i as f32 * 40.0), y, EnemyType::KamikazeWasp));
+                    let y = screen_h * 0.25 + (i as f32 * 110.0);
+                    enemies.push(Enemy::new(spawn_x + (i as f32 * 50.0), y, EnemyType::KamikazeWasp));
                 }
             }
             2 => {
-                // Torretas pesadas
-                enemies.push(Enemy::new(spawn_x, screen_h * 0.25, EnemyType::LaserTurret));
-                enemies.push(Enemy::new(spawn_x, screen_h * 0.75, EnemyType::LaserTurret));
+                // Torretas S-400 montadas en tuberías del techo e infraestructura de tierra
+                enemies.push(Enemy::new(spawn_x, 68.0, EnemyType::LaserTurret));
+                enemies.push(Enemy::new(spawn_x + 70.0, screen_h - 68.0, EnemyType::LaserTurret));
             }
             3 => {
-                // Criaturas biomecánicas / asteroides
+                // Mechas de combate pesado / sondas magnéticas
                 enemies.push(Enemy::new(spawn_x, screen_h * 0.5, EnemyType::CyberCrab));
-                enemies.push(Enemy::new(spawn_x + 90.0, screen_h * 0.3, EnemyType::AsteroidLeech));
+                enemies.push(Enemy::new(spawn_x + 90.0, screen_h * 0.35, EnemyType::AsteroidLeech));
             }
             4 => {
-                // Cazas furtivos
-                enemies.push(Enemy::new(spawn_x, screen_h * 0.4, EnemyType::StealthStriker));
-                enemies.push(Enemy::new(spawn_x + 80.0, screen_h * 0.6, EnemyType::StealthStriker));
+                // Cañoneras tácticas rebeldes
+                enemies.push(Enemy::new(spawn_x, screen_h * 0.38, EnemyType::StealthStriker));
+                enemies.push(Enemy::new(spawn_x + 80.0, screen_h * 0.62, EnemyType::StealthStriker));
             }
             _ => {
-                enemies.push(Enemy::new(spawn_x, screen_h * 0.5, EnemyType::PatrolDrone));
+                // Patrullas perimétricas
+                enemies.push(Enemy::new(spawn_x, screen_h * 0.45, EnemyType::PatrolDrone));
+                enemies.push(Enemy::new(spawn_x + 50.0, screen_h - 68.0, EnemyType::LaserTurret));
             }
         }
     }

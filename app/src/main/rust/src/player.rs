@@ -1,7 +1,7 @@
-//! Módulo del Jugador: Soldado Humano con Traje Avanzado y Jetpack
-//! Inspirado en Final Mission (Famicom/NES Japón) y Abadox de Natsume.
-//! Cuenta con vuelo multidireccional, orientación dinámica, retroceso de disparo,
-//! propulsor jetpack animado y 2 satélites orbitales de protección y asistencia táctica.
+//! Módulo del Jugador: Comando Cibernético Humano con Traje Avanzado y Jetpack
+//! Inspirado en Final Mission (Famicom/NES Japón) de Natsume en la Rebelión de la IA.
+//! Cuenta con vuelo multidireccional 1:1, orientación independiente adelante/atrás,
+//! propulsor jetpack animado de plasma y 2 satélites tácticos bivalvos orbitales.
 
 use crate::bullet::{Bullet, BulletOwner, BulletType};
 
@@ -15,7 +15,8 @@ pub enum WeaponType {
 
 #[derive(Clone, Debug)]
 pub struct Satellite {
-    pub angle: f32,
+    pub angle: f32,        // Posición orbital alrededor del jugador
+    pub aim_angle: f32,    // Dirección de disparo independiente (360°)
     pub distance: f32,
     pub is_locked: bool,
     pub fire_cooldown: f32,
@@ -25,6 +26,7 @@ impl Satellite {
     pub fn new(initial_angle: f32) -> Self {
         Self {
             angle: initial_angle,
+            aim_angle: initial_angle,
             distance: 46.0,
             is_locked: false,
             fire_cooldown: 0.0,
@@ -35,15 +37,21 @@ impl Satellite {
         self.is_locked = lock_requested;
         if self.is_locked {
             if let Some(target) = target_angle {
-                // Orientar suavemente hacia el ángulo deseado
-                let diff = target - self.angle;
-                self.angle += diff * (8.0 * dt).min(1.0);
+                // Camino angular más corto (evita saltos bruscos en +/- PI)
+                let mut diff = (target - self.aim_angle) % (std::f32::consts::PI * 2.0);
+                if diff > std::f32::consts::PI {
+                    diff -= std::f32::consts::PI * 2.0;
+                } else if diff < -std::f32::consts::PI {
+                    diff += std::f32::consts::PI * 2.0;
+                }
+                self.aim_angle += diff * (14.0 * dt).min(1.0);
             }
         } else {
             self.angle += 3.8 * dt; // Rotación continua estilo Final Mission
             if self.angle > std::f32::consts::PI * 2.0 {
                 self.angle -= std::f32::consts::PI * 2.0;
             }
+            self.aim_angle = self.angle;
         }
         if self.fire_cooldown > 0.0 {
             self.fire_cooldown -= dt;
@@ -79,10 +87,10 @@ pub struct Player {
 impl Player {
     pub fn new(id: u8, start_x: f32, start_y: f32) -> Self {
         let color = match id {
-            0 => 0xFF00D2FF, // Azul cobalto / cian (P1 - Arnold)
-            1 => 0xFFFF3344, // Rojo carmesí / rubí (P2 - Sigourney)
-            2 => 0xFF00FF77, // Verde plasma / esmeralda (P3 - Jax)
-            _ => 0xFFFFD700, // Dorado solar / titanio (P4 - Orion)
+            0 => 0xFF00D2FF, // Arnold: Armadura azul cobalto / cian
+            1 => 0xFFFF3344, // Sigourney: Armadura carmesí / rubí
+            2 => 0xFF00FF77, // Jax: Verde plasma / esmeralda
+            _ => 0xFFFFD700, // Orion: Titanio solar dorado
         };
 
         Self {
@@ -110,7 +118,16 @@ impl Player {
         }
     }
 
-    /// Desplazamiento por arrastre táctil directo (Algoritmo de Jugador.java)
+    pub fn toggle_facing(&mut self) {
+        self.facing_right = !self.facing_right;
+    }
+
+    pub fn set_facing(&mut self, right: bool) {
+        self.facing_right = right;
+    }
+
+    /// Desplazamiento por arrastre táctil directo 1:1 (Algoritmo de Jugador.java)
+    /// Conserva orientación independiente adelante/atrás estilo Final Mission NES
     pub fn apply_touch_drag(&mut self, dx: f32, dy: f32, screen_w: f32, screen_h: f32) {
         if !self.active {
             return;
@@ -118,12 +135,6 @@ impl Player {
 
         self.x = (self.x + dx).clamp(36.0, screen_w - 36.0);
         self.y = (self.y + dy).clamp(36.0, screen_h - 36.0);
-
-        if dx > 0.8 {
-            self.facing_right = true;
-        } else if dx < -0.8 {
-            self.facing_right = false;
-        }
 
         self.jetpack_active = dx.abs() > 0.2 || dy.abs() > 0.2;
     }
@@ -147,7 +158,7 @@ impl Player {
             self.fire_timer -= dt;
         }
 
-        // Actualizar satélites orbitales
+        // Actualizar satélites tácticos bivalvos
         for sat in self.satellites.iter_mut() {
             sat.update(dt, sat_lock, target_angle);
         }
@@ -170,7 +181,7 @@ impl Player {
         let gun_x = self.x + dir * 28.0;
         let gun_y = self.y - 2.0;
 
-        // Disparo principal del rifle de asalto del soldado humano
+        // Disparo principal del fusil de asalto pesado anti-IA
         match self.weapon {
             WeaponType::Vulcan => {
                 bullets.push(Bullet::new(gun_x, gun_y, dir * 950.0, 0.0, 6.0, 26.0, owner, BulletType::NormalVulcan, 0xFF00FFFF));
@@ -197,14 +208,14 @@ impl Player {
             }
         }
 
-        // Disparo de apoyo de los Satélites Orbitales
+        // Disparo táctico de los Satélites Orbitales en 360°
         for sat in self.satellites.iter_mut() {
             if sat.fire_cooldown <= 0.0 {
                 sat.fire_cooldown = 0.15;
                 let sx = self.x + sat.angle.cos() * sat.distance;
                 let sy = self.y + sat.angle.sin() * sat.distance;
                 let (vx, vy) = if sat.is_locked {
-                    (sat.angle.cos() * 900.0, sat.angle.sin() * 900.0)
+                    (sat.aim_angle.cos() * 900.0, sat.aim_angle.sin() * 900.0)
                 } else {
                     (dir * 850.0, sat.angle.sin() * 400.0)
                 };

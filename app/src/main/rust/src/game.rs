@@ -52,7 +52,7 @@ impl Game {
         let players = vec![p1];
 
         Self {
-            state: GameState::InGame,
+            state: GameState::TitleMenu, // Inicia con la pantalla de presentación Diamon Black - Powered by Rust
             state_timer: 0.0,
             width: w,
             height: h,
@@ -119,16 +119,23 @@ impl Game {
         if let Some((target_x, target_y)) = self.touch_controls.on_touch_move(id, x, y) {
             if let Some(p) = self.players.get_mut(local_id) {
                 let old_x = p.x;
-                // Límites exactos de Jugador.java:
-                p.x = target_x.clamp(36.0, w_f - 36.0);
-                p.y = target_y.clamp(36.0, h_f - 36.0);
+                let old_y = p.y;
+                let new_x = target_x.clamp(36.0, w_f - 36.0);
+                let new_y = target_y.clamp(36.0, h_f - 36.0);
 
-                if p.x > old_x + 0.3 {
-                    p.facing_right = true;
-                } else if p.x < old_x - 0.3 {
-                    p.facing_right = false;
+                let dx = new_x - old_x;
+                let dy = new_y - old_y;
+
+                p.x = new_x;
+                p.y = new_y;
+                p.vx = dx * 60.0;
+                p.vy = dy * 60.0;
+                p.jetpack_active = dx.abs() > 0.15 || dy.abs() > 0.15;
+
+                // Gesto de Flick horizontal rápido para voltear:
+                if let Some(flick_right) = self.touch_controls.flick_facing.take() {
+                    p.facing_right = flick_right;
                 }
-                p.jetpack_active = true;
             }
         }
     }
@@ -137,6 +144,14 @@ impl Game {
     pub fn on_touch_up(&mut self, id: i32, x: f32, y: f32) {
         let local_id = self.multiplayer.local_player_id as usize;
         self.touch_controls.on_touch_up(id, x, y);
+
+        // Multi-touch: Toque rápido con segundo dedo conmuta orientación (Volteo 180° estilo Final Mission)
+        if self.touch_controls.toggle_facing {
+            self.touch_controls.toggle_facing = false;
+            if let Some(p) = self.players.get_mut(local_id) {
+                p.toggle_facing();
+            }
+        }
 
         // Si se promovió el segundo dedo a primario, inicializar delta con la posición actual
         if self.touch_controls.primary_id != -1 && !self.touch_controls.touch_initialized {
@@ -159,7 +174,7 @@ impl Game {
 
         match self.state {
             GameState::TitleMenu => {
-                if self.touch_controls.is_touching {
+                if self.state_timer > 3.5 || self.touch_controls.is_touching {
                     self.start_game(1);
                 }
             }
@@ -258,6 +273,14 @@ impl Game {
         let sat_lock = self.touch_controls.satellite_lock;
         let sat_angle = self.touch_controls.satellite_target_angle;
         let trigger_bomb = self.touch_controls.trigger_bomb;
+
+        // Conmutación de orientación si quedó pendiente
+        if self.touch_controls.toggle_facing {
+            self.touch_controls.toggle_facing = false;
+            if let Some(p) = self.players.get_mut(local_id) {
+                p.toggle_facing();
+            }
+        }
 
         // 1. Transmitir controles vía Bluetooth (Vector normalizado de posición)
         if let Some(p) = self.players.get(local_id) {
@@ -425,7 +448,7 @@ impl Game {
                             break;
                         }
 
-                        // Impacto en el caza del jugador
+                        // Impacto en el soldado del jugador
                         let dist = ((b.x - p.x).powi(2) + (b.y - p.y).powi(2)).sqrt();
                         if dist < (b.radius + 18.0) {
                             b.active = false;
@@ -446,6 +469,11 @@ impl Game {
     }
 
     pub fn render(&mut self, buffer: &mut [u32]) {
+        if self.state == GameState::TitleMenu {
+            self.renderer.render_splash_screen(buffer, self.state_timer);
+            return;
+        }
+
         let bg = self.level_manager.config.bg_color;
         let s_num = self.level_manager.current_stage;
         let s_name = self.level_manager.config.name.clone();

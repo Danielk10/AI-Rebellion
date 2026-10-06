@@ -1,18 +1,18 @@
 //! Módulo de los 8 Jefes Principales (Bosses) para los 8 Niveles de IA Rebellion
-//! Basado en las mecánicas de jefes de Final Mission y Abadox de Natsume
+//! Basado en las fortalezas mecánicas y autómatas colosales de Final Mission
 
 use crate::bullet::{Bullet, BulletOwner, BulletType};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum BossId {
-    Stage1ZeroAlpha,     // Órbita Terrestre
-    Stage2BlazeColossus, // Fábrica de Drones
-    Stage3SentinelHunter,// Megaciudad Desolada
-    Stage4GaiaBioCore,   // Complejo Subterráneo Ciber-Orgánico (Abadox)
-    Stage5LuxFortress,   // Estación Espacial Militar
-    Stage6OrionStriker,  // Cinturón de Asteroides
-    Stage7NebulaDread,   // Súper-Nodriza Matriz
-    Stage8NyxOvermind,   // Núcleo Cuántico de la IA Rebelde (Final)
+    Stage1TitanWarcrawler, // Titán de asedio mecánico terrestre en Ruined NYC
+    Stage2BlazeColossus,   // Fábrica de Drones
+    Stage3SentinelHunter,  // Megaciudad Desolada
+    Stage4GaiaBioCore,     // Complejo Subterráneo Ciber-Orgánico (Abadox)
+    Stage5LuxFortress,     // Estación Espacial Militar
+    Stage6OrionStriker,    // Cinturón de Asteroides
+    Stage7NebulaDread,     // Súper-Nodriza Matriz
+    Stage8NyxOvermind,     // Núcleo Cuántico de la IA Rebelde (Final)
 }
 
 #[derive(Clone, Debug)]
@@ -37,7 +37,7 @@ pub struct Boss {
 impl Boss {
     pub fn new_for_stage(stage: u8, screen_w: f32, screen_h: f32) -> Self {
         let (id, name, hp, r) = match stage {
-            1 => (BossId::Stage1ZeroAlpha, "ZERO-ALPHA GUARDIAN", 1200.0, 70.0),
+            1 => (BossId::Stage1TitanWarcrawler, "TITAN-01 WARCRAWLER (ROGUE AI)", 1350.0, 78.0),
             2 => (BossId::Stage2BlazeColossus, "BLAZE-COLOSSUS", 2000.0, 85.0),
             3 => (BossId::Stage3SentinelHunter, "SENTINEL-V HUNTER", 2600.0, 65.0),
             4 => (BossId::Stage4GaiaBioCore, "GAIA-BIOCORE", 3400.0, 95.0),
@@ -59,7 +59,7 @@ impl Boss {
             health: hp,
             max_health: hp,
             phase: 1,
-            attack_timer: 2.0,
+            attack_timer: 1.8,
             move_timer: 0.0,
             active: true,
             defeated: false,
@@ -102,17 +102,33 @@ impl Boss {
     fn execute_boss_attack(&mut self, player_x: f32, player_y: f32, bullets: &mut Vec<Bullet>) {
         let owner = BulletOwner::Boss;
         self.attack_timer = match self.phase {
-            3 => 1.1,
-            2 => 1.5,
-            _ => 2.0,
+            3 => 1.0,
+            2 => 1.4,
+            _ => 1.9,
         };
 
         match self.id {
-            // Jefe 1: Ráfaga triple y láser de pulso
-            BossId::Stage1ZeroAlpha => {
-                for i in -2..=2 {
-                    let angle = (i as f32) * 0.18;
-                    bullets.push(Bullet::new(self.x - 30.0, self.y, -480.0 * angle.cos(), 480.0 * angle.sin(), 7.0, 20.0, owner, BulletType::EnemyPlasma, 0xFFFF0055));
+            // Jefe 1: TITAN-01 WARCRAWLER - Sistema multi-arma de asedio
+            BossId::Stage1TitanWarcrawler => {
+                let dx = player_x - self.x;
+                let dy = player_y - self.y;
+                let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+                let aim_vx = (dx / dist) * 440.0;
+                let aim_vy = (dy / dist) * 440.0;
+
+                // 1. Torreta superior dirigida
+                bullets.push(Bullet::new(self.x - 45.0, self.y - 36.0, aim_vx, aim_vy, 7.0, 20.0, owner, BulletType::EnemyPlasma, 0xFFFF2020));
+
+                // 2. Batería de mortero inferior
+                bullets.push(Bullet::new(self.x - 30.0, self.y + 36.0, -420.0, 90.0, 8.0, 22.0, owner, BulletType::EnemyPlasma, 0xFFFF8C00));
+                bullets.push(Bullet::new(self.x - 30.0, self.y + 36.0, -420.0, -90.0, 8.0, 22.0, owner, BulletType::EnemyPlasma, 0xFFFF8C00));
+
+                // 3. Fases 2 y 3: Núcleo cuántico expuesto dispara ráfaga expansiva
+                if self.phase >= 2 {
+                    for i in -2..=2 {
+                        let rad = (i as f32) * 0.22;
+                        bullets.push(Bullet::new(self.x - 55.0, self.y, -460.0 * rad.cos(), 460.0 * rad.sin(), 6.5, 18.0, owner, BulletType::EnemyPlasma, 0xFFFF0066));
+                    }
                 }
             }
             // Jefe 2: Salvas industriales de mortero

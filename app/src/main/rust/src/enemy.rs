@@ -1,16 +1,17 @@
 //! Módulo de Enemigos Comunes y Cápsulas de Mejoras (Items)
-//! Diseñado con la estética biomecánica de Abadox y ciber-rebelión
+//! Diseñado con la estética de Final Mission y la Rebelión de la IA:
+//! Autómatas rebeldes, torretas S-400 orientables, drones cruciformes y cápsulas bivalvas.
 
 use crate::bullet::{Bullet, BulletOwner, BulletType};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum EnemyType {
-    PatrolDrone,
-    KamikazeWasp,
-    LaserTurret,
-    CyberCrab,
-    AsteroidLeech,
-    StealthStriker,
+    PatrolDrone,    // Dron cruciforme centinela de la IA (+)
+    KamikazeWasp,   // Dron cazador bivalvo (almeja) en trayectoria senoidal
+    LaserTurret,    // Torreta S-400Phalanx orientable montada en tuberías o suelo
+    CyberCrab,      // Androide / Mecha pesado de asalto
+    AsteroidLeech,  // Mina magnética o sonda parasitaria
+    StealthStriker, // Cañonera aérea militar subvertida
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -47,18 +48,22 @@ pub struct Enemy {
     pub fire_timer: f32,
     pub active: bool,
     pub time_alive: f32,
+    pub aim_angle: f32,   // Orientación del cañón hacia el jugador (estilo Final Mission)
+    pub is_ceiling: bool, // Montada en tubería del techo o invertida
 }
 
 impl Enemy {
     pub fn new(x: f32, y: f32, e_type: EnemyType) -> Self {
         let (hp, r, vx, vy) = match e_type {
             EnemyType::PatrolDrone => (35.0, 18.0, -180.0, 0.0),
-            EnemyType::KamikazeWasp => (20.0, 14.0, -290.0, 0.0),
-            EnemyType::LaserTurret => (90.0, 24.0, -110.0, 0.0),
-            EnemyType::CyberCrab => (150.0, 28.0, -90.0, 30.0),
-            EnemyType::AsteroidLeech => (75.0, 22.0, -140.0, 0.0),
-            EnemyType::StealthStriker => (60.0, 19.0, -240.0, 0.0),
+            EnemyType::KamikazeWasp => (24.0, 15.0, -260.0, 0.0),
+            EnemyType::LaserTurret => (95.0, 24.0, -110.0, 0.0),
+            EnemyType::CyberCrab => (160.0, 28.0, -90.0, 30.0),
+            EnemyType::AsteroidLeech => (75.0, 20.0, -140.0, 0.0),
+            EnemyType::StealthStriker => (65.0, 20.0, -230.0, 0.0),
         };
+
+        let is_ceiling = y < 140.0;
 
         Self {
             x,
@@ -69,9 +74,11 @@ impl Enemy {
             health: hp,
             max_health: hp,
             enemy_type: e_type,
-            fire_timer: 1.0,
+            fire_timer: 0.8,
             active: true,
             time_alive: 0.0,
+            aim_angle: std::f32::consts::PI, // Hacia la izquierda por defecto
+            is_ceiling,
         }
     }
 
@@ -83,20 +90,29 @@ impl Enemy {
         self.time_alive += dt;
         self.fire_timer -= dt;
 
-        // Movimiento según patrón
+        // Calcular ángulo continuo hacia el jugador (tracking estilo Final Mission)
+        let dx = player_x - self.x;
+        let dy = player_y - self.y;
+        self.aim_angle = dy.atan2(dx);
+
+        // Movimiento según patrón táctico
         match self.enemy_type {
             EnemyType::KamikazeWasp => {
-                let dy = player_y - self.y;
-                self.y += dy.signum() * 140.0 * dt;
+                // Vuelo ondulatorio senoidal de enjambre (estilo capturas fm_08)
                 self.x += self.vx * dt;
+                self.y += (self.time_alive * 5.0).sin() * 160.0 * dt;
             }
             EnemyType::PatrolDrone => {
                 self.x += self.vx * dt;
-                self.y += (self.time_alive * 4.0).sin() * 80.0 * dt;
+                self.y += (self.time_alive * 3.5).sin() * 70.0 * dt;
             }
             EnemyType::CyberCrab => {
                 self.x += self.vx * dt;
-                self.y += (self.time_alive * 2.5).cos() * 95.0 * dt;
+                self.y += (self.time_alive * 2.2).cos() * 90.0 * dt;
+            }
+            EnemyType::LaserTurret => {
+                // Sigue la velocidad de desplazamiento del escenario
+                self.x += self.vx * dt;
             }
             _ => {
                 self.x += self.vx * dt;
@@ -104,31 +120,33 @@ impl Enemy {
             }
         }
 
-        // Disparo enemigo
-        if self.fire_timer <= 0.0 && self.x > 50.0 && self.x < 1800.0 {
+        // Disparo enemigo dirigido
+        if self.fire_timer <= 0.0 && self.x > 40.0 && self.x < 1800.0 {
             self.fire_timer = match self.enemy_type {
-                EnemyType::LaserTurret => 1.8,
-                EnemyType::CyberCrab => 2.2,
-                _ => 2.6,
+                EnemyType::LaserTurret => 1.7,
+                EnemyType::CyberCrab => 2.0,
+                EnemyType::StealthStriker => 1.9,
+                _ => 2.5,
             };
 
-            let dx = player_x - self.x;
-            let dy = player_y - self.y;
-            let dist = (dx * dx + dy * dy).sqrt().max(1.0);
-            let b_speed = 360.0;
-            let vx = (dx / dist) * b_speed;
-            let vy = (dy / dist) * b_speed;
+            let b_speed = 370.0;
+            let vx = self.aim_angle.cos() * b_speed;
+            let vy = self.aim_angle.sin() * b_speed;
+
+            let muzzle_dist = self.radius + 6.0;
+            let spawn_x = self.x + self.aim_angle.cos() * muzzle_dist;
+            let spawn_y = self.y + self.aim_angle.sin() * muzzle_dist;
 
             bullets.push(Bullet::new(
-                self.x - 10.0,
-                self.y,
+                spawn_x,
+                spawn_y,
                 vx,
                 vy,
                 6.0,
                 15.0,
                 BulletOwner::Enemy,
                 BulletType::EnemyPlasma,
-                0xFFFF3030,
+                0xFFFF2828,
             ));
         }
 
