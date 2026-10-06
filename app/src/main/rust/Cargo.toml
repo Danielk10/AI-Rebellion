@@ -1,0 +1,11 @@
+[package]
+name = "ai_rebellion"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+name = "ai_rebellion"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = { version = "0.22", default-features = false }

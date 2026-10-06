@@ -2,34 +2,112 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { instr ->
+        keystoreProperties.load(instr)
+    }
+}
+
 android {
     namespace 'com.diamon.iarebellion'
-    compileSdk 36
+    compileSdk 37
 
     defaultConfig {
-        applicationId "com.diamon.myapplication"
+        applicationId "com.diamon.iarebellion"
         minSdk 23
-        targetSdk 36
+        targetSdk 37
         versionCode 1
         versionName "1.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = file(keystoreProperties['storeFile'])
+                storePassword = keystoreProperties['storePassword']
+                keyAlias = keystoreProperties['keyAlias']
+                keyPassword = keystoreProperties['keyPassword']
+            } else {
+                def envStoreFile = System.getenv("SIGNING_STORE_FILE")
+                storeFile = envStoreFile ? file(envStoreFile) : null
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
+
+    buildToolsVersion '37.0.0'
+    ndkVersion '30.0.14904198 rc1'
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+
+    buildFeatures {
+        resValues true
+    }
+}
+
+// Tarea para compilar el motor nativo Rust con Cargo y colocar libai_rebellion.so en jniLibs
+tasks.register('buildRust', Exec) {
+    description = "Compila el motor nativo en Rust con soporte PIE y páginas de 16 KB"
+    workingDir "${projectDir}/src/main/rust"
+    environment 'CARGO_BUILD_JOBS', '2'
+    environment 'RUSTFLAGS', '-C relocation-model=pic -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384'
+    commandLine 'cargo', 'build', '--release'
+    ignoreExitValue = true
+
+    doLast {
+        def jniArm64Dir = file("${projectDir}/src/main/jniLibs/arm64-v8a")
+        jniArm64Dir.mkdirs()
+
+        def candidateFiles = [
+            file("${projectDir}/src/main/rust/target/aarch64-linux-android/release/libai_rebellion.so"),
+            file("${projectDir}/src/main/rust/target/release/libai_rebellion.so")
+        ]
+
+        for (candidate in candidateFiles) {
+            if (candidate.exists()) {
+                copy {
+                    from candidate
+                    into jniArm64Dir
+                }
+                println "-> Copiado ${candidate} a ${jniArm64Dir}"
+                break
+            }
+        }
+    }
+}
+
+// Vincula la compilación de Rust antes del empaquetado de librerías JNI
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibFolders") }.configureEach {
+    dependsOn 'buildRust'
 }
 
 dependencies {
-
     implementation libs.appcompat
     implementation libs.material
     implementation libs.activity

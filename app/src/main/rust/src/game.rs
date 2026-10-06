@@ -1,0 +1,411 @@
+//! Bucle Principal del Juego (Master Game Loop) de IA Rebellion
+//! Orquesta lógica de juego, colisiones, 8 niveles, 8 jefes, audio y multijugador
+
+use crate::audio::{AudioEngine, SoundEffect};
+use crate::boss::Boss;
+use crate::bullet::{Bullet, BulletOwner};
+use crate::enemy::Enemy;
+use crate::level::LevelManager;
+use crate::multiplayer::MultiplayerManager;
+use crate::player::Player;
+use crate::renderer::Renderer;
+use crate::touch::TouchControls;
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum GameState {
+    TitleMenu,
+    StageIntro,
+    InGame,
+    BossBattle,
+    StageClear,
+    GameOver,
+    Victory,
+}
+
+pub struct Game {
+    pub state: GameState,
+    pub state_timer: f32,
+    pub width: usize,
+    pub height: usize,
+
+    pub players: Vec<Player>,
+    pub enemies: Vec<Enemy>,
+    pub boss: Option<Boss>,
+    pub bullets: Vec<Bullet>,
+
+    pub level_manager: LevelManager,
+    pub touch_controls: TouchControls,
+    pub renderer: Renderer,
+    pub audio_engine: AudioEngine,
+    pub multiplayer: MultiplayerManager,
+
+    pub total_score: u32,
+    pub high_score: u32,
+}
+
+impl Game {
+    pub fn new(w: usize, h: usize) -> Self {
+        let w_f = w as f32;
+        let h_f = h as f32;
+
+        let p1 = Player::new(0, 160.0, h_f * 0.5);
+        let players = vec![p1];
+
+        Self {
+            state: GameState::InGame,
+            state_timer: 0.0,
+            width: w,
+            height: h,
+            players,
+            enemies: Vec::with_capacity(64),
+            boss: None,
+            bullets: Vec::with_capacity(256),
+            level_manager: LevelManager::new(1),
+            touch_controls: TouchControls::new(w_f, h_f),
+            renderer: Renderer::new(w, h),
+            audio_engine: AudioEngine::new(),
+            multiplayer: MultiplayerManager::new(true, 0),
+            total_score: 0,
+            high_score: 50000,
+        }
+    }
+
+    pub fn resize(&mut self, w: usize, h: usize) {
+        self.width = w;
+        self.height = h;
+        self.touch_controls.resize(w as f32, h as f32);
+        self.renderer.resize(w, h);
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        let w_f = self.width as f32;
+        let h_f = self.height as f32;
+        self.state_timer += dt;
+
+        // 1. Efectos visuales de fondo
+        self.renderer.update_fx(dt);
+
+        match self.state {
+            GameState::TitleMenu => {
+                if self.touch_controls.btn_fire {
+                    self.start_game(1);
+                }
+            }
+            GameState::StageIntro => {
+                if self.state_timer > 2.5 {
+                    self.state = GameState::InGame;
+                    self.state_timer = 0.0;
+                }
+            }
+            GameState::InGame => {
+                // Actualizar nivel y verificar si debe entrar el Boss
+                let trigger_boss = self.level_manager.update(dt, w_f, h_f, &mut self.enemies);
+                if trigger_boss {
+                    self.state = GameState::BossBattle;
+                    self.boss = Some(Boss::new_for_stage(self.level_manager.current_stage, w_f, h_f));
+                    self.audio_engine.play_sfx(SoundEffect::BossAlarm);
+                }
+
+                self.update_gameplay(dt, w_f, h_f);
+            }
+            GameState::BossBattle => {
+                let p_x = self.players.first().map(|p| p.x).unwrap_or(w_f * 0.5);
+                let p_y = self.players.first().map(|p| p.y).unwrap_or(h_f * 0.5);
+
+                if let Some(b) = self.boss.as_mut() {
+                    b.update(dt, p_x, p_y, w_f, h_f, &mut self.bullets);
+                    if b.defeated {
+                        self.renderer.add_explosion(b.x, b.y, 40, 0xFFFF4500);
+                        self.audio_engine.play_sfx(SoundEffect::Explosion);
+                        self.total_score += 10000 * (self.level_manager.current_stage as u32);
+
+                        if self.level_manager.current_stage >= 8 {
+                            self.state = GameState::Victory;
+                        } else {
+                            self.state = GameState::StageClear;
+                        }
+                        self.state_timer = 0.0;
+                    }
+                }
+
+                self.update_gameplay(dt, w_f, h_f);
+            }
+            GameState::StageClear => {
+                if self.state_timer > 3.0 {
+                    let next_stage = self.level_manager.current_stage + 1;
+                    self.start_game(next_stage);
+                }
+            }
+            GameState::GameOver => {
+                if self.state_timer > 3.0 && self.touch_controls.btn_fire {
+                    self.start_game(1);
+                }
+            }
+            GameState::Victory => {
+                if self.state_timer > 5.0 && self.touch_controls.btn_fire {
+                    self.start_game(1);
+                }
+            }
+        }
+    }
+
+    fn start_game(&mut self, stage: u8) {
+        let _w_f = self.width as f32;
+        let h_f = self.height as f32;
+        self.level_manager.set_stage(stage);
+        self.audio_engine.stage_theme = stage;
+        self.state = GameState::StageIntro;
+        self.state_timer = 0.0;
+        self.boss = None;
+        self.enemies.clear();
+        self.bullets.clear();
+
+        for p in self.players.iter_mut() {
+            p.x = 160.0;
+            p.y = h_f * 0.5;
+            p.health = p.max_health;
+            p.active = true;
+            p.invulnerable_timer = 2.0;
+        }
+    }
+
+    fn update_gameplay(&mut self, dt: f32, w_f: f32, h_f: f32) {
+        let local_id = self.multiplayer.local_player_id as usize;
+        let move_x = self.touch_controls.move_x;
+        let move_y = self.touch_controls.move_y;
+        let sat_lock = self.touch_controls.btn_satellite_lock;
+
+        // 1. Transmitir controles locales vía Bluetooth
+        self.multiplayer.encode_input_packet(
+            move_x,
+            move_y,
+            self.touch_controls.btn_fire,
+            self.touch_controls.btn_special_bomb,
+            sat_lock,
+        );
+
+        // 2. Si es anfitrión, emitir sincronización de estado periódica (20 Hz)
+        if self.multiplayer.is_host {
+            self.multiplayer.sync_timer += dt;
+            if self.multiplayer.sync_timer >= 0.05 {
+                self.multiplayer.sync_timer = 0.0;
+                for p in self.players.iter() {
+                    if p.active {
+                        self.multiplayer.encode_player_sync(
+                            p.id,
+                            p.x,
+                            p.y,
+                            p.health,
+                            p.score,
+                            p.weapon as u8,
+                        );
+                    }
+                }
+            }
+        }
+
+        // 3. Actualizar jugador local con controles táctiles
+        if let Some(p_local) = self.players.get_mut(local_id) {
+            p_local.update(dt, move_x, move_y, sat_lock, w_f, h_f);
+
+            if self.touch_controls.btn_fire {
+                p_local.fire(&mut self.bullets);
+                self.audio_engine.play_sfx(SoundEffect::Laser);
+            }
+
+            // Bomba especial EMP
+            if self.touch_controls.btn_special_bomb && p_local.bombs > 0 {
+                p_local.bombs -= 1;
+                self.touch_controls.btn_special_bomb = false;
+                let bx = p_local.x;
+                let by = p_local.y;
+                self.trigger_bomb(bx, by);
+            }
+        }
+
+        // 4. Actualizar proyectiles
+        let p_x = self.players.first().map(|p| p.x).unwrap_or(0.0);
+        let p_y = self.players.first().map(|p| p.y).unwrap_or(0.0);
+        for b in self.bullets.iter_mut() {
+            b.update(dt, p_x, p_y);
+        }
+        self.bullets.retain(|b| b.active);
+
+        // 5. Actualizar enemigos comunes
+        for e in self.enemies.iter_mut() {
+            e.update(dt, p_x, p_y, &mut self.bullets);
+        }
+        self.enemies.retain(|e| e.active);
+
+        // 6. Detectar colisiones
+        self.check_collisions();
+    }
+
+    fn trigger_bomb(&mut self, bx: f32, by: f32) {
+        self.renderer.add_explosion(bx, by, 60, 0xFF00FFFF);
+        self.audio_engine.play_sfx(SoundEffect::BombExplosion);
+
+        // Elimina proyectiles enemigos
+        for b in self.bullets.iter_mut() {
+            if b.owner == BulletOwner::Enemy || b.owner == BulletOwner::Boss {
+                b.active = false;
+            }
+        }
+
+        // Daña a todos los enemigos en pantalla
+        for e in self.enemies.iter_mut() {
+            e.health -= 300.0;
+            if e.health <= 0.0 {
+                e.active = false;
+                self.total_score += 150;
+            }
+        }
+
+        // Daña al jefe si está activo
+        if let Some(b) = self.boss.as_mut() {
+            b.take_damage(500.0);
+        }
+    }
+
+    fn check_collisions(&mut self) {
+        // Colisión: Proyectiles del jugador vs Enemigos
+        for b in self.bullets.iter_mut() {
+            if !b.active {
+                continue;
+            }
+
+            match b.owner {
+                BulletOwner::Player(_) | BulletOwner::Satellite(_) => {
+                    // Contra enemigos comunes
+                    for e in self.enemies.iter_mut() {
+                        if !e.active {
+                            continue;
+                        }
+                        let dist = ((b.x - e.x).powi(2) + (b.y - e.y).powi(2)).sqrt();
+                        if dist < (b.radius + e.radius) {
+                            b.active = false;
+                            e.health -= b.damage;
+                            self.renderer.add_explosion(b.x, b.y, 4, 0xFFFFFF00);
+
+                            if e.health <= 0.0 {
+                                e.active = false;
+                                self.total_score += 200;
+                                self.renderer.add_explosion(e.x, e.y, 14, 0xFFFF4500);
+                                self.audio_engine.play_sfx(SoundEffect::Explosion);
+                            }
+                            break;
+                        }
+                    }
+
+                    // Contra el Boss
+                    if let Some(boss) = self.boss.as_mut() {
+                        if boss.active && !boss.defeated {
+                            let dist = ((b.x - boss.x).powi(2) + (b.y - boss.y).powi(2)).sqrt();
+                            if dist < (b.radius + boss.radius) {
+                                b.active = false;
+                                boss.take_damage(b.damage);
+                                self.total_score += 50;
+                                self.renderer.add_explosion(b.x, b.y, 6, 0xFFFF0055);
+                            }
+                        }
+                    }
+                }
+                BulletOwner::Enemy | BulletOwner::Boss => {
+                    // Contra Jugador o sus Satélites
+                    for p in self.players.iter_mut() {
+                        if !p.active || p.invulnerable_timer > 0.0 {
+                            continue;
+                        }
+
+                        // Satélites orbitales destruyen balas enemigas (Mecánica Final Mission)
+                        let mut blocked_by_sat = false;
+                        for sat in p.satellites.iter() {
+                            let sx = p.x + sat.angle.cos() * sat.distance;
+                            let sy = p.y + sat.angle.sin() * sat.distance;
+                            let dist_sat = ((b.x - sx).powi(2) + (b.y - sy).powi(2)).sqrt();
+                            if dist_sat < (b.radius + 12.0) {
+                                b.active = false;
+                                blocked_by_sat = true;
+                                self.renderer.add_explosion(sx, sy, 5, 0xFF00FFFF);
+                                break;
+                            }
+                        }
+
+                        if blocked_by_sat {
+                            break;
+                        }
+
+                        // Impacto en el caza del jugador
+                        let dist = ((b.x - p.x).powi(2) + (b.y - p.y).powi(2)).sqrt();
+                        if dist < (b.radius + 18.0) {
+                            b.active = false;
+                            let died = p.take_damage(b.damage);
+                            self.audio_engine.play_sfx(SoundEffect::PlayerHit);
+                            self.renderer.add_explosion(p.x, p.y, 18, 0xFFFF0000);
+
+                            if died && p.lives <= 0 {
+                                self.state = GameState::GameOver;
+                                self.state_timer = 0.0;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn render(&mut self, buffer: &mut [u32]) {
+        let bg = self.level_manager.config.bg_color;
+        let s_num = self.level_manager.current_stage;
+        let s_name = self.level_manager.config.name.clone();
+
+        self.renderer.render_frame(
+            buffer,
+            bg,
+            &self.players,
+            &self.enemies,
+            &self.boss,
+            &self.bullets,
+            &self.touch_controls,
+            s_num,
+            &s_name,
+        );
+    }
+
+    pub fn process_bluetooth_data(&mut self, data: &[u8]) {
+        let w_f = self.width as f32;
+        let h_f = self.height as f32;
+        self.multiplayer.process_incoming(
+            data,
+            &mut self.players,
+            &mut self.bullets,
+            w_f,
+            h_f,
+        );
+
+        if let Some(pid) = self.multiplayer.trigger_bomb_request.take() {
+            if let Some(p) = self.players.get(pid as usize) {
+                let bx = p.x;
+                let by = p.y;
+                self.trigger_bomb(bx, by);
+            }
+        }
+    }
+
+    pub fn get_bluetooth_outgoing(&mut self) -> Vec<u8> {
+        self.multiplayer.take_outgoing_bytes()
+    }
+
+    pub fn set_multiplayer(&mut self, is_host: bool, player_id: u8) {
+        let pid = player_id.min(3);
+        self.multiplayer.set_mode(is_host, pid);
+
+        let h_f = self.height as f32;
+        while self.players.len() <= (pid as usize) {
+            let next_id = self.players.len() as u8;
+            let py = (100.0 + (next_id as f32) * 80.0).min(h_f - 100.0);
+            self.players.push(Player::new(next_id, 160.0, py));
+        }
+    }
+}
