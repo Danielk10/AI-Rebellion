@@ -11,6 +11,9 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
+    // Redirigir la carpeta build a /tmp/ai_rebellion
+    project.layout.buildDirectory.set(file("/tmp/ai_rebellion"))
+
     namespace 'com.diamon.iarebellion'
     compileSdk 37
 
@@ -71,13 +74,16 @@ android {
     }
 }
 
-// Tarea para compilar el motor nativo Rust con Cargo y colocar libai_rebellion.so en jniLibs
+// Tarea para compilar el motor nativo Rust con Cargo (solo si no fue precompilado en Termux)
 tasks.register('buildRust', Exec) {
     description = "Compila el motor nativo en Rust con soporte PIE y páginas de 16 KB"
     workingDir "${projectDir}/src/main/rust"
     environment 'CARGO_BUILD_JOBS', '2'
     commandLine 'cargo', 'build', '--release'
     ignoreExitValue = true
+    onlyIf {
+        !file("${projectDir}/src/main/jniLibs/arm64-v8a/libai_rebellion.so").exists()
+    }
 
     doLast {
         def jniArm64Dir = file("${projectDir}/src/main/jniLibs/arm64-v8a")

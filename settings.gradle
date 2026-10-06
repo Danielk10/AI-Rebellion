@@ -21,3 +21,12 @@ dependencyResolutionManagement {
 
 rootProject.name = "AI-Rebellion"
 include ':app'
+
+// Redirigir el build directory de todos los proyectos a /tmp/ai_rebellion para proteger $HOME
+gradle.beforeProject { p ->
+    if (p.name == 'app') {
+        p.layout.buildDirectory.set(file("/tmp/ai_rebellion"))
+    } else {
+        p.layout.buildDirectory.set(file("/tmp/ai_rebellion/${p.name}"))
+    }
+}

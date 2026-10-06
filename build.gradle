@@ -2,3 +2,6 @@
 plugins {
 alias(libs.plugins.android.application) apply false
 }
+
+// Redirigir la carpeta build del proyecto raíz a /tmp/ai_rebellion
+layout.buildDirectory.set(file("/tmp/ai_rebellion/root-build"))
