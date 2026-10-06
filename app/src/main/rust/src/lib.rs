@@ -5,9 +5,12 @@ pub mod enemy;
 pub mod game;
 pub mod level;
 pub mod multiplayer;
+pub mod native_activity;
 pub mod player;
 pub mod renderer;
 pub mod touch;
+
+pub use native_activity::ANativeActivity_onCreate;
 
 use std::sync::Mutex;
 use jni::errors::Error;
@@ -88,7 +91,7 @@ pub extern "system" fn Java_com_diamon_iarebellion_GameBridge_nativeUpdateAndRen
                     std::slice::from_raw_parts(rb_lock.as_ptr() as *const jint, rb_lock.len())
                 };
 
-                env.set_int_array_region(&pixel_buffer, 0, i32_slice)?;
+                pixel_buffer.set_region(env, 0, i32_slice)?;
             }
             Ok(())
         })

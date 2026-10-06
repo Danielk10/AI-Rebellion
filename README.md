@@ -121,6 +121,15 @@ Una vez compilado el módulo nativo:
 
 # 2. Instalar y lanzar en el dispositivo vía ADB
 adb -s localhost:5555 install -r /tmp/ai_rebellion/outputs/apk/debug/app-debug.apk
-adb -s localhost:5555 shell am start -n com.diamon.iarebellion/.MainActivity
+adb -s localhost:5555 shell monkey -p com.diamon.iarebellion -c android.intent.category.LAUNCHER 1
+# O iniciar directamente la NativeActivity:
+adb -s localhost:5555 shell am start -n com.diamon.iarebellion/android.app.NativeActivity
 ```
+
+---
+
+## 📖 Documentación y Directivas del Proyecto
+
+* **[`GEMINI.md`](GEMINI.md):** Manual de procedimiento operativo estándar para Agentes de IA (Antigravity CLI / Gemini CLI) con el flujo de trabajo obligatorio paso a paso (ADB ➔ Termux ➔ Gradle ➔ Dispositivo ➔ GitHub).
+* **[`GUIA_DESARROLLO_RUST_ANDROID.md`](GUIA_DESARROLLO_RUST_ANDROID.md):** Guía técnica completa sobre la arquitectura 100% nativa (`android.app.NativeActivity`), renderizado directo a `ANativeWindow`, eventos táctiles `AInputQueue`, compatibilidad 16 KB / PIE y protocolo multijugador Bluetooth.
 

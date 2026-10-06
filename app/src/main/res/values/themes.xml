@@ -1,8 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.AI_Rebellion" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    <style name="Base.Theme.AI_Rebellion" parent="@android:style/Theme.NoTitleBar.Fullscreen">
     </style>
 
     <style name="Theme.AI_Rebellion" parent="Base.Theme.AI_Rebellion" />

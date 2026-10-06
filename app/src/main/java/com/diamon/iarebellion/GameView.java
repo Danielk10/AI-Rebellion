@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import android.bluetooth.BluetoothSocket;
+import android.util.Log;
 
 /**
  * Vista de alto rendimiento basada en SurfaceView para IA R3bellion.
@@ -144,6 +145,12 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
     public void run() {
         long lastTime = System.nanoTime();
         final long targetFrameNs = 16_666_666L; // 60 FPS
+        int frameCounter = 0;
+        long totalRustNs = 0;
+        long totalLockNs = 0;
+        long totalDrawNs = 0;
+        long totalPostNs = 0;
+        long lastLogTime = System.currentTimeMillis();
 
         while (isRunning) {
             long now = System.nanoTime();
@@ -154,16 +161,26 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
             if (dt > 0.1f) dt = 0.016f;
 
             // 1. Actualizar lógica y rasterizar fotograma en Rust
+            long t0 = System.nanoTime();
             GameBridge.nativeUpdateAndRender(pixelBuffer, dt);
+            long t1 = System.nanoTime();
 
             // 2. Volcar píxeles al SurfaceView
             Canvas canvas = null;
+            long t2 = t1;
+            long t3 = t1;
+            long t4 = t1;
             try {
-                canvas = holder.lockCanvas();
+                canvas = holder.lockHardwareCanvas();
+                if (canvas == null) {
+                    canvas = holder.lockCanvas();
+                }
+                t2 = System.nanoTime();
                 if (canvas != null) {
                     renderBitmap.setPixels(pixelBuffer, 0, VIRTUAL_WIDTH, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
                     canvas.drawBitmap(renderBitmap, srcRect, dstRect, renderPaint);
                 }
+                t3 = System.nanoTime();
             } catch (Exception e) {
                 // Ignore lock drops
             } finally {
@@ -172,6 +189,30 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback, Run
                         holder.unlockCanvasAndPost(canvas);
                     } catch (Exception ignored) {}
                 }
+                t4 = System.nanoTime();
+            }
+
+            frameCounter++;
+            totalRustNs += (t1 - t0);
+            totalLockNs += (t2 - t1);
+            totalDrawNs += (t3 - t2);
+            totalPostNs += (t4 - t3);
+
+            if (System.currentTimeMillis() - lastLogTime >= 1000) {
+                float avgRust = (totalRustNs / (float) frameCounter) / 1_000_000.0f;
+                float avgLock = (totalLockNs / (float) frameCounter) / 1_000_000.0f;
+                float avgDraw = (totalDrawNs / (float) frameCounter) / 1_000_000.0f;
+                float avgPost = (totalPostNs / (float) frameCounter) / 1_000_000.0f;
+                float avgTotal = avgRust + avgLock + avgDraw + avgPost;
+                float fps = 1000.0f / Math.max(0.001f, avgTotal);
+                Log.i("GamePerf", String.format("Frames: %d | Rust: %.2fms | Lock: %.2fms | Draw: %.2fms | Post: %.2fms | Total: %.2fms | FPS: %.1f",
+                        frameCounter, avgRust, avgLock, avgDraw, avgPost, avgTotal, fps));
+                frameCounter = 0;
+                totalRustNs = 0;
+                totalLockNs = 0;
+                totalDrawNs = 0;
+                totalPostNs = 0;
+                lastLogTime = System.currentTimeMillis();
             }
 
             // 3. Regular a 60 FPS
