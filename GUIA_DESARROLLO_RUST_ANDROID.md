@@ -8,9 +8,10 @@
 
 ## 1. Características Principales y Filosofía 2026
 
-1. **100% Rust Nativo (Sin C / C++)**:
-   - Toda la física del juego, máquina de estados, detección de colisiones, cálculo de iluminación dinámica puntual, sistema de partículas y protocolo de red Bluetooth están programados en **Rust** puro (`cdylib` mediante `jni = "0.22"`).
-   - Java actúa únicamente como contenedor ligero de la plataforma Android (`SurfaceView`, `ModernAudioManager` con `SoundPool`/`MediaPlayer` y sockets Bluetooth RFCOMM).
+1. **100% Rust Nativo Puro (Android NativeActivity - Arquitectura Zero-Java estilo Whisk3D)**:
+   - Toda la física del juego, máquina de estados, detección de colisiones, cálculo de iluminación dinámica puntual, sistema de partículas y protocolo de red Bluetooth están programados en **Rust** puro (`cdylib`).
+   - **Cero sobrecarga de Java por cuadro**: Arranca directamente desde el sistema operativo mediante `android.app.NativeActivity` con el punto de entrada `ANativeActivity_onCreate` exportado en Rust. El renderizado escribe directo al framebuffer nativo (`ANativeWindow`) y los gestos táctiles se leen directamente de `AInputQueue` (`AMotionEvent`), eliminando pausas de GC y reduciendo la latencia de entrada a niveles de microsegundos.
+
 
 2. **Requisitos Críticos de Android Moderno**:
    - **16 KB Page Alignment**: Totalmente compatible con **Android 15+**, compilando con banderas de enlazador `-Wl,-z,max-page-size=16384` y `-Wl,-z,common-page-size=16384`. Segmentos `LOAD` alineados a `0x4000`.

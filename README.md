@@ -65,7 +65,11 @@ Inspirado en las obras maestras retro de NES / Famicom creadas por Natsume: **Fi
 
 ## ⚙️ Arquitectura Técnica y Requisitos Nativos
 
-* **100% Rust Nativo:** Todo el núcleo de juego, la física, el rasterizador RGBA con iluminación dinámica y bloom, el sintetizador de audio y el protocolo de red están implementados en Rust en `app/src/main/rust/`.
+* **100% Rust Nativo Puro (Android NativeActivity):**
+  * Toda la aplicación opera bajo `android.app.NativeActivity`, arrancando directamente desde el símbolo C ABI `ANativeActivity_onCreate` en Rust.
+  * **Cero intermediación de Java por cuadro:** Se elimina el puente JNI para el dibujo y los eventos táctiles, logrando latencia cero y eliminando pausas por Garbage Collection (GC).
+  * **Acceso Directo al Framebuffer (`ANativeWindow`):** Rust vuelca los píxeles directamente a la superficie nativa de SurfaceFlinger mediante `ANativeWindow_lock` y `ANativeWindow_unlockAndPost`.
+  * **Manejo Nativo de Entradas (`AInputQueue`):** Los gestos táctiles se procesan directamente desde los eventos del kernel (`AMotionEvent`) hacia el módulo `touch.rs`.
 * **PIE / PIC Compliant:** Binario generado con `-C relocation-model=pic` (Position-Independent Executable).
 * **Alineación de Páginas de 16 KB (Android 15+ / Google Play):**
   * Compilado con flags de enlace:
@@ -73,6 +77,7 @@ Inspirado en las obras maestras retro de NES / Famicom creadas por Natsume: **Fi
     -C link-arg=-Wl,-z,max-page-size=16384
     -C link-arg=-Wl,-z,common-page-size=16384
     ```
+
   * Verificado mediante `readelf -l`:
     ```
     LOAD ... R E 0x4000 (16384 bytes)
