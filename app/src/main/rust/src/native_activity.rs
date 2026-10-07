@@ -216,6 +216,7 @@ pub struct NativeEngine {
     pub window_dims: Arc<Mutex<(f32, f32)>>,
     pub input_queue: Arc<Mutex<Option<SendPtr<AInputQueue>>>>,
     thread_handle: Mutex<Option<JoinHandle<()>>>,
+    audio_thread_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
 unsafe impl Send for NativeEngine {}
@@ -230,17 +231,31 @@ impl NativeEngine {
         let window_dims = Arc::new(Mutex::new((VIRTUAL_WIDTH as f32, VIRTUAL_HEIGHT as f32)));
         let input_queue = Arc::new(Mutex::new(None));
 
+        let audio_engine = Arc::new(Mutex::new(crate::audio::AudioEngine::new()));
+
         let t_running = Arc::clone(&running);
         let t_focus = Arc::clone(&has_focus);
         let t_paused = Arc::clone(&is_paused);
         let t_window = Arc::clone(&window);
         let t_dims = Arc::clone(&window_dims);
         let t_input = Arc::clone(&input_queue);
+        let t_audio = Arc::clone(&audio_engine);
 
         let thread_handle = thread::Builder::new()
             .name("NativeRenderThread".to_string())
             .spawn(move || {
-                render_loop(t_running, t_focus, t_paused, t_window, t_dims, t_input);
+                render_loop(t_running, t_focus, t_paused, t_window, t_dims, t_input, t_audio);
+            })
+            .ok();
+
+        let a_running = Arc::clone(&running);
+        let a_paused = Arc::clone(&is_paused);
+        let a_audio = Arc::clone(&audio_engine);
+
+        let audio_thread_handle = thread::Builder::new()
+            .name("NativeAudioThread".to_string())
+            .spawn(move || {
+                crate::audio::native_playback_loop(a_running, a_paused, a_audio);
             })
             .ok();
 
@@ -252,6 +267,7 @@ impl NativeEngine {
             window_dims,
             input_queue,
             thread_handle: Mutex::new(thread_handle),
+            audio_thread_handle: Mutex::new(audio_thread_handle),
         }
     }
 
@@ -343,6 +359,13 @@ impl NativeEngine {
                 let _ = th.join();
             }
         }
+
+        // Esperar finalización del hilo de audio nativo
+        if let Ok(mut handle) = self.audio_thread_handle.lock() {
+            if let Some(th) = handle.take() {
+                let _ = th.join();
+            }
+        }
     }
 }
 
@@ -356,10 +379,11 @@ fn render_loop(
     window_arc: Arc<Mutex<Option<SendPtr<ANativeWindow>>>>,
     dims_arc: Arc<Mutex<(f32, f32)>>,
     input_arc: Arc<Mutex<Option<SendPtr<AInputQueue>>>>,
+    audio_engine: Arc<Mutex<crate::audio::AudioEngine>>,
 ) {
     log_info!("🎮 Bucle de renderizado nativo en Rust iniciado (60 FPS objetivo)");
 
-    let mut game = Game::new(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+    let mut game = Game::new_with_audio(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, audio_engine);
     let mut pixel_buffer = vec![0u32; VIRTUAL_WIDTH * VIRTUAL_HEIGHT];
 
     let target_frame_duration = Duration::from_nanos(TARGET_FRAME_DURATION_NS);

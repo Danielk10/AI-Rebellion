@@ -162,7 +162,9 @@ pub extern "system" fn Java_com_diamon_iarebellion_GameBridge_nativeGetAudioSamp
 
             if let Ok(mut g) = GAME.lock() {
                 if let Some(game) = g.as_mut() {
-                    game.audio_engine.render_samples(&mut ab_lock);
+                    if let Ok(mut engine) = game.audio_engine.lock() {
+                        engine.render_samples(&mut ab_lock);
+                    }
                 }
             }
 

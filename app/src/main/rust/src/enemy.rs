@@ -1,17 +1,31 @@
 //! Módulo de Enemigos Comunes y Cápsulas de Mejoras (Items)
-//! Diseñado con la estética de Final Mission y la Rebelión de la IA:
-//! Autómatas rebeldes, torretas S-400 orientables, drones cruciformes y cápsulas bivalvas.
+//! Diseñado con la estética de Final Mission, Abadox y la Rebelión de la IA:
+//! Sintéticos humanoides de combate, plantas biomecánicas y drones depredadores.
 
 use crate::bullet::{Bullet, BulletOwner, BulletType};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum EnemyType {
-    PatrolDrone,    // Dron cruciforme centinela de la IA (+)
-    KamikazeWasp,   // Dron cazador bivalvo (almeja) en trayectoria senoidal
-    LaserTurret,    // Torreta S-400Phalanx orientable montada en tuberías o suelo
-    CyberCrab,      // Androide / Mecha pesado de asalto
-    AsteroidLeech,  // Mina magnética o sonda parasitaria
-    StealthStriker, // Cañonera aérea militar subvertida
+    // Sintéticos Humanoides de la IA
+    SynthKatana,         // Sintético bípedo con katana de energía y dash táctico
+    SynthRifle,          // Sintético bípedo francotirador con railgun
+    
+    // Ciber-Plantas Biomecánicas (Abadox + IA de terraformación)
+    BioPlantVine,        // Zarcillo ondulante con espinas y savia luminosa
+    BioPlantSporePod,    // Torreta de esporas que se dilata ("respira")
+    BioPlantFlowerTrap,  // Flor trampa con pétalos navaja y estambre láser
+    
+    // Drones y Leviatanes
+    PredatoryDrone,      // Dron interceptor con alas en flecha invertida
+    BioMechLeviathan,    // Leviatán blindado con pinzas trituradoras
+    
+    // Mapeos retrocompatibles para las oleadas de level.rs:
+    PatrolDrone,         // Mapea a PredatoryDrone
+    KamikazeWasp,        // Mapea a PredatoryDrone / BioPlantSporePod
+    LaserTurret,         // Mapea a BioPlantFlowerTrap / SporePod
+    CyberCrab,           // Mapea a BioMechLeviathan
+    AsteroidLeech,       // Mapea a BioPlantVine
+    StealthStriker,      // Mapea a SynthKatana / SynthRifle
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -48,19 +62,21 @@ pub struct Enemy {
     pub fire_timer: f32,
     pub active: bool,
     pub time_alive: f32,
-    pub aim_angle: f32,   // Orientación del cañón hacia el jugador (estilo Final Mission)
-    pub is_ceiling: bool, // Montada en tubería del techo o invertida
+    pub aim_angle: f32,   // Orientación del cañón o sensor hacia el jugador
+    pub is_ceiling: bool, // Montada en techo o invertida
 }
 
 impl Enemy {
     pub fn new(x: f32, y: f32, e_type: EnemyType) -> Self {
         let (hp, r, vx, vy) = match e_type {
-            EnemyType::PatrolDrone => (35.0, 18.0, -180.0, 0.0),
-            EnemyType::KamikazeWasp => (24.0, 15.0, -260.0, 0.0),
-            EnemyType::LaserTurret => (95.0, 24.0, -110.0, 0.0),
-            EnemyType::CyberCrab => (160.0, 28.0, -90.0, 30.0),
-            EnemyType::AsteroidLeech => (75.0, 20.0, -140.0, 0.0),
-            EnemyType::StealthStriker => (65.0, 20.0, -230.0, 0.0),
+            EnemyType::SynthKatana | EnemyType::StealthStriker => (75.0, 19.0, -170.0, 0.0),
+            EnemyType::SynthRifle => (85.0, 20.0, -140.0, 0.0),
+            EnemyType::BioPlantVine | EnemyType::AsteroidLeech => (90.0, 22.0, -100.0, 0.0),
+            EnemyType::BioPlantSporePod => (130.0, 25.0, -80.0, 0.0),
+            EnemyType::BioPlantFlowerTrap | EnemyType::LaserTurret => (140.0, 26.0, -90.0, 0.0),
+            EnemyType::PredatoryDrone | EnemyType::PatrolDrone => (45.0, 18.0, -210.0, 0.0),
+            EnemyType::KamikazeWasp => (30.0, 16.0, -250.0, 0.0),
+            EnemyType::BioMechLeviathan | EnemyType::CyberCrab => (220.0, 32.0, -75.0, 25.0),
         };
 
         let is_ceiling = y < 140.0;
@@ -82,6 +98,16 @@ impl Enemy {
         }
     }
 
+    pub fn take_damage(&mut self, dmg: f32) -> bool {
+        self.health -= dmg;
+        if self.health <= 0.0 {
+            self.active = false;
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn update(&mut self, dt: f32, player_x: f32, player_y: f32, bullets: &mut Vec<Bullet>) {
         if !self.active {
             return;
@@ -90,7 +116,7 @@ impl Enemy {
         self.time_alive += dt;
         self.fire_timer -= dt;
 
-        // Calcular ángulo continuo hacia el jugador (tracking estilo Final Mission)
+        // Calcular ángulo continuo hacia el jugador (tracking continuo)
         let dx = player_x - self.x;
         let dy = player_y - self.y;
         self.aim_angle = dy.atan2(dx);
@@ -98,21 +124,24 @@ impl Enemy {
         // Movimiento según patrón táctico
         match self.enemy_type {
             EnemyType::KamikazeWasp => {
-                // Vuelo ondulatorio senoidal de enjambre (estilo capturas fm_08)
                 self.x += self.vx * dt;
                 self.y += (self.time_alive * 5.0).sin() * 160.0 * dt;
             }
-            EnemyType::PatrolDrone => {
+            EnemyType::PatrolDrone | EnemyType::PredatoryDrone => {
                 self.x += self.vx * dt;
                 self.y += (self.time_alive * 3.5).sin() * 70.0 * dt;
             }
-            EnemyType::CyberCrab => {
+            EnemyType::CyberCrab | EnemyType::BioMechLeviathan => {
                 self.x += self.vx * dt;
                 self.y += (self.time_alive * 2.2).cos() * 90.0 * dt;
             }
-            EnemyType::LaserTurret => {
-                // Sigue la velocidad de desplazamiento del escenario
+            EnemyType::LaserTurret | EnemyType::BioPlantFlowerTrap | EnemyType::BioPlantSporePod => {
                 self.x += self.vx * dt;
+            }
+            EnemyType::SynthKatana | EnemyType::StealthStriker => {
+                let dash = if ((self.time_alive * 2.0) as usize) % 2 == 0 { 1.5 } else { 0.7 };
+                self.x += self.vx * dash * dt;
+                self.y += self.vy * dt;
             }
             _ => {
                 self.x += self.vx * dt;
@@ -123,9 +152,10 @@ impl Enemy {
         // Disparo enemigo dirigido
         if self.fire_timer <= 0.0 && self.x > 40.0 && self.x < 1800.0 {
             self.fire_timer = match self.enemy_type {
-                EnemyType::LaserTurret => 1.7,
-                EnemyType::CyberCrab => 2.0,
-                EnemyType::StealthStriker => 1.9,
+                EnemyType::LaserTurret | EnemyType::BioPlantFlowerTrap => 1.7,
+                EnemyType::CyberCrab | EnemyType::BioMechLeviathan => 2.0,
+                EnemyType::StealthStriker | EnemyType::SynthRifle => 1.8,
+                EnemyType::BioPlantSporePod => 2.2,
                 _ => 2.5,
             };
 
@@ -137,6 +167,17 @@ impl Enemy {
             let spawn_x = self.x + self.aim_angle.cos() * muzzle_dist;
             let spawn_y = self.y + self.aim_angle.sin() * muzzle_dist;
 
+            let b_type = match self.enemy_type {
+                EnemyType::BioPlantSporePod | EnemyType::BioPlantVine => BulletType::BioAcid,
+                _ => BulletType::EnemyPlasma,
+            };
+
+            let b_col = match self.enemy_type {
+                EnemyType::BioPlantSporePod | EnemyType::BioPlantVine => 0xFF39FF14,
+                EnemyType::SynthKatana | EnemyType::SynthRifle => 0xFFFF0055,
+                _ => 0xFFFF2828,
+            };
+
             bullets.push(Bullet::new(
                 spawn_x,
                 spawn_y,
@@ -145,8 +186,8 @@ impl Enemy {
                 6.0,
                 15.0,
                 BulletOwner::Enemy,
-                BulletType::EnemyPlasma,
-                0xFFFF2828,
+                b_type,
+                b_col,
             ));
         }
 

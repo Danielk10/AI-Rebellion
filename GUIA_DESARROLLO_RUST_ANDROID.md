@@ -15,16 +15,16 @@ La arquitectura de AI Rebellion prescinde por completo de la máquina virtual Ja
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   SISTEMA OPERATIVO ANDROID (KERNEL LINUX)              │
-└──────────────────┬─────────────────────────────────┬───────────────────┘
-                   │ Eventos Kernel                  │ Ventana Nativa
-                   ▼                                 ▼
-         ┌───────────────────┐             ┌───────────────────┐
-         │   AInputQueue     │             │   ANativeWindow   │
-         │  (AMotionEvent)   │             │  (SurfaceFlinger) │
-         └─────────┬─────────┘             └─────────▲─────────┘
-                   │ Lectura Directa                 │ Volcado Stride
-                   ▼                                 │ ANativeWindow_lock
- ┌───────────────────────────────────────────────────┴───────────────────┐
+└──────────────────┬─────────────────┬─────────────────┬─────────────────┘
+                   │ Eventos Kernel  │ Ventana Nativa  │ Hardware Audio
+                   ▼                 ▼                 ▼
+         ┌───────────────────┐┌───────────────┐┌───────────────┐
+         │   AInputQueue     ││ ANativeWindow ││ libaaudio.so  │
+         │  (AMotionEvent)   ││(SurfaceFlingr)││(Low Latency)  │
+         └─────────┬─────────┘└───────▲───────┘└───────▲───────┘
+                   │ Lectura Directa  │ Volcado Stride │ Streaming PCM
+                   ▼                  │                │ 44.1 kHz Stereo
+ ┌────────────────────────────────────┴────────────────┴─────────────────┐
  │               MOTOR NATIVO EN RUST (libai_rebellion.so)               │
  │                                                                       │
  │  Punto de Entrada C ABI:                                              │
@@ -32,9 +32,9 @@ La arquitectura de AI Rebellion prescinde por completo de la máquina virtual Ja
  │                                                                       │
  │  Sub-Sistemas en Hilos Dedicados:                                     │
  │  • touch.rs: Máquina de estados táctiles y cálculo de vectores        │
- │  • game.rs: Bucle de juego a 60 FPS fijos y sincronización delta      │
- │  • renderer.rs: Rasterizador por software con luz puntual y bloom     │
- │  • audio.rs: Sintetizador chiptune PCM mono 16-bit a 44,100 Hz        │
+ │  • game.rs: Bucle de simulación física a 60 FPS fijos                 │
+ │  • renderer.rs: NativeRenderThread (Rasterizador vectorial SDF a 60fps)│
+ │  • audio.rs: NativeAudioThread (Streaming nativo AAudio a ~11.6ms)    │
  │  • multiplayer.rs: Protocolo binario sobre sockets Bluetooth RFCOMM   │
  └───────────────────────────────────────────────────────────────────────┘
 ```
@@ -252,6 +252,32 @@ $$R_{out} = \min\big(255, \; R_{dst} + R_{src} \cdot F_{falloff}\big)$$
 $$G_{out} = \min\big(255, \; G_{dst} + G_{src} \cdot F_{falloff}\big)$$
 $$B_{out} = \min\big(255, \; B_{dst} + B_{src} \cdot F_{falloff}\big)$$
 
+### 3.4 Motor Gráfico Vectorial Moderno: SDF Subpixel Anti-Aliasing y Plumas de Plasma
+El motor evoluciona más allá del pixel art retro hacia rasterizado vectorial analítico continuo:
+1. **SDF Subpixel Anti-Aliased Circles (`draw_aa_circle`):**
+   $$d = \sqrt{(x - c_x)^2 + (y - c_y)^2}, \quad \delta = R - d$$
+   $$\alpha = \text{clamp}(\delta + 0.5, 0.0, 1.0)$$
+   Garantiza contornos perfectamente suaves sin escalonamientos dentados en proyectiles, satélites y articulaciones.
+2. **SDF Capsule Segments (`draw_aa_capsule`):**
+   Calcula la distancia ortogonal al segmento más cercano entre $(x_0, y_0)$ y $(x_1, y_1)$ con cobertura subpixel, utilizada para zarcillos biomecánicos, katanas de plasma y extremidades robóticas.
+3. **Plumas de Plasma de Doble Capa (`draw_plasma_plume`):**
+   Generación procedural de chorros de empuje con núcleo hiper-térmico blanco y envolvente ionizada turbulenta modulada por armónicos de alta frecuencia.
+
+### 3.5 Trayecto Multidireccional y Dinámica 2D de Cámara (`StagePhase`)
+Los niveles implementan transiciones cinemáticas continuas entre ejes ortogonales:
+* **Vector de Posición y Velocidad:** $\vec{S} = (s_x, s_y)$, $\vec{V} = (v_x, v_y)$.
+* **Fases Dinámicas de Trayectoria:**
+  - `StagePhase::HorizontalRight`: Desplazamiento horizontal estándar ($v_x = 160\text{ px/s}, v_y = 0$).
+  - `StagePhase::AscendUp`: Ascenso vertical a través de pozos de ascensor y spires ($v_x = 0, v_y = -160\text{ px/s}$).
+  - `StagePhase::DescendDown`: Inmersión en picada hacia fundiciones subterráneas ($v_x = 0, v_y = +160\text{ px/s}$).
+  - `StagePhase::BossEncounter`: Deceleración suave a $(0, 0)$ para estabilizar la arena del combate contra el jefe.
+* **Límites Dinámicos del Jugador:** Adaptación en tiempo real del área de maniobra para evitar que el comando salga de los pozos de ascensor o fosas de magma.
+
+### 3.6 Arquetipos de la IA Rebelde y Ciber-Plantas
+* **Sintéticos Humanoides:** Modelos bípedos en placas de porcelana blanca (`#F1F5F9`) u obsidiana (`#0F172A`), mono-ojo dinámico seguidor y sables de energía o cañones electromagnéticos.
+* **Ciber-Plantas Abadox:** Zarcillos con savia bioluminiscente (`#22C55E`), torretas de esporas con dilatación respiratoria (`#10B981`) y flores trampa con pétalos navaja y núcleo óptico estroboscópico.
+* **Drones Predator y Leviatanes Mecha:** Cazas con alas en flecha invertida y acorazados colosales con pinzas hidráulicas de trituración.
+
 ---
 
 ## 4. Campaña Completa de 8 Fases del Sistema Solar: Paisajes e Infraestructura
@@ -324,34 +350,45 @@ Basado en la filosofía de escenarios de *Final Mission* (vuelo libre, fondos in
 
 ---
 
-## 5. Sintetizador de Audio Chiptune Procedural en Rust
+## 5. Motor de Audio Nativo AAudio de Baja Latencia (~11.6 ms) y Síntesis DSP
 
-Implementado en `audio.rs`, genera audio monoaural PCM signed de 16 bits a **44,100 Hz** en tiempo real sin librerías externas ni archivos de sonido precargados:
+Implementado en `audio.rs`, el motor resuelve la problemática de audio en aplicaciones `NativeActivity` ejecutando un pipeline 100% nativo en Rust sin delegar en capas intermedias de Java:
 
-### 5.1 Generador Melódico de Onda Cuadrada
-Para cada muestra temporal $t = n / 44100$:
-$$\text{fase} = (t \cdot f_{base}) \bmod 1.0$$
-$$\text{amplitud} = \begin{cases} +0.10 & \text{si } \text{fase} < 0.5 \\ -0.10 & \text{si } \text{fase} \ge 0.5 \end{cases}$$
+### 5.1 Enlace Dinámico con Android NDK `AAudio` (`libaaudio.so`)
+En tiempo de ejecución, el motor carga dinámicamente `/system/lib64/libaaudio.so` o `/system/lib/libaaudio.so` mediante `libc::dlopen` y resuelve los símbolos necesarios de la C ABI:
+* `AAudio_createStreamBuilder`
+* `AAudioStreamBuilder_setSampleRate(builder, 44100)`
+* `AAudioStreamBuilder_setChannelCount(builder, 2)` (Estéreo)
+* `AAudioStreamBuilder_setFormat(builder, AAUDIO_FORMAT_PCM_I16)`
+* `AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY)`
+* `AAudioStreamBuilder_openStream`
+* `AAudioStream_requestStart`
+* `AAudioStream_write`
 
-### 5.2 Progresión Musical Chiptune
-El sintetizador genera melodías cambiando de frecuencia fundamental según el compás de 4 pulsos por segundo ($beat = \lfloor t \cdot 4.0 \rfloor$):
-* $0 \rightarrow \text{C3 } (130.81\text{ Hz})$
-* $1 \rightarrow \text{D3 } (146.83\text{ Hz})$
-* $2 \rightarrow \text{E3 } (164.81\text{ Hz})$
-* $3 \rightarrow \text{F3 } (174.61\text{ Hz})$
-* $4 \rightarrow \text{G3 } (196.00\text{ Hz})$
-* $5 \rightarrow \text{A3 } (220.00\text{ Hz})$
+Este flujo reduce la latencia de buffer a aproximadamente **11.6 ms** en dispositivos como el TECNO BF7 (Android 12), evitando desincronizaciones entre los disparos táctiles y su respuesta acústica.
 
-### 5.3 Generador de Ruido Blanco Pseudo-Aleatorio (Percusión y Explosiones)
-Modulado con funciones aperiódicas de alta frecuencia:
-$$\text{ruido}(t) = \sin(t \cdot 48271.0) \cdot \text{volumen}(t)$$
+### 5.2 Hilo Dedicado `NativeAudioThread`
+El motor arranca en `native_activity.rs` un hilo concurrente dedicado que ejecuta `native_playback_loop` con un búfer de 512 muestras estéreo (1024 valores `i16`). Este hilo opera de manera totalmente desacoplada del renderizador gráfico (`NativeRenderThread`), impidiendo que picos de carga visual interrumpan la reproducción de audio.
 
-### 5.4 Efectos de Sonido Modulados (SFX)
-* **Laser:** Chirp descendente lineal: $f(t) = 880.0 \cdot (1.0 - progress \cdot 0.6)$, duración $0.12\text{ s}$.
-* **SpreadFire:** Onda rectangular con ciclo de trabajo $30\%$, frecuencia $550.0 \rightarrow 330.0\text{ Hz}$.
-* **Explosion / EMP Bomb:** Ruido pseudo-aleatorio con envolvente exponencial descendente ($0.35\text{ s}$ para explosión común, $0.90\text{ s}$ para bomba EMP).
-* **PowerUp:** Arpegio ascendente retro: $f(t) = 440.0 + (progress \cdot 880.0)$, duración $0.40\text{ s}$.
-* **BossAlarm:** Tono bitonal alternante urgente ($800\text{ Hz} \leftrightarrow 600\text{ Hz}$ modulado a $5\text{ Hz}$), duración $1.20\text{ s}$.
+### 5.3 Síntesis DSP PolyBLEP Anti-Aliased
+Para evitar el aliasing armónico propio de las formas de onda abruptas a 44,100 Hz, los osciladores emplean corrección analítica PolyBLEP:
+$$\text{PolyBLEP}(t, dt) = \begin{cases} 2\left(\frac{t}{dt}\right) - \left(\frac{t}{dt}\right)^2 - 1.0 & \text{si } t < dt \\ \left(\frac{t - 1.0}{dt}\right)^2 + 2\left(\frac{t - 1.0}{dt}\right) + 1.0 & \text{si } t > 1.0 - dt \\ 0.0 & \text{en otro caso} \end{cases}$$
+
+### 5.4 Banco de Efectos de Sonido Procedurales (12 SFX Modernos)
+1. **Laser:** Modulación en frecuencia de dos operadores (FM $2460\text{ Hz} \rightarrow 340\text{ Hz}$) con chasquido transitorio inicial.
+2. **SpreadFire:** Batimiento bifrecuencia analógico con envolvente cuadrática.
+3. **Explosion:** Transitorio subsónico con resonancia a $38\text{ Hz}$ y fuego de ruido blanco con envolvente exponencial.
+4. **BombExplosion:** Onda expansiva telúrica con atenuación sub-grave de alta potencia.
+5. **EmpShockwave:** Barrido tonal inverso descendente con chisporroteo electromagnético ionizado.
+6. **PowerUp:** Arpegio tetratónico ascendente con realce armónico.
+7. **PlayerHit:** Impacto sordo acoplado a crujido metálico.
+8. **BossAlarm:** Onda de sierra bitonal urgente ($880\text{ Hz} \leftrightarrow 660\text{ Hz}$).
+9. **SatelliteLock:** Tono cristalino de bloqueo de blanco táctico ($2400\text{ Hz} \rightarrow 3600\text{ Hz}$).
+10. **Ricochet:** Deflexión metálica de alta frecuencia ($1200\text{ Hz} \rightarrow 3600\text{ Hz}$) con ping armónico a $4200\text{ Hz}$.
+11. **MetalClang:** Impacto resonante bimodal en armónicos de titanio ($1920\text{ Hz}$ y $2880\text{ Hz}$).
+12. **ThrusterBurst:** Whoosh de empuje hidrodinámico con modulación de ruido y oscilador grave.
+
+Todos los canales convergen en una etapa final con **Limitador Suave (*Soft Limiter*)** basado en aproximación tangente hiperbólica analítica para evitar distorsión o clipeo digital.
 
 ---
 

@@ -1,11 +1,12 @@
 //! Bucle Principal del Juego (Master Game Loop) de IA Rebellion
 //! Orquesta lógica de juego, colisiones, 8 niveles, 8 jefes, audio y multijugador
 
+use std::sync::{Arc, Mutex};
 use crate::audio::{AudioEngine, SoundEffect};
+use crate::level::{LevelManager, StagePhase};
 use crate::boss::Boss;
 use crate::bullet::{Bullet, BulletOwner};
 use crate::enemy::Enemy;
-use crate::level::LevelManager;
 use crate::multiplayer::MultiplayerManager;
 use crate::player::Player;
 use crate::renderer::Renderer;
@@ -36,7 +37,7 @@ pub struct Game {
     pub level_manager: LevelManager,
     pub touch_controls: TouchControls,
     pub renderer: Renderer,
-    pub audio_engine: AudioEngine,
+    pub audio_engine: Arc<Mutex<AudioEngine>>,
     pub multiplayer: MultiplayerManager,
 
     pub total_score: u32,
@@ -45,6 +46,10 @@ pub struct Game {
 
 impl Game {
     pub fn new(w: usize, h: usize) -> Self {
+        Self::new_with_audio(w, h, Arc::new(Mutex::new(AudioEngine::new())))
+    }
+
+    pub fn new_with_audio(w: usize, h: usize, audio_engine: Arc<Mutex<AudioEngine>>) -> Self {
         let w_f = w as f32;
         let h_f = h as f32;
 
@@ -52,7 +57,7 @@ impl Game {
         let players = vec![p1];
 
         Self {
-            state: GameState::TitleMenu, // Inicia con la pantalla de presentación Diamon Black - Powered by Rust
+            state: GameState::TitleMenu,
             state_timer: 0.0,
             width: w,
             height: h,
@@ -63,10 +68,31 @@ impl Game {
             level_manager: LevelManager::new(1),
             touch_controls: TouchControls::new(w_f, h_f),
             renderer: Renderer::new(w, h),
-            audio_engine: AudioEngine::new(),
+            audio_engine,
             multiplayer: MultiplayerManager::new(true, 0),
             total_score: 0,
             high_score: 50000,
+        }
+    }
+
+    #[inline(always)]
+    pub fn play_sfx(&self, sfx: SoundEffect) {
+        if let Ok(mut engine) = self.audio_engine.lock() {
+            engine.play_sfx(sfx);
+        }
+    }
+
+    #[inline(always)]
+    pub fn trigger_sfx(audio: &Arc<Mutex<AudioEngine>>, sfx: SoundEffect) {
+        if let Ok(mut engine) = audio.lock() {
+            engine.play_sfx(sfx);
+        }
+    }
+
+    #[inline(always)]
+    pub fn set_stage_theme(&mut self, stage: u8) {
+        if let Ok(mut engine) = self.audio_engine.lock() {
+            engine.stage_theme = stage;
         }
     }
 
@@ -120,8 +146,9 @@ impl Game {
             if let Some(p) = self.players.get_mut(local_id) {
                 let old_x = p.x;
                 let old_y = p.y;
-                let new_x = target_x.clamp(36.0, w_f - 36.0);
-                let new_y = target_y.clamp(36.0, h_f - 36.0);
+                let (min_x, max_x, min_y, max_y) = self.level_manager.get_player_bounds(w_f, h_f);
+                let new_x = target_x.clamp(min_x, max_x);
+                let new_y = target_y.clamp(min_y, max_y);
 
                 let dx = new_x - old_x;
                 let dy = new_y - old_y;
@@ -191,7 +218,7 @@ impl Game {
                 if trigger_boss {
                     self.state = GameState::BossBattle;
                     self.boss = Some(Boss::new_for_stage(self.level_manager.current_stage, w_f, h_f));
-                    self.audio_engine.play_sfx(SoundEffect::BossAlarm);
+                    self.play_sfx(SoundEffect::BossAlarm);
                 }
 
                 self.update_gameplay(dt, w_f, h_f);
@@ -204,7 +231,7 @@ impl Game {
                     b.update(dt, p_x, p_y, w_f, h_f, &mut self.bullets);
                     if b.defeated {
                         self.renderer.add_explosion(b.x, b.y, 40, 0xFFFF4500);
-                        self.audio_engine.play_sfx(SoundEffect::Explosion);
+                        self.play_sfx(SoundEffect::Explosion);
                         self.total_score += 10000 * (self.level_manager.current_stage as u32);
 
                         if self.level_manager.current_stage >= 8 {
@@ -241,7 +268,13 @@ impl Game {
         let _w_f = self.width as f32;
         let h_f = self.height as f32;
         self.level_manager.set_stage(stage);
-        self.audio_engine.stage_theme = stage;
+        self.set_stage_theme(stage);
+        self.renderer.scroll_x = 0.0;
+        self.renderer.scroll_y = 0.0;
+        self.renderer.scroll_vx = self.level_manager.config.scroll_speed;
+        self.renderer.scroll_vy = 0.0;
+        self.renderer.stage_phase = StagePhase::HorizontalRight;
+        self.renderer.stage_progress = 0.0;
         self.state = GameState::InGame;
         self.state_timer = 0.0;
         self.boss = None;
@@ -315,7 +348,10 @@ impl Game {
             }
         }
 
+        let audio = self.audio_engine.clone();
+
         // 3. Actualizar satélites orbitales y auto-disparo continuo de Jugador.java
+        let mut bomb_trigger_pos = None;
         if let Some(p_local) = self.players.get_mut(local_id) {
             p_local.update(dt, sat_lock, sat_angle);
 
@@ -323,17 +359,19 @@ impl Game {
                 let bullets_before = self.bullets.len();
                 p_local.fire(&mut self.bullets);
                 if self.bullets.len() > bullets_before {
-                    self.audio_engine.play_sfx(SoundEffect::Laser);
+                    Self::trigger_sfx(&audio, SoundEffect::Laser);
                 }
             }
 
             // Bomba especial EMP
             if trigger_bomb && p_local.bombs > 0 {
                 p_local.bombs -= 1;
-                let bx = p_local.x;
-                let by = p_local.y;
-                self.trigger_bomb(bx, by);
+                bomb_trigger_pos = Some((p_local.x, p_local.y));
             }
+        }
+
+        if let Some((bx, by)) = bomb_trigger_pos {
+            self.trigger_bomb(bx, by);
         }
 
         // 4. Actualizar proyectiles
@@ -344,11 +382,27 @@ impl Game {
         }
         self.bullets.retain(|b| b.active);
 
-        // 5. Actualizar enemigos comunes
+        // Mantener a los jugadores dentro de los límites dinámicos de la fase activa
+        let (min_x, max_x, min_y, max_y) = self.level_manager.get_player_bounds(w_f, h_f);
+        for p in self.players.iter_mut() {
+            if p.active {
+                p.x = p.x.clamp(min_x, max_x);
+                p.y = p.y.clamp(min_y, max_y);
+            }
+        }
+
+        // 5. Actualizar enemigos comunes con arrastre vertical de cámara relativo
+        let scroll_vy = self.level_manager.scroll_vy;
+        let current_phase = self.level_manager.current_phase;
+
         for e in self.enemies.iter_mut() {
+            if current_phase == StagePhase::AscendUp || current_phase == StagePhase::DescendDown {
+                e.y -= scroll_vy * dt;
+                e.x -= e.vx * dt;
+            }
             e.update(dt, p_x, p_y, &mut self.bullets);
         }
-        self.enemies.retain(|e| e.active);
+        self.enemies.retain(|e| e.active && e.x >= -90.0 && e.x <= w_f + 90.0 && e.y >= -90.0 && e.y <= h_f + 90.0);
 
         // 6. Detectar colisiones
         self.check_collisions();
@@ -356,8 +410,8 @@ impl Game {
 
     fn trigger_bomb(&mut self, bx: f32, by: f32) {
         self.renderer.add_explosion(bx, by, 60, 0xFF00FFFF);
-        self.audio_engine.play_sfx(SoundEffect::BombExplosion);
-        self.audio_engine.play_sfx(SoundEffect::EmpShockwave);
+        self.play_sfx(SoundEffect::BombExplosion);
+        self.play_sfx(SoundEffect::EmpShockwave);
 
         // Elimina proyectiles enemigos
         for b in self.bullets.iter_mut() {
@@ -382,6 +436,8 @@ impl Game {
     }
 
     fn check_collisions(&mut self) {
+        let audio = self.audio_engine.clone();
+
         // Colisión: Proyectiles del jugador vs Enemigos
         for b in self.bullets.iter_mut() {
             if !b.active {
@@ -405,7 +461,7 @@ impl Game {
                                 e.active = false;
                                 self.total_score += 200;
                                 self.renderer.add_explosion(e.x, e.y, 14, 0xFFFF4500);
-                                self.audio_engine.play_sfx(SoundEffect::Explosion);
+                                Self::trigger_sfx(&audio, SoundEffect::Explosion);
                             }
                             break;
                         }
@@ -441,7 +497,7 @@ impl Game {
                                 b.active = false;
                                 blocked_by_sat = true;
                                 self.renderer.add_explosion(sx, sy, 5, 0xFF00FFFF);
-                                self.audio_engine.play_sfx(SoundEffect::Ricochet);
+                                Self::trigger_sfx(&audio, SoundEffect::Ricochet);
                                 break;
                             }
                         }
@@ -455,7 +511,7 @@ impl Game {
                         if dist < (b.radius + 18.0) {
                             b.active = false;
                             let died = p.take_damage(b.damage);
-                            self.audio_engine.play_sfx(SoundEffect::PlayerHit);
+                            Self::trigger_sfx(&audio, SoundEffect::PlayerHit);
                             self.renderer.add_explosion(p.x, p.y, 18, 0xFFFF0000);
 
                             if died && p.lives <= 0 {
@@ -481,7 +537,11 @@ impl Game {
         let s_name = self.level_manager.config.name.clone();
 
         self.renderer.stage_progress = self.level_manager.stage_progress;
-        self.renderer.scroll_x = self.level_manager.scroll_pos;
+        self.renderer.scroll_x = self.level_manager.scroll_x;
+        self.renderer.scroll_y = self.level_manager.scroll_y;
+        self.renderer.scroll_vx = self.level_manager.scroll_vx;
+        self.renderer.scroll_vy = self.level_manager.scroll_vy;
+        self.renderer.stage_phase = self.level_manager.current_phase;
 
         self.renderer.render_frame(
             buffer,
