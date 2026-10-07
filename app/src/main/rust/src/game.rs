@@ -206,11 +206,10 @@ impl Game {
                 }
             }
             GameState::StageIntro => {
-                if self.state_timer > 1.2 {
+                if self.state_timer > 2.5 {
                     self.state = GameState::InGame;
                     self.state_timer = 0.0;
                 }
-                self.update_gameplay(dt, w_f, h_f);
             }
             GameState::InGame => {
                 // Actualizar nivel y verificar si debe entrar el Boss
@@ -246,7 +245,7 @@ impl Game {
                 self.update_gameplay(dt, w_f, h_f);
             }
             GameState::StageClear => {
-                if self.state_timer > 3.0 {
+                if self.state_timer > 3.5 {
                     let next_stage = self.level_manager.current_stage + 1;
                     self.start_game(next_stage);
                 }
@@ -275,7 +274,7 @@ impl Game {
         self.renderer.scroll_vy = 0.0;
         self.renderer.stage_phase = StagePhase::HorizontalRight;
         self.renderer.stage_progress = 0.0;
-        self.state = GameState::InGame;
+        self.state = GameState::StageIntro;
         self.state_timer = 0.0;
         self.boss = None;
         self.enemies.clear();
@@ -527,32 +526,65 @@ impl Game {
     }
 
     pub fn render(&mut self, buffer: &mut [u32]) {
-        if self.state == GameState::TitleMenu {
-            self.renderer.render_splash_screen(buffer, self.state_timer);
-            return;
+        match self.state {
+            GameState::TitleMenu => {
+                self.renderer.render_splash_screen(buffer, self.state_timer);
+            }
+            GameState::StageIntro => {
+                self.renderer.render_stage_intro_scene(
+                    buffer,
+                    self.level_manager.current_stage,
+                    &self.level_manager.config.name,
+                    &self.level_manager.config.subtitle,
+                    self.state_timer,
+                    &self.players,
+                );
+            }
+            GameState::StageClear => {
+                let (hp, bombs) = self.players.first().map(|p| (p.health, p.bombs)).unwrap_or((100.0, 3));
+                self.renderer.render_stage_clear_scene(
+                    buffer,
+                    self.level_manager.current_stage,
+                    &self.level_manager.config.name,
+                    self.state_timer,
+                    self.total_score,
+                    hp,
+                    bombs,
+                    &self.players,
+                );
+            }
+            GameState::GameOver => {
+                self.renderer.render_game_over_scene(buffer, self.state_timer, self.total_score);
+            }
+            GameState::Victory => {
+                self.renderer.render_victory_scene(buffer, self.state_timer, self.total_score);
+            }
+            GameState::InGame | GameState::BossBattle => {
+                let bg = self.level_manager.config.bg_color;
+                let s_num = self.level_manager.current_stage;
+                let s_name = self.level_manager.config.name.clone();
+
+                self.renderer.stage_progress = self.level_manager.stage_progress;
+                self.renderer.scroll_x = self.level_manager.scroll_x;
+                self.renderer.scroll_y = self.level_manager.scroll_y;
+                self.renderer.scroll_vx = self.level_manager.scroll_vx;
+                self.renderer.scroll_vy = self.level_manager.scroll_vy;
+                self.renderer.stage_phase = self.level_manager.current_phase;
+
+                self.renderer.render_frame(
+                    buffer,
+                    bg,
+                    &self.players,
+                    &self.enemies,
+                    &self.boss,
+                    &self.bullets,
+                    s_num,
+                    &s_name,
+                    self.level_manager.transition_timer,
+                    self.level_manager.transition_text,
+                );
+            }
         }
-
-        let bg = self.level_manager.config.bg_color;
-        let s_num = self.level_manager.current_stage;
-        let s_name = self.level_manager.config.name.clone();
-
-        self.renderer.stage_progress = self.level_manager.stage_progress;
-        self.renderer.scroll_x = self.level_manager.scroll_x;
-        self.renderer.scroll_y = self.level_manager.scroll_y;
-        self.renderer.scroll_vx = self.level_manager.scroll_vx;
-        self.renderer.scroll_vy = self.level_manager.scroll_vy;
-        self.renderer.stage_phase = self.level_manager.current_phase;
-
-        self.renderer.render_frame(
-            buffer,
-            bg,
-            &self.players,
-            &self.enemies,
-            &self.boss,
-            &self.bullets,
-            s_num,
-            &s_name,
-        );
     }
 
     pub fn process_bluetooth_data(&mut self, data: &[u8]) {

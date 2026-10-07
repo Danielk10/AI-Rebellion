@@ -121,6 +121,41 @@ while AInputQueue_hasEvents(queue) > 0 {
 }
 ```
 
+### 1.4 Cobertura de Pantalla Completa y Soporte de Display Cutout (Zero Franjas Negras)
+Para eliminar por completo las franjas negras en dispositivos con notch / cámara frontal (como el TECNO BF7 de $1612 \times 720$), se implementó la arquitectura idéntica a *Shattered Pixel Dungeon*:
+1. **Configuración de Tema XML (`values-v28/themes.xml`):**
+   ```xml
+   <style name="Theme.AI_Rebellion" parent="@android:style/Theme.NoTitleBar.Fullscreen">
+       <item name="android:windowFullscreen">true</item>
+       <item name="android:windowNoTitle">true</item>
+       <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+       <item name="android:windowTranslucentStatus">true</item>
+       <item name="android:windowTranslucentNavigation">true</item>
+       <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+   </style>
+   ```
+2. **Inyección Nativa de Banderas de Ventana C ABI:**
+   En `ANativeActivity_onCreate` y `on_window_focus_changed`:
+   ```rust
+   let add_flags = AWINDOW_FLAG_FULLSCREEN
+       | AWINDOW_FLAG_KEEP_SCREEN_ON
+       | AWINDOW_FLAG_LAYOUT_IN_SCREEN
+       | AWINDOW_FLAG_LAYOUT_NO_LIMITS
+       | AWINDOW_FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+   ANativeActivity_setWindowFlags(activity, add_flags, 0);
+   ```
+3. **Adaptación Dinámica del Buffer Virtual a la Relación de Aspecto:**
+   En lugar de forzar una relación de aspecto rígida de 16:9 ($960 \times 540$), el motor calcula en tiempo real:
+   $$aspect = \frac{W_{phys}}{H_{phys}}, \quad virt\_w = \max\left(960, \text{round}(540 \times aspect)\right)$$
+   Para $1612 \times 720$, $virt\_w = 1209$ píxeles, logrando un mapeo 1:1 en SurfaceFlinger con 0 franjas negras.
+
+### 1.5 Progresión Cinemática de Fases y Transiciones (Estilo Final Mission)
+Se estructuraron estados dedicados en `GameState` para evitar saltos bruscos:
+* **`GameState::StageIntro` (2.5s):** Despliegue de briefing táctico holográfico con radar analítico giratorio, objetivos principales y desplazamiento cinemático de inserción del comando.
+* **Alertas de Transición de Trayectoria (`transition_timer = 2.8s`):** Franjas estroboscópicas de peligro superior e inferior, banner central holográfico parpadeante y advertencias textuales antes de los ascensos/descensos verticales.
+* **`GameState::StageClear` (3.5s):** Conteo de puntuación, bonificaciones de armadura y bombas EMP restantes, aceleración hacia hiperespacio con estela de plasma extendida.
+* **`GameState::GameOver` / `GameState::Victory`:** Secuencias cinemáticas arcade de conclusión con interacción táctil reactiva para reinicio.
+
 ---
 
 ## 2. Máquina de Estados Táctil y Fórmulas Matemáticas (Zero Virtual Buttons)

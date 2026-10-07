@@ -222,6 +222,8 @@ impl Renderer {
         bullets: &[Bullet],
         stage_num: u8,
         stage_name: &str,
+        transition_timer: f32,
+        transition_text: &str,
     ) {
         let w = self.width;
         let h = self.height;
@@ -314,6 +316,11 @@ impl Renderer {
 
         // 8. HUD Limpio Superior SIN BOTONES VIRTUALES
         self.render_clean_hud(buffer, players, stage_num, stage_name);
+
+        // 9. Banner cinemático de transición de sección estilo Final Mission
+        if transition_timer > 0.0 && !transition_text.is_empty() {
+            self.render_section_transition(buffer, transition_timer, transition_text);
+        }
     }
 
     /// Renderiza escenarios temáticos basados en Final Mission NES y trayectos multidireccionales
@@ -1576,6 +1583,231 @@ impl Renderer {
         }
     }
 
+    /// Banner cinemático de transición de sección estilo Final Mission
+    pub fn render_section_transition(&self, buffer: &mut [u32], timer: f32, text: &str) {
+        let w = self.width as isize;
+        let h = self.height as isize;
+        let t = self.anim_time;
+
+        // 1. Rayas de advertencia de peligro en bordes superior e inferior
+        let stripe_h = 18isize;
+        let stripe_offset = (t * 120.0) as isize % 32;
+
+        for x in ((-32)..w).step_by(32) {
+            let sx = x + stripe_offset;
+            self.draw_rect(buffer, sx, 0, 16, stripe_h as usize, 0xFFFFCC00);
+            self.draw_rect(buffer, sx + 16, 0, 16, stripe_h as usize, 0xFF111111);
+            self.draw_rect(buffer, sx, h - stripe_h, 16, stripe_h as usize, 0xFFFFCC00);
+            self.draw_rect(buffer, sx + 16, h - stripe_h, 16, stripe_h as usize, 0xFF111111);
+        }
+
+        // 2. Banner central holográfico parpadeante
+        let banner_w = 640.min(w as usize - 40);
+        let banner_h = 70;
+        let bx = (w - banner_w as isize) / 2;
+        let by = (h - banner_h as isize) / 2;
+
+        let pulse = (timer * 6.0).sin().abs();
+        let border_col = if pulse > 0.5 { 0xFFFF3300 } else { 0xFFFFCC00 };
+
+        self.draw_rect(buffer, bx, by, banner_w, banner_h, 0xDD0D1117);
+        self.draw_rect(buffer, bx, by, banner_w, 3, border_col);
+        self.draw_rect(buffer, bx, by + banner_h as isize - 3, banner_w, 3, border_col);
+        self.draw_rect(buffer, bx, by, 3, banner_h, border_col);
+        self.draw_rect(buffer, bx + banner_w as isize - 3, by, 3, banner_h, border_col);
+
+        self.draw_point_light(buffer, bx + 24, by + banner_h as isize / 2, 60, border_col, 0.7);
+        self.draw_point_light(buffer, bx + banner_w as isize - 24, by + banner_h as isize / 2, 60, border_col, 0.7);
+
+        self.draw_circle(buffer, bx + 24, by + banner_h as isize / 2, 10, border_col);
+        self.draw_circle(buffer, bx + 24, by + banner_h as isize / 2, 4, 0xFFFFFFFF);
+        self.draw_circle(buffer, bx + banner_w as isize - 24, by + banner_h as isize / 2, 10, border_col);
+        self.draw_circle(buffer, bx + banner_w as isize - 24, by + banner_h as isize / 2, 4, 0xFFFFFFFF);
+
+        let title_x = bx + 48;
+        self.draw_simple_text(buffer, "TRAJECTORY ALTERATION DETECTED", title_x, by + 12, 0xFFE2E8F0, 1);
+        self.draw_simple_text(buffer, text, title_x, by + 32, border_col, 2);
+    }
+
+    /// Escena cinemática de introducción de fase estilo Final Mission
+    pub fn render_stage_intro_scene(
+        &self,
+        buffer: &mut [u32],
+        _stage_num: u8,
+        stage_name: &str,
+        stage_subtitle: &str,
+        timer: f32,
+        players: &[Player],
+    ) {
+        let w = self.width as isize;
+        let h = self.height as isize;
+
+        buffer.fill(0xFF070B14);
+
+        for y in (30..h).step_by(40) {
+            self.draw_rect(buffer, 0, y, w as usize, 1, 0xFF141E33);
+        }
+        for x in (30..w).step_by(50) {
+            self.draw_rect(buffer, x, 0, 1, h as usize, 0xFF141E33);
+        }
+
+        let radar_cx = w - 160;
+        let radar_cy = h / 2;
+        self.draw_circle(buffer, radar_cx, radar_cy, 80, 0xFF0E223D);
+        self.draw_circle(buffer, radar_cx, radar_cy, 60, 0xFF153359);
+        self.draw_circle(buffer, radar_cx, radar_cy, 40, 0xFF1D477C);
+        let sweep_angle = timer * 4.0;
+        let sx = radar_cx + (sweep_angle.cos() * 75.0) as isize;
+        let sy = radar_cy + (sweep_angle.sin() * 75.0) as isize;
+        self.draw_rect(buffer, radar_cx, radar_cy, (sx - radar_cx).abs() as usize + 1, 2, 0xFF00FFCC);
+        self.draw_point_light(buffer, sx, sy, 30, 0xFF00FFCC, 0.6);
+
+        let card_x = 60;
+        let card_y = 60;
+        let card_w = (w - 260).max(400) as usize;
+        let card_h = (h - 120) as usize;
+
+        self.draw_rect(buffer, card_x, card_y, card_w, card_h, 0xDD0D131F);
+        self.draw_rect(buffer, card_x, card_y, card_w, 3, 0xFF00E5FF);
+        self.draw_rect(buffer, card_x, card_y + card_h as isize - 3, card_w, 3, 0xFF00E5FF);
+
+        self.draw_simple_text(buffer, "AI REBELLION TACTICAL BRIEFING", card_x + 20, card_y + 20, 0xFF00E5FF, 2);
+        self.draw_simple_text(buffer, stage_name, card_x + 20, card_y + 55, 0xFFFFD700, 3);
+        self.draw_simple_text(buffer, stage_subtitle, card_x + 20, card_y + 95, 0xFFA0AEC0, 1);
+
+        self.draw_rect(buffer, card_x + 20, card_y + 115, card_w - 40, 2, 0xFF2A3A52);
+
+        self.draw_simple_text(buffer, "PRIMARY MISSION DIRECTIVE:", card_x + 20, card_y + 130, 0xFFFF4500, 2);
+        self.draw_simple_text(buffer, "INFILTRATE ROGUE AI SECTOR AND DESTROY MAINFRAME", card_x + 20, card_y + 160, 0xFFE2E8F0, 1);
+        self.draw_simple_text(buffer, "AUTONOMOUS THREATS DETECTED: HIGH DENSITY", card_x + 20, card_y + 180, 0xFFFF3344, 1);
+
+        let progress = (timer / 2.5).clamp(0.0, 1.0);
+        let bar_w = ((card_w - 40) as f32 * progress) as usize;
+        self.draw_rect(buffer, card_x + 20, card_y + 215, card_w - 40, 12, 0xFF1A2233);
+        self.draw_rect(buffer, card_x + 20, card_y + 215, bar_w, 12, 0xFF00FF77);
+        self.draw_simple_text(buffer, "COMMANDO DEPLOYMENT: READY", card_x + 20, card_y + 240, 0xFF00FF77, 2);
+
+        let p_anim_x = (-40.0 + (progress * 200.0)).min(160.0);
+        for p in players.iter() {
+            let mut clone_p = p.clone();
+            clone_p.x = p_anim_x;
+            clone_p.jetpack_active = true;
+            self.draw_modern_commando(buffer, &clone_p);
+        }
+    }
+
+    /// Escena cinemática de victoria de fase (Stage Clear) estilo Final Mission
+    pub fn render_stage_clear_scene(
+        &self,
+        buffer: &mut [u32],
+        stage_num: u8,
+        stage_name: &str,
+        timer: f32,
+        score: u32,
+        health: f32,
+        bombs: u8,
+        players: &[Player],
+    ) {
+        let w = self.width as isize;
+        let h = self.height as isize;
+
+        buffer.fill(0xFF050811);
+        let warp_stretch = (timer * 80.0) as isize;
+        for s in self.stars.iter() {
+            let sx = (s.x as isize + warp_stretch) % w;
+            let sy = s.y as isize;
+            self.draw_rect(buffer, sx, sy, 22, 2, 0xFF00E5FF);
+        }
+
+        let cx = w / 2;
+        let cy = h / 2;
+        let card_w = 580.min(w as usize - 40);
+        let card_h = 240;
+        let bx = cx - (card_w as isize) / 2;
+        let by = cy - (card_h as isize) / 2;
+
+        self.draw_rect(buffer, bx, by, card_w, card_h as usize, 0xDD0D1826);
+        self.draw_rect(buffer, bx, by, card_w, 3, 0xFFFFD700);
+        self.draw_rect(buffer, bx, by + card_h as isize - 3, card_w, 3, 0xFFFFD700);
+
+        self.draw_simple_text(buffer, "STAGE CLEAR!", cx - 130, by + 20, 0xFFFFD700, 4);
+        self.draw_simple_text(buffer, stage_name, cx - 150, by + 65, 0xFF00E5FF, 2);
+
+        let bonus_stage = 10000 * stage_num as u32;
+        let bonus_hp = (health as u32) * 50;
+        let bonus_bombs = (bombs as u32) * 2000;
+        let score_str = format!("TOTAL SCORE: {}", score);
+        let bonus_str = format!("CLEAR BONUS: +{} PTS", bonus_stage);
+        let armor_str = format!("ARMOR INTEGRITY BONUS: +{} PTS", bonus_hp);
+        let bombs_str = format!("EMP BOMBS SAVED BONUS: +{} PTS", bonus_bombs);
+
+        self.draw_simple_text(buffer, &bonus_str, bx + 40, by + 105, 0xFF00FF77, 2);
+        self.draw_simple_text(buffer, &armor_str, bx + 40, by + 130, 0xFFE2E8F0, 1);
+        self.draw_simple_text(buffer, &bombs_str, bx + 40, by + 150, 0xFFE2E8F0, 1);
+        self.draw_simple_text(buffer, &score_str, bx + 40, by + 180, 0xFFFFD700, 2);
+
+        let warp_x = 160.0 + (timer * 350.0);
+        for p in players.iter() {
+            let mut clone_p = p.clone();
+            clone_p.x = warp_x;
+            clone_p.jetpack_active = true;
+            self.draw_modern_commando(buffer, &clone_p);
+            let px = warp_x as isize;
+            let py = clone_p.y as isize;
+            self.draw_rect(buffer, 0, py - 4, px.max(0) as usize, 8, 0x4400E5FF);
+            self.draw_rect(buffer, 0, py - 1, px.max(0) as usize, 2, 0xAAFFFFFF);
+        }
+    }
+
+    /// Escena de Game Over estilo arcade
+    pub fn render_game_over_scene(&self, buffer: &mut [u32], timer: f32, score: u32) {
+        let w = self.width as isize;
+        let h = self.height as isize;
+
+        buffer.fill(0xFF140505);
+
+        let cx = w / 2;
+        let cy = h / 2;
+
+        self.draw_rect(buffer, 0, cy - 80, w as usize, 160, 0xEE1C0707);
+        self.draw_rect(buffer, 0, cy - 80, w as usize, 3, 0xFFFF0033);
+        self.draw_rect(buffer, 0, cy + 80, w as usize, 3, 0xFFFF0033);
+
+        self.draw_simple_text(buffer, "GAME OVER", cx - 130, cy - 50, 0xFFFF0033, 4);
+        self.draw_simple_text(buffer, "CYBER-COMMANDO SYSTEM DESTROYED", cx - 160, cy + 5, 0xFFA0AEC0, 1);
+        let score_str = format!("FINAL SCORE: {}", score);
+        self.draw_simple_text(buffer, &score_str, cx - 100, cy + 25, 0xFFFFD700, 2);
+
+        let pulse = ((timer * 4.0).sin().abs() * 255.0) as u32;
+        let col = 0xFF000000 | (pulse << 16) | (pulse << 8) | pulse;
+        self.draw_simple_text(buffer, "TOCA LA PANTALLA PARA REINICIAR", cx - 170, cy + 55, col, 2);
+    }
+
+    /// Escena de Victoria Final tras vencer al Jefe 8
+    pub fn render_victory_scene(&self, buffer: &mut [u32], timer: f32, score: u32) {
+        let w = self.width as isize;
+        let h = self.height as isize;
+
+        buffer.fill(0xFF05111A);
+
+        let cx = w / 2;
+        let cy = h / 2;
+
+        self.draw_rect(buffer, 0, cy - 90, w as usize, 180, 0xEE092033);
+        self.draw_rect(buffer, 0, cy - 90, w as usize, 3, 0xFF00FFCC);
+        self.draw_rect(buffer, 0, cy + 90, w as usize, 3, 0xFF00FFCC);
+
+        self.draw_simple_text(buffer, "VICTORY!", cx - 100, cy - 65, 0xFFFFD700, 4);
+        self.draw_simple_text(buffer, "THE ROGUE AI HAS BEEN NEUTRALIZED", cx - 170, cy - 15, 0xFF00FFCC, 2);
+        self.draw_simple_text(buffer, "EARTH AND THE SOLAR SYSTEM ARE SAVED", cx - 160, cy + 10, 0xFFE2E8F0, 1);
+        let score_str = format!("LEGENDARY SCORE: {}", score);
+        self.draw_simple_text(buffer, &score_str, cx - 130, cy + 30, 0xFFFFD700, 2);
+
+        let pulse = ((timer * 4.0).sin().abs() * 255.0) as u32;
+        let col = 0xFF000000 | (pulse << 16) | (pulse << 8) | pulse;
+        self.draw_simple_text(buffer, "TOCA LA PANTALLA PARA JUGAR DE NUEVO", cx - 190, cy + 65, col, 2);
+    }
+
     fn get_char_glyph(ch: char) -> [u8; 7] {
         match ch.to_ascii_uppercase() {
             'A' => [0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001],
@@ -1583,23 +1815,48 @@ impl Renderer {
             'C' => [0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111],
             'D' => [0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110],
             'E' => [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111],
+            'F' => [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000],
             'G' => [0b01111, 0b10000, 0b10000, 0b10111, 0b10001, 0b10001, 0b01110],
             'H' => [0b10001, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001],
             'I' => [0b01110, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110],
+            'J' => [0b00001, 0b00001, 0b00001, 0b00001, 0b10001, 0b10001, 0b01110],
             'K' => [0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001],
             'L' => [0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111],
             'M' => [0b10001, 0b11011, 0b10101, 0b10001, 0b10001, 0b10001, 0b10001],
             'N' => [0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001],
             'O' => [0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110],
             'P' => [0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000],
+            'Q' => [0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101],
             'R' => [0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001],
             'S' => [0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110],
             'T' => [0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100],
             'U' => [0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110],
+            'V' => [0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b01010, 0b00100],
             'W' => [0b10001, 0b10001, 0b10001, 0b10101, 0b10101, 0b11011, 0b10001],
+            'X' => [0b10001, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b10001],
             'Y' => [0b10001, 0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100],
-            '0'..='9' => [0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110],
+            'Z' => [0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b11111],
+            '0' => [0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110],
+            '1' => [0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110],
+            '2' => [0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111],
+            '3' => [0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110],
+            '4' => [0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010],
+            '5' => [0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110],
+            '6' => [0b01110, 0b10000, 0b11110, 0b10001, 0b10001, 0b10001, 0b01110],
+            '7' => [0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000],
+            '8' => [0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110],
+            '9' => [0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00001, 0b01110],
+            ':' => [0b00000, 0b01100, 0b01100, 0b00000, 0b01100, 0b01100, 0b00000],
+            '!' => [0b00100, 0b00100, 0b00100, 0b00100, 0b00000, 0b00100, 0b00000],
+            '>' => [0b10000, 0b01000, 0b00100, 0b00010, 0b00100, 0b01000, 0b10000],
+            '<' => [0b00001, 0b00010, 0b00100, 0b01000, 0b00100, 0b00010, 0b00001],
+            '[' => [0b01110, 0b01000, 0b01000, 0b01000, 0b01000, 0b01000, 0b01110],
+            ']' => [0b01110, 0b00010, 0b00010, 0b00010, 0b00010, 0b00010, 0b01110],
+            '/' => [0b00001, 0b00010, 0b00010, 0b00100, 0b01000, 0b01000, 0b10000],
+            '+' => [0b00000, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00000],
             '-' => [0b00000, 0b00000, 0b00000, 0b11111, 0b00000, 0b00000, 0b00000],
+            '.' => [0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b01100, 0b01100],
+            '%' => [0b11001, 0b11010, 0b00100, 0b01000, 0b01011, 0b10011, 0b00000],
             _ => [0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000],
         }
     }

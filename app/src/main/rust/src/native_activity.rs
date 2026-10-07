@@ -120,8 +120,19 @@ extern "C" {
     pub fn __android_log_print(prio: c_int, tag: *const c_char, fmt: *const c_char, ...) -> c_int;
 }
 
+pub const AWINDOW_FLAG_FULLSCREEN: u32 = 0x00000400;
+pub const AWINDOW_FLAG_KEEP_SCREEN_ON: u32 = 0x00000080;
+pub const AWINDOW_FLAG_LAYOUT_IN_SCREEN: u32 = 0x00000100;
+pub const AWINDOW_FLAG_LAYOUT_NO_LIMITS: u32 = 0x00000200;
+pub const AWINDOW_FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS: u32 = 0x80000000;
+
 #[link(name = "android")]
 extern "C" {
+    pub fn ANativeActivity_setWindowFlags(
+        activity: *mut ANativeActivity,
+        add_flags: u32,
+        remove_flags: u32,
+    );
     pub fn ANativeWindow_acquire(window: *mut ANativeWindow);
     pub fn ANativeWindow_release(window: *mut ANativeWindow);
     pub fn ANativeWindow_getWidth(window: *mut ANativeWindow) -> i32;
@@ -283,11 +294,16 @@ impl NativeEngine {
                 *dims = (phys_w.max(1.0), phys_h.max(1.0));
             }
 
-            // Fijar resolución del búfer a 960x540 en formato RGBA_8888 para escalado por SurfaceFlinger
+            // Calcular resolución virtual proporcional al aspect ratio real del dispositivo
+            // para cubrir el 100% de la pantalla sin franjas negras laterales ni superiores
+            let aspect = phys_w / phys_h.max(1.0);
+            let virt_h = VIRTUAL_HEIGHT;
+            let virt_w = ((virt_h as f32 * aspect).round() as usize).max(VIRTUAL_WIDTH);
+
             ANativeWindow_setBuffersGeometry(
                 window,
-                VIRTUAL_WIDTH as i32,
-                VIRTUAL_HEIGHT as i32,
+                virt_w as i32,
+                virt_h as i32,
                 WINDOW_FORMAT_RGBA_8888,
             );
         }
@@ -419,6 +435,15 @@ fn render_loop(
                 .map(|dims| *dims)
                 .unwrap_or((VIRTUAL_WIDTH as f32, VIRTUAL_HEIGHT as f32));
 
+            // Adaptar resolución interna del juego al aspecto físico del dispositivo (100% de pantalla)
+            let aspect = win_w / win_h.max(1.0);
+            let target_virt_h = VIRTUAL_HEIGHT;
+            let target_virt_w = ((target_virt_h as f32 * aspect).round() as usize).max(VIRTUAL_WIDTH);
+
+            if game.width != target_virt_w || game.height != target_virt_h {
+                game.resize(target_virt_w, target_virt_h);
+            }
+
             if let Ok(q_lock) = input_arc.lock() {
                 if let Some(queue_ptr) = *q_lock {
                     let queue = queue_ptr.0;
@@ -434,13 +459,15 @@ fn render_loop(
                                 let event_type = AInputEvent_getType(event);
 
                                 let handled = if event_type == AINPUT_EVENT_TYPE_MOTION {
+                                    let gw = game.width;
+                                    let gh = game.height;
                                     handle_input_event(
                                         event,
                                         &mut game,
                                         win_w,
                                         win_h,
-                                        VIRTUAL_WIDTH,
-                                        VIRTUAL_HEIGHT,
+                                        gw,
+                                        gh,
                                     );
                                     1
                                 } else {
@@ -657,6 +684,14 @@ unsafe extern "C" fn on_destroy(activity: *mut ANativeActivity) {
 
 unsafe extern "C" fn on_window_focus_changed(activity: *mut ANativeActivity, has_focus: c_int) {
     log_info!("ANativeActivity::onWindowFocusChanged(hasFocus={})", has_focus);
+    if has_focus != 0 && !activity.is_null() {
+        let add_flags = AWINDOW_FLAG_FULLSCREEN
+            | AWINDOW_FLAG_KEEP_SCREEN_ON
+            | AWINDOW_FLAG_LAYOUT_IN_SCREEN
+            | AWINDOW_FLAG_LAYOUT_NO_LIMITS
+            | AWINDOW_FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+        ANativeActivity_setWindowFlags(activity, add_flags, 0);
+    }
     if let Some(engine) = get_engine(activity) {
         engine.has_focus.store(has_focus != 0, Ordering::SeqCst);
     }
@@ -683,6 +718,16 @@ unsafe extern "C" fn on_native_window_resized(
         if let Ok(mut dims) = engine.window_dims.lock() {
             *dims = (w.max(1.0), h.max(1.0));
         }
+
+        let aspect = w / h.max(1.0);
+        let virt_h = VIRTUAL_HEIGHT;
+        let virt_w = ((virt_h as f32 * aspect).round() as usize).max(VIRTUAL_WIDTH);
+        ANativeWindow_setBuffersGeometry(
+            window,
+            virt_w as i32,
+            virt_h as i32,
+            WINDOW_FORMAT_RGBA_8888,
+        );
     }
 }
 
@@ -752,6 +797,14 @@ pub unsafe extern "C" fn ANativeActivity_onCreate(
         log_error!("❌ Error fatal: Puntero activity o callbacks nulo en ANativeActivity_onCreate");
         return;
     }
+
+    // Configurar banderas de ventana para cubrir el 100% de la pantalla (notch / display cutout)
+    let add_flags = AWINDOW_FLAG_FULLSCREEN
+        | AWINDOW_FLAG_KEEP_SCREEN_ON
+        | AWINDOW_FLAG_LAYOUT_IN_SCREEN
+        | AWINDOW_FLAG_LAYOUT_NO_LIMITS
+        | AWINDOW_FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+    ANativeActivity_setWindowFlags(activity, add_flags, 0);
 
     let callbacks = &mut *(*activity).callbacks;
     callbacks.on_start = Some(on_start);

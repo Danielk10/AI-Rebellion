@@ -36,6 +36,9 @@ pub struct LevelManager {
     pub target_vx: f32,
     pub target_vy: f32,
     pub current_phase: StagePhase,
+    pub last_phase: StagePhase,
+    pub transition_timer: f32,
+    pub transition_text: &'static str,
     pub distance_traveled: f32,
     pub scroll_pos: f32, // Compatibilidad retrospectiva (alias de distance_traveled)
     pub stage_progress: f32,
@@ -57,6 +60,9 @@ impl LevelManager {
             target_vx: speed,
             target_vy: 0.0,
             current_phase: StagePhase::HorizontalRight,
+            last_phase: StagePhase::HorizontalRight,
+            transition_timer: 0.0,
+            transition_text: "",
             distance_traveled: 0.0,
             scroll_pos: 0.0,
             stage_progress: 0.0,
@@ -77,6 +83,9 @@ impl LevelManager {
         self.target_vx = speed;
         self.target_vy = 0.0;
         self.current_phase = StagePhase::HorizontalRight;
+        self.last_phase = StagePhase::HorizontalRight;
+        self.transition_timer = 0.0;
+        self.transition_text = "";
         self.distance_traveled = 0.0;
         self.scroll_pos = 0.0;
         self.stage_progress = 0.0;
@@ -163,10 +172,24 @@ impl LevelManager {
 
     pub fn update(&mut self, dt: f32, screen_w: f32, screen_h: f32, enemies: &mut Vec<Enemy>) -> bool {
         // 1. Determinar fase y velocidades objetivo de trayectoria según el avance del nivel
+        let old_phase = self.current_phase;
         self.update_phase_and_trajectory();
+        if self.current_phase != old_phase {
+            self.last_phase = old_phase;
+            self.transition_timer = 2.8;
+            self.transition_text = match self.current_phase {
+                StagePhase::AscendUp => ">>> WARNING: CYBER-TOWER ELEVATOR ASCENT >>>",
+                StagePhase::DescendDown => ">>> CAUTION: SUBTERRANEAN FOUNDRY DESCENT >>>",
+                StagePhase::HorizontalRight => ">>> ALERT: HIGH-SPEED SKYWAY SPRINT >>>",
+                StagePhase::BossEncounter => ">>> CRITICAL WARNING: COLOSSAL AI WARSHIP INCOMING >>>",
+            };
+        }
+        if self.transition_timer > 0.0 {
+            self.transition_timer = (self.transition_timer - dt).max(0.0);
+        }
 
         // 2. Transición suave de la trayectoria de cámara (curvas y amortiguación física)
-        let blend_rate = 3.5;
+        let blend_rate = 2.8;
         self.scroll_vx += (self.target_vx - self.scroll_vx) * (blend_rate * dt).min(1.0);
         self.scroll_vy += (self.target_vy - self.scroll_vy) * (blend_rate * dt).min(1.0);
 
@@ -184,6 +207,8 @@ impl LevelManager {
         if self.stage_progress >= 1.0 && !self.boss_spawned {
             self.boss_spawned = true;
             self.current_phase = StagePhase::BossEncounter;
+            self.transition_timer = 2.8;
+            self.transition_text = ">>> CRITICAL WARNING: COLOSSAL AI WARSHIP INCOMING >>>";
             self.target_vx = 0.0;
             self.target_vy = 0.0;
             return true;

@@ -16,9 +16,11 @@ Inspirado en las intensas mecánicas y el ritmo de combate de las obras maestras
 
 ## 📸 Capturas Reales en Dispositivo Físico (TECNO BF7 - Android 12)
 
-| Bumper Cinemático: Diamon Black & Rust | Gameplay Táctico: Asalto Multidireccional |
-| :---: | :---: |
-| ![Splash Diamon Black](captura_splash.png) | ![Gameplay Real](docs_gameplay_screenshot.png) |
+| Bumper Cinemático: Diamon Black | Briefing Táctico: Inserción de Fase | Gameplay 100% Pantalla Completa |
+| :---: | :---: | :---: |
+| ![Splash Diamon Black](captura_splash.png) | ![Briefing Táctico](docs_stage_intro_screenshot.png) | ![Gameplay Real](docs_gameplay_screenshot.png) |
+
+> 📱 **Cobertura 100% de Pantalla Completa (Zero Franjas Negras):** Validación matemática de $1612 \times 720$ píxeles sin barras negras en el notch de la cámara frontal (`layoutInDisplayCutoutMode="shortEdges"`), emulando la inmersión total lograda por *Shattered Pixel Dungeon*.
 
 ---
 
@@ -29,6 +31,16 @@ El juego arranca con un *bumper* cinemático de presentación de alta tecnologí
 * **Haz Anamórfico Bicolor:** Destello horizontal pulsante con gradiente cian de alta energía a la izquierda y resplandor naranja ardiente a la derecha.
 * **Insignia "Powered by Rust":** Engranaje icónico de Rust en plasma naranja giratorio de 8 dientes, tallado sobre una placa de titanio cepillado con resplandor aditivo y núcleo brillante.
 * **Transición Instantánea:** Un simple toque en la pantalla inicia la campaña espacial con latencia cero y sin pausas de carga intermedias.
+
+---
+
+## 🛸 Progresión Cinemática de Fases y Transiciones (Estilo Final Mission)
+
+Para erradicar cambios bruscos de escenario, el juego incorpora un sistema de escenas estructuradas y alertas holográficas:
+1. **Briefing Táctico de Misión (`StageIntro`):** Pantalla de operaciones con coordenadas planetarias, radar circular escaneando en tiempo real, directivas de asalto e inserción cinemática del soldado con propulsión jetpack.
+2. **Alertas de Cambio de Trayectoria en Tiempo Real:** Banners holográficos parpadeantes con franjas de advertencia de peligro en bordes (`>>> WARNING: CYBER-TOWER ELEVATOR ASCENT >>>`, `>>> CAUTION: SUBTERRANEAN FOUNDRY DESCENT >>>`) y aviso sonoro antes de virajes verticales.
+3. **Celebración de Fase Completada (`StageClear`):** Conteo y desglose de bonificación por fase superada, integridad de armadura y bombas cuánticas preservadas, culminando con el comando acelerando al hiperespacio con doble estela de plasma incandescente.
+4. **Game Over y Victoria Final:** Secuencias cinemáticas arcade con reinicio instantáneo al tocar la pantalla.
 
 ---
 
