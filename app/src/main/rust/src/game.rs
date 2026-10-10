@@ -176,6 +176,13 @@ impl Game {
         let local_id = self.multiplayer.local_player_id as usize;
         self.touch_controls.on_touch_up(id, x, y);
 
+        // Gesto de Flick horizontal ejecutado al levantar el dedo (Swipe & Release):
+        if let Some(flick_right) = self.touch_controls.flick_facing.take() {
+            if let Some(p) = self.players.get_mut(local_id) {
+                p.facing_right = flick_right;
+            }
+        }
+
         // Bomba especial EMP activada por toque rápido seco con el segundo dedo
         if self.touch_controls.trigger_bomb {
             self.touch_controls.trigger_bomb = false;
