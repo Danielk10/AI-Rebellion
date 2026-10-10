@@ -123,8 +123,9 @@ impl Game {
 
         self.touch_controls.on_touch_down(id, x, y, px, py);
 
-        // Bomba especial EMP activada por doble toque rápido (< 0.35s)
+        // Bomba especial EMP activada por toque rápido (dos dedos o doble toque)
         if self.touch_controls.trigger_bomb {
+            self.touch_controls.trigger_bomb = false;
             if let Some(p) = self.players.get_mut(local_id) {
                 if p.bombs > 0 {
                     p.bombs -= 1;
@@ -142,6 +143,7 @@ impl Game {
         let h_f = self.height as f32;
         let local_id = self.multiplayer.local_player_id as usize;
 
+        // El desplazamiento del personaje se realiza exclusivamente por el dedo primario
         if let Some((target_x, target_y)) = self.touch_controls.on_touch_move(id, x, y) {
             if let Some(p) = self.players.get_mut(local_id) {
                 let old_x = p.x;
@@ -158,11 +160,13 @@ impl Game {
                 p.vx = dx * 60.0;
                 p.vy = dy * 60.0;
                 p.jetpack_active = dx.abs() > 0.15 || dy.abs() > 0.15;
+            }
+        }
 
-                // Gesto de Flick horizontal rápido para voltear:
-                if let Some(flick_right) = self.touch_controls.flick_facing.take() {
-                    p.facing_right = flick_right;
-                }
+        // Gesto de Flick horizontal rápido ejecutado por el segundo dedo (dedo libre):
+        if let Some(flick_right) = self.touch_controls.flick_facing.take() {
+            if let Some(p) = self.players.get_mut(local_id) {
+                p.facing_right = flick_right;
             }
         }
     }
@@ -172,11 +176,16 @@ impl Game {
         let local_id = self.multiplayer.local_player_id as usize;
         self.touch_controls.on_touch_up(id, x, y);
 
-        // Multi-touch: Toque rápido con segundo dedo conmuta orientación (Volteo 180° estilo Final Mission)
-        if self.touch_controls.toggle_facing {
-            self.touch_controls.toggle_facing = false;
+        // Bomba especial EMP activada por toque rápido seco con el segundo dedo
+        if self.touch_controls.trigger_bomb {
+            self.touch_controls.trigger_bomb = false;
             if let Some(p) = self.players.get_mut(local_id) {
-                p.toggle_facing();
+                if p.bombs > 0 {
+                    p.bombs -= 1;
+                    let bx = p.x;
+                    let by = p.y;
+                    self.trigger_bomb(bx, by);
+                }
             }
         }
 

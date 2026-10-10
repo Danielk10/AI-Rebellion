@@ -1,10 +1,13 @@
 //! Módulo de Gestión Táctil para IA Rebellion (Inspirado en Final Mission NES)
 //! Arquitectura 100% Nativa sin botones virtuales en pantalla:
-//! - Arrastre relativo 1:1 de Jugador.java (sin tapar el personaje).
-//! - Doble toque rápido (< 0.35s) para Bomba EMP.
-//! - Multi-touch: toque rápido (< 0.28s) con segundo dedo conmuta orientación 180° (Voltear adelante <-> atrás).
-//! - Gesto Flick: deslizamiento horizontal rápido en dirección contraria conmuta orientación.
-//! - Hold & Drag con segundo dedo: bloquea y apunta satélites orbitales en 360 grados.
+//! - Primer dedo (movimiento): Arrastre relativo 1:1 de Jugador.java (sin tapar el personaje).
+//!   NO cambia nunca la dirección del personaje, garantizando esquivas y desplazamientos limpios.
+//! - Segundo dedo (dedo libre):
+//!   * Arrastre sostenido: Controla y apunta satélites orbitales en 360 grados.
+//!   * Arrastre rápido (flick horizontal): Conmuta la dirección del jugador (izquierda/derecha).
+//! - Ataque especial (Bomba EMP):
+//!   * Toque rápido simultáneo de dos dedos (o toque seco del segundo dedo < 0.35s).
+//!   * Doble toque rápido repetido en pantalla (< 0.35s).
 
 #[derive(Clone, Copy, Debug)]
 pub struct TouchHistoryPoint {
@@ -29,17 +32,21 @@ pub struct TouchControls {
     pub secondary_x: f32,
     pub secondary_y: f32,
 
-    // Estado del segundo dedo (Multi-touch: Conmutación vs Bloqueo Satelital)
+    // Tiempo de pulsación del primer dedo
+    pub primary_down_time: f32,
+
+    // Estado del segundo dedo (dedo libre: satélites + dirección + flick)
     pub secondary_start_x: f32,
     pub secondary_start_y: f32,
     pub secondary_touch_time: f32,
     pub secondary_has_dragged: bool,
 
-    // Detección estricta de Gesto Flick / Arrastre Rápido Horizontal
+    // Historial del segundo dedo para detección de Flick / Arrastre Rápido Horizontal
+    pub secondary_history: [TouchHistoryPoint; 8],
+    pub secondary_history_len: usize,
+    pub secondary_history_idx: usize,
+
     pub touch_timer: f32,
-    pub history: [TouchHistoryPoint; 8],
-    pub history_len: usize,
-    pub history_idx: usize,
     pub flick_cooldown: f32,
     pub flick_facing: Option<bool>, // Some(true) = derecha, Some(false) = izquierda
 
@@ -49,9 +56,9 @@ pub struct TouchControls {
     pub satellite_lock: bool,
     pub satellite_target_angle: Option<f32>,
     pub trigger_bomb: bool,
-    pub toggle_facing: bool, // Disparo único de conmutación 180°
+    pub toggle_facing: bool,
 
-    // Temporizador para doble toque rápido (Bomba EMP)
+    // Temporizador para doble toque rápido
     pub time_since_last_tap: f32,
 
     pub screen_width: f32,
@@ -70,14 +77,15 @@ impl TouchControls {
             primary_y: 0.0,
             secondary_x: 0.0,
             secondary_y: 0.0,
+            primary_down_time: 0.0,
             secondary_start_x: 0.0,
             secondary_start_y: 0.0,
             secondary_touch_time: 0.0,
             secondary_has_dragged: false,
+            secondary_history: [TouchHistoryPoint { x: 0.0, y: 0.0, time: 0.0 }; 8],
+            secondary_history_len: 0,
+            secondary_history_idx: 0,
             touch_timer: 0.0,
-            history: [TouchHistoryPoint { x: 0.0, y: 0.0, time: 0.0 }; 8],
-            history_len: 0,
-            history_idx: 0,
             flick_cooldown: 0.0,
             flick_facing: None,
             is_touching: false,
@@ -100,7 +108,6 @@ impl TouchControls {
     pub fn update(&mut self, dt: f32) {
         self.touch_timer += dt;
         self.time_since_last_tap += dt;
-        self.trigger_bomb = false;
         self.toggle_facing = false;
         self.flick_facing = None;
 
@@ -111,14 +118,14 @@ impl TouchControls {
         // Si el segundo dedo se mantiene presionado sin soltarlo:
         if self.secondary_id != -1 {
             self.secondary_touch_time += dt;
-            // Al superar 0.22s de presión continua, se confirma modo Hold de satélites
-            if self.secondary_touch_time >= 0.22 && !self.secondary_has_dragged {
-                self.secondary_has_dragged = true;
-                self.satellite_lock = true;
-                if self.satellite_target_angle.is_none() {
-                    let dx = self.secondary_x - self.secondary_start_x;
-                    let dy = self.secondary_y - self.secondary_start_y;
-                    if dx * dx + dy * dy > 16.0 {
+            // Al superar 0.20s de presión continua con desplazamiento, se confirma modo Hold de satélites
+            if self.secondary_touch_time >= 0.20 && !self.secondary_has_dragged {
+                let dx = self.secondary_x - self.secondary_start_x;
+                let dy = self.secondary_y - self.secondary_start_y;
+                if dx * dx + dy * dy > 36.0 {
+                    self.secondary_has_dragged = true;
+                    self.satellite_lock = true;
+                    if self.satellite_target_angle.is_none() {
                         self.satellite_target_angle = Some(dy.atan2(dx));
                     }
                 }
@@ -142,14 +149,9 @@ impl TouchControls {
 
             self.is_touching = true;
             self.is_firing = true;
+            self.primary_down_time = self.touch_timer;
 
-            // Inicializar historial de tracking para detección de arrastre rápido (flick)
-            self.history_len = 1;
-            self.history_idx = 0;
-            self.history[0] = TouchHistoryPoint { x, y, time: self.touch_timer };
-            self.flick_cooldown = 0.0;
-
-            // Detección de doble toque rápido (< 0.35s) para lanzar Bomba EMP
+            // Detección de doble toque rápido (< 0.35s) con un solo dedo para lanzar Bomba EMP
             if self.time_since_last_tap < 0.35 {
                 self.trigger_bomb = true;
                 self.time_since_last_tap = 10.0;
@@ -157,8 +159,7 @@ impl TouchControls {
                 self.time_since_last_tap = 0.0;
             }
         } else if self.secondary_id == -1 && id != self.primary_id {
-            // Segundo dedo detectado: Registrar ancla inicial y tiempo
-            // No activar satellite_lock de inmediato para permitir Quick Tap (volteo 180°)
+            // Segundo dedo detectado (dedo libre)
             self.secondary_id = id;
             self.secondary_x = x;
             self.secondary_y = y;
@@ -166,6 +167,17 @@ impl TouchControls {
             self.secondary_start_y = y;
             self.secondary_touch_time = 0.0;
             self.secondary_has_dragged = false;
+
+            // Inicializar historial del segundo dedo para swipe rápido (flick)
+            self.secondary_history_len = 1;
+            self.secondary_history_idx = 0;
+            self.secondary_history[0] = TouchHistoryPoint { x, y, time: self.touch_timer };
+
+            // Ataque especial por pulsación rápida con los dos dedos (two-finger press):
+            // Si el segundo dedo cae casi simultáneamente con el primero (< 0.25s)
+            if (self.touch_timer - self.primary_down_time).abs() < 0.25 {
+                self.trigger_bomb = true;
+            }
         }
     }
 
@@ -177,43 +189,9 @@ impl TouchControls {
             self.is_touching = true;
             self.is_firing = true;
 
-            let now = self.touch_timer;
-            self.history_idx = (self.history_idx + 1) % 8;
-            self.history[self.history_idx] = TouchHistoryPoint { x, y, time: now };
-            if self.history_len < 8 {
-                self.history_len += 1;
-            }
-
-            // Detección de Gesto Flick / Arrastre Rápido Horizontal (dedo primario)
-            // Solo cambia la orientación si se realiza un latigazo rápido intencional,
-            // garantizando que arrastrar el dedo hacia adelante/atrás para mover al jugador
-            // NUNCA altere la dirección configurada.
-            if self.flick_cooldown <= 0.0 && self.history_len >= 2 {
-                for i in 1..self.history_len {
-                    let past_idx = (self.history_idx + 8 - i) % 8;
-                    let sample = self.history[past_idx];
-                    let dt = now - sample.time;
-                    if dt >= 0.025 && dt <= 0.12 {
-                        let dx = x - sample.x;
-                        let dy = y - sample.y;
-                        let vx = dx / dt.max(0.016);
-
-                        // Umbrales estrictos de arrastre rápido intencional:
-                        // 1. Distancia horizontal mínima: >= 70 px
-                        // 2. Velocidad explosiva de swipe: >= 1700 px/s
-                        // 3. Dominancia horizontal clara: dx >= dy * 1.4
-                        if dx.abs() >= 70.0 && vx.abs() >= 1700.0 && dx.abs() >= dy.abs() * 1.4 {
-                            self.flick_facing = Some(dx > 0.0);
-                            self.flick_cooldown = 0.28;
-                            // Resetea el historial para evitar activaciones múltiples en el mismo trazo
-                            self.history_len = 1;
-                            self.history[self.history_idx] = TouchHistoryPoint { x, y, time: now };
-                            break;
-                        }
-                    }
-                }
-            }
-
+            // El dedo primario SOLO desplaza al jugador por la pantalla.
+            // NO evalúa gestos flick ni cambia jamás la dirección del personaje,
+            // permitiendo evasión y movimiento a máxima velocidad sin riesgo de giros involuntarios.
             if self.touch_initialized {
                 // Algoritmo exacto de Jugador.java:
                 // x1 = xPantalla - deltaXTactil;
@@ -226,12 +204,44 @@ impl TouchControls {
             self.secondary_x = x;
             self.secondary_y = y;
 
-            // Desplazamiento relativo desde el ancla de pulsación del segundo dedo
+            let now = self.touch_timer;
+            self.secondary_history_idx = (self.secondary_history_idx + 1) % 8;
+            self.secondary_history[self.secondary_history_idx] = TouchHistoryPoint { x, y, time: now };
+            if self.secondary_history_len < 8 {
+                self.secondary_history_len += 1;
+            }
+
+            // Gesto Flick / Arrastre Rápido Horizontal del segundo dedo (dedo libre):
+            // Controla deliberadamente la orientación (izquierda/derecha) del jugador
+            if self.flick_cooldown <= 0.0 && self.secondary_history_len >= 2 {
+                for i in 1..self.secondary_history_len {
+                    let past_idx = (self.secondary_history_idx + 8 - i) % 8;
+                    let sample = self.secondary_history[past_idx];
+                    let dt = now - sample.time;
+                    if dt >= 0.020 && dt <= 0.18 {
+                        let dx = x - sample.x;
+                        let dy = y - sample.y;
+                        let vx = dx / dt.max(0.016);
+
+                        // Umbral de arrastre rápido del segundo dedo:
+                        // Distancia horizontal >= 50 px, velocidad >= 1200 px/s, dominancia horizontal
+                        if dx.abs() >= 50.0 && vx.abs() >= 1200.0 && dx.abs() >= dy.abs() * 1.2 {
+                            self.flick_facing = Some(dx > 0.0);
+                            self.flick_cooldown = 0.25;
+                            self.secondary_history_len = 1;
+                            self.secondary_history[self.secondary_history_idx] = TouchHistoryPoint { x, y, time: now };
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Desplazamiento relativo desde el ancla de pulsación del segundo dedo para Satélites
             let mut dx = x - self.secondary_start_x;
             let mut dy = y - self.secondary_start_y;
             let dist_sq = dx * dx + dy * dy;
 
-            // Umbral de arrastre (> 12 px) activa bloqueo y apuntado en 360°
+            // Umbral de arrastre (> 12 px) activa bloqueo y apuntado de satélites en 360°
             if dist_sq > 144.0 {
                 self.secondary_has_dragged = true;
                 self.satellite_lock = true;
@@ -253,7 +263,7 @@ impl TouchControls {
     }
 
     /// Evento toqueLevantado de Jugador.java (AMOTION_EVENT_ACTION_UP / POINTER_UP)
-    pub fn on_touch_up(&mut self, id: i32, _x: f32, _y: f32) {
+    pub fn on_touch_up(&mut self, id: i32, x: f32, y: f32) {
         if self.primary_id == id {
             if self.secondary_id != -1 {
                 // Promover segundo dedo a primario
@@ -266,6 +276,7 @@ impl TouchControls {
                 self.satellite_target_angle = None;
                 self.secondary_has_dragged = false;
                 self.secondary_touch_time = 0.0;
+                self.secondary_history_len = 0;
             } else {
                 self.primary_id = -1;
                 self.touch_initialized = false;
@@ -275,11 +286,20 @@ impl TouchControls {
                 self.satellite_target_angle = None;
             }
         } else if self.secondary_id == id {
+            // Ataque especial por toque rápido seco del segundo dedo:
+            // Si el jugador presiona y suelta rápidamente el segundo dedo (< 0.35s) sin arrastrar satélites
+            let dx = x - self.secondary_start_x;
+            let dy = y - self.secondary_start_y;
+            if self.secondary_touch_time < 0.35 && (dx * dx + dy * dy) < 400.0 && !self.secondary_has_dragged {
+                self.trigger_bomb = true;
+            }
+
             self.secondary_id = -1;
             self.satellite_lock = false;
             self.satellite_target_angle = None;
             self.secondary_has_dragged = false;
             self.secondary_touch_time = 0.0;
+            self.secondary_history_len = 0;
         }
     }
 }
