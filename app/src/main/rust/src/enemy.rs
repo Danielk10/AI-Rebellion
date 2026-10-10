@@ -18,7 +18,8 @@ pub enum EnemyType {
     // Drones y Leviatanes
     PredatoryDrone,      // Dron interceptor con alas en flecha invertida
     BioMechLeviathan,    // Leviatán blindado con pinzas trituradoras
-    
+    ItemCarrier,         // Dron transportador blindado con cápsula de suministro (estilo Final Mission)
+
     // Mapeos retrocompatibles para las oleadas de level.rs:
     PatrolDrone,         // Mapea a PredatoryDrone
     KamikazeWasp,        // Mapea a PredatoryDrone / BioPlantSporePod
@@ -30,13 +31,13 @@ pub enum EnemyType {
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ItemType {
-    WeaponVulcan,
-    WeaponLaser,
-    WeaponSpread,
-    WeaponHoming,
-    Shield,
-    Bomb,
-    ExtraLife,
+    WeaponVulcan,  // 'P': Potencia de Fuego / Power-Up Vulcan
+    WeaponLaser,   // 'L': Rayo Láser Penetrante
+    WeaponSpread,  // 'S': Escopeta de Plasma en Abanico
+    WeaponHoming,  // 'M': Misiles Teledirigidos
+    Shield,        // 'H': Kit Nano-Médico (+40 HP)
+    Bomb,          // 'B': Recarga de Bomba Especial EMP (+1 Smart Bomb)
+    ExtraLife,     // '1UP': Vida Extra
 }
 
 #[derive(Clone, Debug)]
@@ -44,9 +45,40 @@ pub struct Item {
     pub x: f32,
     pub y: f32,
     pub vx: f32,
+    pub vy: f32,
     pub item_type: ItemType,
     pub active: bool,
     pub radius: f32,
+    pub time_alive: f32,
+}
+
+impl Item {
+    pub fn new(x: f32, y: f32, item_type: ItemType) -> Self {
+        Self {
+            x,
+            y,
+            vx: -35.0,
+            vy: 0.0,
+            item_type,
+            active: true,
+            radius: 18.0,
+            time_alive: 0.0,
+        }
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        if !self.active {
+            return;
+        }
+        self.time_alive += dt;
+        self.x += self.vx * dt;
+        // Flotación sinusoidal suave estilo arcade clásico
+        self.y += (self.time_alive * 2.8).sin() * 30.0 * dt;
+
+        if self.x < -50.0 {
+            self.active = false;
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -77,6 +109,7 @@ impl Enemy {
             EnemyType::PredatoryDrone | EnemyType::PatrolDrone => (45.0, 18.0, -210.0, 0.0),
             EnemyType::KamikazeWasp => (30.0, 16.0, -250.0, 0.0),
             EnemyType::BioMechLeviathan | EnemyType::CyberCrab => (220.0, 32.0, -75.0, 25.0),
+            EnemyType::ItemCarrier => (48.0, 22.0, -115.0, 0.0), // Dron contenedor dorado
         };
 
         let is_ceiling = y < 140.0;
@@ -127,9 +160,13 @@ impl Enemy {
                 self.x += self.vx * dt;
                 self.y += (self.time_alive * 5.0).sin() * 160.0 * dt;
             }
-            EnemyType::PatrolDrone | EnemyType::PredatoryDrone => {
+            EnemyType::PredatoryDrone | EnemyType::PatrolDrone => {
                 self.x += self.vx * dt;
                 self.y += (self.time_alive * 3.5).sin() * 70.0 * dt;
+            }
+            EnemyType::ItemCarrier => {
+                self.x += self.vx * dt;
+                self.y += (self.time_alive * 2.5).sin() * 45.0 * dt;
             }
             EnemyType::CyberCrab | EnemyType::BioMechLeviathan => {
                 self.x += self.vx * dt;
@@ -149,8 +186,8 @@ impl Enemy {
             }
         }
 
-        // Disparo enemigo dirigido
-        if self.fire_timer <= 0.0 && self.x > 40.0 && self.x < 1800.0 {
+        // Disparo enemigo dirigido (ItemCarrier no dispara)
+        if self.enemy_type != EnemyType::ItemCarrier && self.fire_timer <= 0.0 && self.x > 40.0 && self.x < 1800.0 {
             self.fire_timer = match self.enemy_type {
                 EnemyType::LaserTurret | EnemyType::BioPlantFlowerTrap => 1.7,
                 EnemyType::CyberCrab | EnemyType::BioMechLeviathan => 2.0,

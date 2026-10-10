@@ -6,9 +6,9 @@ use crate::audio::{AudioEngine, SoundEffect};
 use crate::level::{LevelManager, StagePhase};
 use crate::boss::Boss;
 use crate::bullet::{Bullet, BulletOwner};
-use crate::enemy::Enemy;
+use crate::enemy::{Enemy, EnemyType, Item, ItemType};
 use crate::multiplayer::MultiplayerManager;
-use crate::player::Player;
+use crate::player::{Player, WeaponType};
 use crate::renderer::Renderer;
 use crate::touch::TouchControls;
 
@@ -31,6 +31,7 @@ pub struct Game {
 
     pub players: Vec<Player>,
     pub enemies: Vec<Enemy>,
+    pub items: Vec<Item>,
     pub boss: Option<Boss>,
     pub bullets: Vec<Bullet>,
 
@@ -63,6 +64,7 @@ impl Game {
             height: h,
             players,
             enemies: Vec::with_capacity(64),
+            items: Vec::with_capacity(32),
             boss: None,
             bullets: Vec::with_capacity(256),
             level_manager: LevelManager::new(1),
@@ -301,6 +303,7 @@ impl Game {
         self.state_timer = 0.0;
         self.boss = None;
         self.enemies.clear();
+        self.items.clear();
         self.bullets.clear();
 
         for p in self.players.iter_mut() {
@@ -430,7 +433,13 @@ impl Game {
         }
         self.enemies.retain(|e| e.active && e.x >= -90.0 && e.x <= w_f + 90.0 && e.y >= -90.0 && e.y <= h_f + 90.0);
 
-        // 6. Detectar colisiones
+        // 6. Actualizar cápsulas de items en pantalla
+        for item in self.items.iter_mut() {
+            item.update(dt);
+        }
+        self.items.retain(|item| item.active);
+
+        // 7. Detectar colisiones
         self.check_collisions();
     }
 
@@ -452,6 +461,9 @@ impl Game {
             if e.health <= 0.0 {
                 e.active = false;
                 self.total_score += 150;
+                if e.enemy_type == EnemyType::ItemCarrier {
+                    self.items.push(Item::new(e.x, e.y, ItemType::Bomb));
+                }
             }
         }
 
@@ -488,6 +500,18 @@ impl Game {
                                 self.total_score += 200;
                                 self.renderer.add_explosion(e.x, e.y, 14, 0xFFFF4500);
                                 Self::trigger_sfx(&audio, SoundEffect::Explosion);
+
+                                if e.enemy_type == EnemyType::ItemCarrier {
+                                    let item_choice = match ((self.total_score / 100) + (e.y as u32 / 30)) % 6 {
+                                        0 => ItemType::WeaponLaser,
+                                        1 => ItemType::WeaponSpread,
+                                        2 => ItemType::WeaponHoming,
+                                        3 => ItemType::WeaponVulcan,
+                                        4 => ItemType::Bomb,
+                                        _ => ItemType::Shield,
+                                    };
+                                    self.items.push(Item::new(e.x, e.y, item_choice));
+                                }
                             }
                             break;
                         }
@@ -550,6 +574,53 @@ impl Game {
                 }
             }
         }
+
+        // Colisión: Jugador vs Ítems / Cápsulas de Suministro
+        for p in self.players.iter_mut() {
+            if !p.active {
+                continue;
+            }
+            for item in self.items.iter_mut() {
+                if !item.active {
+                    continue;
+                }
+                let dist = ((p.x - item.x).powi(2) + (p.y - item.y).powi(2)).sqrt();
+                if dist < (item.radius + 22.0) {
+                    item.active = false;
+                    self.renderer.add_explosion(item.x, item.y, 14, 0xFF00FFFF);
+                    Self::trigger_sfx(&audio, SoundEffect::PowerUp);
+
+                    match item.item_type {
+                        ItemType::WeaponVulcan => {
+                            p.weapon = WeaponType::Vulcan;
+                            p.weapon_power = (p.weapon_power + 1).min(3);
+                        }
+                        ItemType::WeaponLaser => {
+                            p.weapon = WeaponType::Laser;
+                            p.weapon_power = (p.weapon_power + 1).min(3);
+                        }
+                        ItemType::WeaponSpread => {
+                            p.weapon = WeaponType::Spread;
+                            p.weapon_power = (p.weapon_power + 1).min(3);
+                        }
+                        ItemType::WeaponHoming => {
+                            p.weapon = WeaponType::Homing;
+                            p.weapon_power = (p.weapon_power + 1).min(3);
+                        }
+                        ItemType::Bomb => {
+                            p.bombs = (p.bombs + 1).min(6);
+                        }
+                        ItemType::Shield => {
+                            p.health = (p.health + 40.0).min(p.max_health);
+                        }
+                        ItemType::ExtraLife => {
+                            p.lives = (p.lives + 1).min(9);
+                        }
+                    }
+                    self.total_score += 500;
+                }
+            }
+        }
     }
 
     pub fn render(&mut self, buffer: &mut [u32]) {
@@ -603,6 +674,7 @@ impl Game {
                     bg,
                     &self.players,
                     &self.enemies,
+                    &self.items,
                     &self.boss,
                     &self.bullets,
                     s_num,

@@ -11,9 +11,9 @@
 
 use crate::boss::{Boss, BossId};
 use crate::bullet::{Bullet, BulletType};
-use crate::enemy::{Enemy, EnemyType};
+use crate::enemy::{Enemy, EnemyType, Item, ItemType};
 use crate::level::StagePhase;
-use crate::player::Player;
+use crate::player::{Player, WeaponType};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Particle {
@@ -226,6 +226,7 @@ impl Renderer {
         _bg_color: u32,
         players: &[Player],
         enemies: &[Enemy],
+        items: &[Item],
         boss: &Option<Boss>,
         bullets: &[Bullet],
         stage_num: u8,
@@ -290,7 +291,15 @@ impl Renderer {
             }
         }
 
-        // 4. Enemigos comunes detallados y orientables
+        // 4. Cápsulas de Items / Power-Ups flotantes estilo Final Mission
+        for item in items.iter() {
+            if !item.active {
+                continue;
+            }
+            self.draw_item_capsule(buffer, item);
+        }
+
+        // 5. Enemigos comunes detallados y orientables
         for e in enemies.iter() {
             if !e.active {
                 continue;
@@ -416,8 +425,83 @@ impl Renderer {
                                 self.draw_rect(buffer, deb as isize, dy, 5, 4, 0xFF44009B);
                                 self.draw_rect(buffer, deb as isize + 2, dy + 1, 2, 2, 0xFFFBFBFB);
                             }
+                        } else if progress < 0.72 {
+                            // === SECCIÓN 3: Rooftops & Skyscraper Summits (Techos altos y antenas estilo Final Mission) ===
+                            buffer.fill(0xFF070B14);
+
+                            // Siluetas de rascacielos lejanos con ventanas iluminadas procedimentales
+                            let dist_offset = (s_x * 0.15) as usize % 140;
+                            for i in 0..(w / 140 + 2) {
+                                let bx = (i * 140) as isize - dist_offset as isize;
+                                let bld_h = 240 + ((i * 59) % 130);
+                                let by = h as isize - bld_h as isize;
+                                self.draw_rect(buffer, bx, by, 110, bld_h, 0xFF0D1524);
+                                self.draw_rect(buffer, bx + 55, by - 26, 2, 26, 0xFF475569);
+                                let blink = ((t * 4.0) as usize + i) % 2 == 0;
+                                self.draw_circle(buffer, bx + 56, by - 28, 2, if blink { 0xFFFF0033 } else { 0xFF440011 });
+
+                                for wy in 0..(bld_h / 24) {
+                                    let win_lit = ((i * 7 + wy * 13) % 5) != 0;
+                                    let win_col = if win_lit { 0x6600F0FF } else { 0x22003344 };
+                                    self.draw_rect(buffer, bx + 20, by + 16 + (wy * 24) as isize, 6, 8, win_col);
+                                    self.draw_rect(buffer, bx + 50, by + 16 + (wy * 24) as isize, 6, 8, win_col);
+                                    self.draw_rect(buffer, bx + 80, by + 16 + (wy * 24) as isize, 6, 8, win_col);
+                                }
+                            }
+
+                            // Techos de rascacielos en el plano medio con antenas parabólicas y silos de agua
+                            let mid_offset = (s_x * 0.45) as usize % 160;
+                            for i in 0..(w / 160 + 2) {
+                                let mx = (i * 160) as isize - mid_offset as isize;
+                                let roof_h = 130 + ((i * 43) % 70);
+                                let ry = h as isize - roof_h as isize;
+                                self.draw_rect(buffer, mx, ry, 135, roof_h, 0xFF162033);
+                                self.draw_rect(buffer, mx, ry, 135, 3, 0xFF38BDF8);
+
+                                // Depósito de agua cilíndrico de acero
+                                let silo_x = mx + 25;
+                                let silo_y = ry - 32;
+                                self.draw_rect(buffer, silo_x, silo_y, 28, 32, 0xFF334155);
+                                self.draw_rect(buffer, silo_x, silo_y, 28, 2, 0xFF64748B);
+                                self.draw_rect(buffer, silo_x, silo_y + 14, 28, 2, 0xFF1E293B);
+                                self.draw_rect(buffer, silo_x + 6, silo_y + 32, 4, 8, 0xFF1E293B);
+                                self.draw_rect(buffer, silo_x + 18, silo_y + 32, 4, 8, 0xFF1E293B);
+
+                                // Antena de radar parabólica
+                                let ant_x = mx + 85;
+                                self.draw_rect(buffer, ant_x, ry - 38, 3, 38, 0xFF94A3B8);
+                                self.draw_circle(buffer, ant_x + 1, ry - 38, 7, 0xFF475569);
+                                self.draw_circle(buffer, ant_x + 1, ry - 38, 4, 0xFF00E5FF);
+
+                                // Letrero de neón cyberpunk en la fachada del techo
+                                if i % 2 == 0 {
+                                    let neon_pulse = (t * 6.0).sin().abs() * 0.5 + 0.5;
+                                    let n_col = Self::lerp_color(0xFF550022, 0xFFFF0055, neon_pulse);
+                                    self.draw_rect(buffer, mx + 15, ry + 12, 105, 20, 0xEE0B0F19);
+                                    self.draw_rect(buffer, mx + 15, ry + 12, 105, 1, n_col);
+                                    self.draw_rect(buffer, mx + 15, ry + 32, 105, 1, n_col);
+                                    self.draw_simple_text(buffer, "CYBER-NY", mx + 26, ry + 16, n_col, 1);
+                                }
+                            }
+
+                            // Suelo de azotea en primer plano con conductos industriales y luces de baliza
+                            let fore_offset = (s_x * 0.85) as usize % 90;
+                            let base_roof_y = h as isize - 50;
+                            self.draw_rect(buffer, 0, base_roof_y, w, 50, 0xFF1E293B);
+                            self.draw_rect(buffer, 0, base_roof_y, w, 4, 0xFF475569);
+                            self.draw_rect(buffer, 0, base_roof_y + 4, w, 2, 0xFF64748B);
+
+                            for fx in 0..(w / 90 + 2) {
+                                let px = (fx * 90) as isize - fore_offset as isize;
+                                self.draw_rect(buffer, px, base_roof_y - 12, 34, 12, 0xFF334155);
+                                for g in 0..4 {
+                                    self.draw_rect(buffer, px + 4 + (g * 7) as isize, base_roof_y - 10, 4, 8, 0xFF0F172A);
+                                }
+                                let beacon_on = ((t * 8.0) as usize + fx) % 2 == 0;
+                                self.draw_circle(buffer, px + 45, base_roof_y - 6, 3, if beacon_on { 0xFFFFCC00 } else { 0xFF443300 });
+                            }
                         } else {
-                            // === SECCIÓN 4: Elevated Sky-Highway Leading to TITAN-01 Warcrawler ===
+                            // === SECCIÓN 5: Elevated Sky-Highway Leading to TITAN-01 Warcrawler ===
                             let dist_offset = (s_x * 0.20) as usize % 110;
                             for d_i in 0..(w / 110 + 2) {
                                 let dx = (d_i * 110) as isize - dist_offset as isize;
@@ -1212,9 +1296,90 @@ impl Renderer {
         self.draw_volumetric_light(buffer, ex, ey, 45.0, core_col, 0.85);
     }
 
+    /// 7. Dron Transportador Blindado Dorado con Cápsula de Suministro (Item Carrier estilo Final Mission)
+    pub fn draw_item_carrier(&self, buffer: &mut [u32], enemy: &Enemy, anim_time: f32) {
+        let ex = enemy.x;
+        let ey = enemy.y;
+        let r = enemy.radius;
+
+        // Aura de energía dorada pulsante
+        let pulse = (anim_time * 6.0).sin().abs();
+        let glow_col = 0xFFFFD700;
+        self.draw_volumetric_light(buffer, ex, ey, r * 2.2, glow_col, 0.45 + pulse * 0.25);
+
+        // Chasis blindado dorado y cobrizo
+        self.draw_aa_circle(buffer, ex, ey, r, 0xFFB8860B, 0xFFFFD700, 2.5);
+        self.draw_aa_circle(buffer, ex, ey, r - 4.0, 0xFF451A03, 0xFFD97706, 1.8);
+
+        // Propulsores traseros dobles con plumas de plasma cian/blanco
+        let prop_x = ex + r * 0.7;
+        let prop_y1 = ey - 8.0;
+        let prop_y2 = ey + 8.0;
+        self.draw_aa_capsule(buffer, prop_x, prop_y1, prop_x + 6.0, prop_y1, 3.0, 0xFF1E293B);
+        self.draw_aa_capsule(buffer, prop_x, prop_y2, prop_x + 6.0, prop_y2, 3.0, 0xFF1E293B);
+        self.draw_plasma_plume(buffer, prop_x + 6.0, prop_y1, 1.0, 0.0, 14.0 + pulse * 6.0, 4.0, 0xFFFFFFFF, 0xFF00E5FF);
+        self.draw_plasma_plume(buffer, prop_x + 6.0, prop_y2, 1.0, 0.0, 14.0 + pulse * 6.0, 4.0, 0xFFFFFFFF, 0xFF00E5FF);
+
+        // Cápsula contenedora de suministros en el centro que rota
+        let rot = anim_time * 4.0;
+        for i in 0..4 {
+            let a = rot + (i as f32) * (std::f32::consts::PI * 0.5);
+            let cx = ex + a.cos() * 7.0;
+            let cy = ey + a.sin() * 7.0;
+            self.draw_aa_circle(buffer, cx, cy, 2.5, 0xFFFFFFFF, 0xFFFFD700, 0.8);
+        }
+
+        // Núcleo de energía central brillante
+        self.draw_aa_circle(buffer, ex, ey, 6.0, 0xFFFFFFFF, 0xFFFFE082, 1.5);
+        self.draw_point_light(buffer, ex as isize, ey as isize, 20, 0xFFFFFFFF, 0.7);
+    }
+
+    /// Renderiza cápsulas flotantes de power-ups con borde neón, letras y halo
+    pub fn draw_item_capsule(&self, buffer: &mut [u32], item: &Item) {
+        let ix = item.x;
+        let iy = item.y;
+        let r = item.radius;
+        let t = item.time_alive;
+
+        let (letter, core_col, border_col) = match item.item_type {
+            ItemType::WeaponLaser => ("L", 0xFF00E5FF, 0xFF38BDF8),
+            ItemType::WeaponSpread => ("S", 0xFFFF0055, 0xFFFB7185),
+            ItemType::WeaponHoming => ("M", 0xFF39FF14, 0xFF86EFAC),
+            ItemType::WeaponVulcan => ("P", 0xFFFFD700, 0xFFFDE047),
+            ItemType::Bomb => ("B", 0xFFBF00FF, 0xFFE879F9),
+            ItemType::Shield => ("H", 0xFF00FFCC, 0xFF67E8F9),
+            ItemType::ExtraLife => ("1", 0xFFFFCC00, 0xFFFBBF24),
+        };
+
+        // Halo volumétrico pulsante
+        let pulse = (t * 5.0).sin().abs();
+        self.draw_volumetric_light(buffer, ix, iy, r * 2.4, core_col, 0.5 + pulse * 0.3);
+
+        // Cápsula circular exterior con doble borde brillante
+        self.draw_aa_circle(buffer, ix, iy, r, 0xFF0F172A, border_col, 2.5);
+        self.draw_aa_circle(buffer, ix, iy, r - 3.0, 0xFF1E293B, core_col, 1.5);
+
+        // Anillo de brillo giratorio alrededor de la cápsula
+        let spin = t * 3.5;
+        for d in 0..3 {
+            let a = spin + (d as f32) * (std::f32::consts::PI * 2.0 / 3.0);
+            let sx = ix + a.cos() * (r - 2.0);
+            let sy = iy + a.sin() * (r - 2.0);
+            self.draw_aa_circle(buffer, sx, sy, 2.0, 0xFFFFFFFF, core_col, 0.8);
+        }
+
+        // Letra grabada en el centro ('L', 'S', 'M', 'P', 'B', 'H')
+        let text_x = (ix - 5.0) as isize;
+        let text_y = (iy - 6.0) as isize;
+        self.draw_simple_text(buffer, letter, text_x, text_y, 0xFFFFFFFF, 2);
+    }
+
     /// Renderiza naves, sintéticos y bio-plantas enemigas con despacho al arquetipo adecuado
     pub fn draw_enemy(&self, buffer: &mut [u32], e: &Enemy) {
         match e.enemy_type {
+            EnemyType::ItemCarrier => {
+                self.draw_item_carrier(buffer, e, self.anim_time);
+            }
             EnemyType::SynthKatana => {
                 self.draw_modern_humanoid_synth(buffer, e, false, true);
             }
@@ -1461,6 +1626,20 @@ impl Renderer {
             self.draw_rect(buffer, 28, 24, max_hp_w, 8, 0xFF3D3D4E);
             let hp_col = if p1.health > 40.0 { 0xFF00FF77 } else { 0xFFFF3344 };
             self.draw_rect(buffer, 28, 24, hp_w, 8, hp_col);
+
+            // Display del Arma Actual y Nivel de Potencia estilo arcade
+            let (w_name, w_col) = match p1.weapon {
+                WeaponType::Vulcan => ("VULCAN", 0xFFFFD700),
+                WeaponType::Laser => ("LASER", 0xFF00E5FF),
+                WeaponType::Spread => ("SPREAD", 0xFFFF0055),
+                WeaponType::Homing => ("MISSILE", 0xFF39FF14),
+            };
+            let w_box_x = 216;
+            self.draw_rect(buffer, w_box_x, 20, 92, 16, 0xDD111622);
+            self.draw_rect(buffer, w_box_x, 20, 92, 1, w_col);
+            self.draw_rect(buffer, w_box_x, 35, 92, 1, w_col);
+            let w_text = format!("{} L{}", w_name, p1.weapon_power);
+            self.draw_simple_text(buffer, &w_text, w_box_x + 6, 24, w_col, 1);
 
             for b in 0..p1.bombs.min(6) {
                 let bx = 28 + (b as isize * 18);

@@ -100,7 +100,7 @@ impl LevelManager {
                 name: "STAGE 1: RUINED NEW YORK CITY".to_string(),
                 subtitle: "Earth Zero Zone - Ruined Bastion & Broken Skylines".to_string(),
                 scroll_speed: 160.0,
-                stage_length: 8800.0,
+                stage_length: 24000.0,
                 bg_color: 0xFF000000,
                 grid_color: 0x337F00EF,
             },
@@ -109,7 +109,7 @@ impl LevelManager {
                 name: "STAGE 2: DRONE FORGE".to_string(),
                 subtitle: "Earth - Automated Swarm Assembly & Smelting Vats".to_string(),
                 scroll_speed: 175.0,
-                stage_length: 9200.0,
+                stage_length: 24500.0,
                 bg_color: 0xFF140D07,
                 grid_color: 0x33FF4500,
             },
@@ -118,7 +118,7 @@ impl LevelManager {
                 name: "STAGE 3: MARS CYBER-FOUNDRY".to_string(),
                 subtitle: "Mars - Iron Oxide Canyons & Automated Mining Rigs".to_string(),
                 scroll_speed: 185.0,
-                stage_length: 9600.0,
+                stage_length: 25000.0,
                 bg_color: 0xFF1A0802,
                 grid_color: 0x33FF3300,
             },
@@ -127,7 +127,7 @@ impl LevelManager {
                 name: "STAGE 4: EUROPA SUB-GLACIAL NETWORK".to_string(),
                 subtitle: "Jupiter's Moon Europa - Sub-Zero Cryo Caverns".to_string(),
                 scroll_speed: 180.0,
-                stage_length: 9800.0,
+                stage_length: 25500.0,
                 bg_color: 0xFF03141C,
                 grid_color: 0x3300E5FF,
             },
@@ -136,7 +136,7 @@ impl LevelManager {
                 name: "STAGE 5: HEPHAESTUS SOLAR BASTION".to_string(),
                 subtitle: "Mercury / Solar Orbit - Solar Prominence & Defense Grids".to_string(),
                 scroll_speed: 210.0,
-                stage_length: 10500.0,
+                stage_length: 26000.0,
                 bg_color: 0xFF1F0F00,
                 grid_color: 0x33FFAA00,
             },
@@ -145,7 +145,7 @@ impl LevelManager {
                 name: "STAGE 6: TITAN METHANE SPIRE".to_string(),
                 subtitle: "Saturn's Moon Titan - Rings of Saturn & Methane Refineries".to_string(),
                 scroll_speed: 220.0,
-                stage_length: 11000.0,
+                stage_length: 26500.0,
                 bg_color: 0xFF191004,
                 grid_color: 0x33FF7700,
             },
@@ -154,7 +154,7 @@ impl LevelManager {
                 name: "STAGE 7: NEMESIS MOTHERSHIP FLEET".to_string(),
                 subtitle: "Deep Space - AI Armada Flagship & Flak Corridors".to_string(),
                 scroll_speed: 240.0,
-                stage_length: 11500.0,
+                stage_length: 27000.0,
                 bg_color: 0xFF0D0614,
                 grid_color: 0x33FF007F,
             },
@@ -163,7 +163,7 @@ impl LevelManager {
                 name: "STAGE 8: QUANTUM SINGULARITY CORE".to_string(),
                 subtitle: "The AI Overmind - Quantum Singularity & Master Core".to_string(),
                 scroll_speed: 260.0,
-                stage_length: 12500.0,
+                stage_length: 28000.0,
                 bg_color: 0xFF000000,
                 grid_color: 0x33FF0033,
             },
@@ -175,12 +175,15 @@ impl LevelManager {
         let old_phase = self.current_phase;
         self.update_phase_and_trajectory();
         if self.current_phase != old_phase {
+            let p = self.stage_progress;
             self.last_phase = old_phase;
             self.transition_timer = 2.8;
             self.transition_text = match (self.current_stage, self.current_phase) {
                 (_, StagePhase::BossEncounter) => ">>> CRITICAL WARNING: COLOSSAL AI WARSHIP INCOMING >>>",
-                (1, StagePhase::AscendUp) => ">>> ELEVATION: SKYSCRAPER CANYON ASCENT >>>",
-                (1, StagePhase::HorizontalRight) => ">>> APPROACHING CARRIER BATTLEGROUP >>>",
+                (1, StagePhase::AscendUp) => ">>> VERTICAL CLIMB: SKYSCRAPER CANYON ASCENT >>>",
+                (1, StagePhase::HorizontalRight) if p < 0.72 => ">>> ROOFTOPS: SKYSCRAPER SUMMITS & ANTENNA GRID >>>",
+                (1, StagePhase::DescendDown) => ">>> VERTICAL DIVE: INDUSTRIAL CHASM DESCENT >>>",
+                (1, StagePhase::HorizontalRight) => ">>> SKY-HIGHWAY: CONVERGING ON TITAN-01 WARCRAWLER >>>",
                 (2, StagePhase::DescendDown) => ">>> DESCENT INTO GEOTHERMAL SMELTING VATS >>>",
                 (2, StagePhase::HorizontalRight) => ">>> AUTOMATED ASSEMBLY CORE IN SIGHT >>>",
                 (3, StagePhase::AscendUp) => ">>> ASCENDING VOLCANIC RIDGE TO EXCAVATOR RIG >>>",
@@ -255,18 +258,27 @@ impl LevelManager {
 
         match self.current_stage {
             1 => {
-                // Megaciudad de Nueva York: Infiltración horizontal -> Ascenso por rascacielos -> Aproximación al aerotransporte
-                if p < 0.55 {
+                // Megaciudad de Nueva York (Estilo Final Mission NES):
+                // Calle derruida -> Ascenso por rascacielos -> Techos/Rooftops -> Descenso a fosa -> Sky-Highway
+                if p < 0.28 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed;
                     self.target_vy = 0.0;
-                } else if p < 0.85 {
+                } else if p < 0.52 {
                     self.current_phase = StagePhase::AscendUp;
                     self.target_vx = 0.0;
                     self.target_vy = -speed;
+                } else if p < 0.72 {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed * 1.05;
+                    self.target_vy = 0.0;
+                } else if p < 0.88 {
+                    self.current_phase = StagePhase::DescendDown;
+                    self.target_vx = 0.0;
+                    self.target_vy = speed;
                 } else {
                     self.current_phase = StagePhase::HorizontalRight;
-                    self.target_vx = speed * 1.15;
+                    self.target_vx = speed * 1.20;
                     self.target_vy = 0.0;
                 }
             }
@@ -447,6 +459,8 @@ impl LevelManager {
                         2 => {
                             enemies.push(Enemy::new(spawn_x_right, 68.0, EnemyType::LaserTurret));
                             enemies.push(Enemy::new(spawn_x_right + 60.0, screen_h - 68.0, EnemyType::LaserTurret));
+                            // Dron contenedor de suministro con power-up
+                            enemies.push(Enemy::new(spawn_x_right + 120.0, screen_h * 0.48, EnemyType::ItemCarrier));
                         }
                         _ => {
                             enemies.push(Enemy::new(spawn_x_right, screen_h * 0.60, EnemyType::PatrolDrone));
@@ -454,8 +468,33 @@ impl LevelManager {
                             enemies.push(Enemy::new(spawn_x_right + 90.0, screen_h * 0.38, EnemyType::PatrolDrone));
                         }
                     }
+                } else if self.stage_progress < 0.72 {
+                    // === SECCIÓN 3: Rooftops & Skyscraper Summits (Techos altos y antenas) ===
+                    match step {
+                        0 => {
+                            // Caza furtivo saltando sobre techos y dron de escolta
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.30, EnemyType::StealthStriker));
+                            enemies.push(Enemy::new(spawn_x_right + 70.0, screen_h * 0.60, EnemyType::PatrolDrone));
+                        }
+                        1 => {
+                            // Dron contenedor dorado sobre los techos
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.45, EnemyType::ItemCarrier));
+                            enemies.push(Enemy::new(spawn_x_right + 80.0, 75.0, EnemyType::LaserTurret));
+                        }
+                        2 => {
+                            // Mecha cuadrúpedo pesado patrullando la azotea
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.55, EnemyType::CyberCrab));
+                            enemies.push(Enemy::new(spawn_x_right + 60.0, screen_h - 75.0, EnemyType::LaserTurret));
+                        }
+                        _ => {
+                            for i in 0..3 {
+                                let y = screen_h * 0.25 + (i as f32 * 70.0);
+                                enemies.push(Enemy::new(spawn_x_right + (i as f32 * 50.0), y, EnemyType::KamikazeWasp));
+                            }
+                        }
+                    }
                 } else {
-                    // === SECCIÓN 4: Elevated sky-highway sprint toward TITAN-01 Warcrawler ===
+                    // === SECCIÓN 5: Elevated sky-highway sprint toward TITAN-01 Warcrawler ===
                     match step {
                         0 => {
                             // Muro defensivo de 4 PatrolDrones alineados verticalmente (Drone Barrier)
@@ -474,9 +513,10 @@ impl LevelManager {
                             enemies.push(Enemy::new(spawn_x_right + 90.0, 65.0, EnemyType::LaserTurret));
                         }
                         _ => {
-                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.30, EnemyType::StealthStriker));
-                            enemies.push(Enemy::new(spawn_x_right + 50.0, screen_h * 0.50, EnemyType::PatrolDrone));
-                            enemies.push(Enemy::new(spawn_x_right + 90.0, screen_h * 0.70, EnemyType::StealthStriker));
+                            // Última oportunidad de suministro antes del Boss
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.50, EnemyType::ItemCarrier));
+                            enemies.push(Enemy::new(spawn_x_right + 60.0, screen_h * 0.30, EnemyType::PatrolDrone));
+                            enemies.push(Enemy::new(spawn_x_right + 60.0, screen_h * 0.70, EnemyType::PatrolDrone));
                         }
                     }
                 }
@@ -517,18 +557,21 @@ impl LevelManager {
                         enemies.push(leech2);
                     }
                     _ => {
-                        // Androide de asalto pesado que cae con retrocohetes y torreta lateral
+                        // Androide de asalto pesado que cae con retrocohetes y Dron contenedor de ítems
                         let mut crab = Enemy::new(screen_w * 0.50, spawn_y_top, EnemyType::CyberCrab);
                         crab.vy = 110.0;
+                        let mut carrier = Enemy::new(screen_w * 0.50, spawn_y_top - 60.0, EnemyType::ItemCarrier);
+                        carrier.vy = 75.0;
                         let mut t_right = Enemy::new(right_wall_x, spawn_y_top - 40.0, EnemyType::LaserTurret);
                         t_right.aim_angle = std::f32::consts::PI;
                         enemies.push(crab);
+                        enemies.push(carrier);
                         enemies.push(t_right);
                     }
                 }
             }
             StagePhase::DescendDown => {
-                // === SECCIÓN 3: Vertical DESCENT (scrolling DOWN) into Subterranean Foundry ===
+                // === SECCIÓN 4: Vertical DESCENT (scrolling DOWN) into Subterranean Foundry ===
                 // El jugador desciende a la fosa: los peligros ascienden desde abajo (+Y) o se montan en tuberías de fundición
                 let spawn_y_bottom = screen_h + 35.0;
                 let left_wall_x = 52.0;
@@ -554,12 +597,12 @@ impl LevelManager {
                         }
                     }
                     2 => {
-                        // Minas de succión magnética y drones de fundición
-                        let mut drone = Enemy::new(screen_w * 0.45, spawn_y_bottom, EnemyType::PatrolDrone);
-                        drone.vy = -120.0;
+                        // Minas de succión magnética y dron transportador ascendiendo
+                        let mut carrier = Enemy::new(screen_w * 0.40, spawn_y_bottom, EnemyType::ItemCarrier);
+                        carrier.vy = -80.0;
                         let mut leech = Enemy::new(screen_w * 0.65, spawn_y_bottom + 40.0, EnemyType::AsteroidLeech);
                         leech.vy = -150.0;
-                        enemies.push(drone);
+                        enemies.push(carrier);
                         enemies.push(leech);
                     }
                     _ => {
@@ -605,8 +648,9 @@ impl LevelManager {
                         enemies.push(Enemy::new(spawn_x_right + 90.0, screen_h * 0.35, EnemyType::AsteroidLeech));
                     }
                     4 => {
-                        enemies.push(Enemy::new(spawn_x_right, screen_h * 0.38, EnemyType::StealthStriker));
-                        enemies.push(Enemy::new(spawn_x_right + 80.0, screen_h * 0.62, EnemyType::StealthStriker));
+                        // Suministro de armamento y cápsulas en todos los mundos
+                        enemies.push(Enemy::new(spawn_x_right, screen_h * 0.40, EnemyType::ItemCarrier));
+                        enemies.push(Enemy::new(spawn_x_right + 80.0, screen_h * 0.65, EnemyType::StealthStriker));
                     }
                     _ => {
                         enemies.push(Enemy::new(spawn_x_right, screen_h * 0.45, EnemyType::PatrolDrone));
@@ -622,6 +666,11 @@ impl LevelManager {
                 e2.vy = 150.0;
                 enemies.push(e1);
                 enemies.push(e2);
+                if step % 2 == 0 {
+                    let mut carrier = Enemy::new(screen_w * 0.50, spawn_y_top - 70.0, EnemyType::ItemCarrier);
+                    carrier.vy = 80.0;
+                    enemies.push(carrier);
+                }
             }
             StagePhase::DescendDown => {
                 let spawn_y_bottom = screen_h + 35.0;
@@ -631,6 +680,11 @@ impl LevelManager {
                 e2.vy = -110.0;
                 enemies.push(e1);
                 enemies.push(e2);
+                if step % 2 == 0 {
+                    let mut carrier = Enemy::new(screen_w * 0.50, spawn_y_bottom + 70.0, EnemyType::ItemCarrier);
+                    carrier.vy = -80.0;
+                    enemies.push(carrier);
+                }
             }
             StagePhase::BossEncounter => {}
         }
