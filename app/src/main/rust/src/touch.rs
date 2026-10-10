@@ -275,12 +275,6 @@ impl TouchControls {
                 self.satellite_target_angle = None;
             }
         } else if self.secondary_id == id {
-            // Si el segundo dedo se levantó rápidamente sin arrastre significativo:
-            // -> TOQUE RÁPIDO (Quick Tap): Conmuta orientación 180° estilo Final Mission NES!
-            if !self.secondary_has_dragged && self.secondary_touch_time < 0.28 {
-                self.toggle_facing = true;
-            }
-
             self.secondary_id = -1;
             self.satellite_lock = false;
             self.satellite_target_angle = None;

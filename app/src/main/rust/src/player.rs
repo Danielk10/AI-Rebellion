@@ -260,6 +260,7 @@ impl Player {
             if self.lives > 0 {
                 self.health = self.max_health;
                 self.weapon_power = 1.max(self.weapon_power.saturating_sub(1));
+                self.facing_right = true;
             } else {
                 self.active = false;
             }

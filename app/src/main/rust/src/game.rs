@@ -201,7 +201,8 @@ impl Game {
 
         match self.state {
             GameState::TitleMenu => {
-                if self.state_timer > 3.5 || self.touch_controls.is_touching {
+                // Solo inicia cuando el usuario presiona la pantalla explícitamente
+                if self.touch_controls.is_touching {
                     self.start_game(1);
                 }
             }
@@ -268,11 +269,17 @@ impl Game {
         let h_f = self.height as f32;
         self.level_manager.set_stage(stage);
         self.set_stage_theme(stage);
+
+        // Reinicio completo y limpio del audio para evitar acumulación y lentitud
+        if let Ok(mut engine) = self.audio_engine.lock() {
+            engine.reset_for_new_game(stage);
+        }
+
         self.renderer.scroll_x = 0.0;
         self.renderer.scroll_y = 0.0;
         self.renderer.scroll_vx = self.level_manager.config.scroll_speed;
         self.renderer.scroll_vy = 0.0;
-        self.renderer.stage_phase = StagePhase::HorizontalRight;
+        self.renderer.stage_phase = self.level_manager.current_phase;
         self.renderer.stage_progress = 0.0;
         self.state = GameState::StageIntro;
         self.state_timer = 0.0;
@@ -286,7 +293,11 @@ impl Game {
             p.health = p.max_health;
             p.active = true;
             p.invulnerable_timer = 2.0;
+            p.facing_right = true; // Inicia siempre mirando al frente hacia la derecha
         }
+
+        self.touch_controls.toggle_facing = false;
+        self.touch_controls.flick_facing = None;
 
         // Reinicializar desplazamiento relativo táctil con la posición inicial
         let local_id = self.multiplayer.local_player_id as usize;

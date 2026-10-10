@@ -9,7 +9,7 @@ use std::thread;
 use std::time::Duration;
 
 pub const SAMPLE_RATE: u32 = 44100;
-pub const MAX_ACTIVE_SFX: usize = 16;
+pub const MAX_ACTIVE_SFX: usize = 8;
 pub const BUFFER_FRAMES: usize = 512; // ~11.6 ms latencia de hardware
 pub const CHANNELS: usize = 2; // Salida Estéreo
 
@@ -17,6 +17,7 @@ const BPM: f32 = 148.0;
 const SECONDS_PER_BEAT: f32 = 60.0 / BPM;
 const SECONDS_PER_STEP: f32 = SECONDS_PER_BEAT / 4.0; // Semicorchea (~0.10135s)
 const PATTERN_STEPS: usize = 128; // 8 compases (16 pasos por compás)
+const PATTERN_DURATION: f32 = (PATTERN_STEPS as f32) * SECONDS_PER_STEP;
 
 #[inline(always)]
 fn midi_to_freq(note: u8) -> f32 {
@@ -168,24 +169,36 @@ impl AudioEngine {
         ((self.noise_seed >> 16) as f32 / 32768.0) - 1.0
     }
 
+    pub fn reset_for_new_game(&mut self, stage: u8) {
+        self.active_sfx.clear();
+        self.music_time = 0.0;
+        self.stage_theme = stage;
+        self.lead_phase = 0.0;
+        self.lead_detune_phase = 0.0;
+        self.arp_phase = 0.0;
+        self.bass_phase = 0.0;
+        self.noise_seed = 0x12345678;
+        self.laser_toggle = false;
+    }
+
     pub fn play_sfx(&mut self, sfx: SoundEffect) {
         if !self.sfx_enabled {
             return;
         }
 
         let duration = match sfx {
-            SoundEffect::Laser => 0.10,
-            SoundEffect::SpreadFire => 0.14,
-            SoundEffect::Explosion => 0.42,
-            SoundEffect::PowerUp => 0.45,
-            SoundEffect::BombExplosion => 1.05,
-            SoundEffect::PlayerHit => 0.25,
-            SoundEffect::BossAlarm => 1.20,
-            SoundEffect::SatelliteLock => 0.18,
-            SoundEffect::EmpShockwave => 1.10,
-            SoundEffect::Ricochet => 0.14,
-            SoundEffect::MetalClang => 0.16,
-            SoundEffect::ThrusterBurst => 0.18,
+            SoundEffect::Laser => 0.09,
+            SoundEffect::SpreadFire => 0.12,
+            SoundEffect::Explosion => 0.35,
+            SoundEffect::PowerUp => 0.40,
+            SoundEffect::BombExplosion => 0.95,
+            SoundEffect::PlayerHit => 0.22,
+            SoundEffect::BossAlarm => 1.05,
+            SoundEffect::SatelliteLock => 0.16,
+            SoundEffect::EmpShockwave => 0.95,
+            SoundEffect::Ricochet => 0.12,
+            SoundEffect::MetalClang => 0.14,
+            SoundEffect::ThrusterBurst => 0.15,
         };
 
         let pan = match sfx {
@@ -197,6 +210,31 @@ impl AudioEngine {
             SoundEffect::SatelliteLock => 0.25,
             _ => 0.0,
         };
+
+        // Deduplicación de voces para evitar sobrecarga y retrasos en audio:
+        // Disparos rápidos reinician la instancia existente en lugar de apilar voces concurrentes
+        match sfx {
+            SoundEffect::Laser | SoundEffect::SpreadFire | SoundEffect::Ricochet | SoundEffect::MetalClang => {
+                if let Some(existing) = self.active_sfx.iter_mut().find(|s| s.s_type == sfx) {
+                    existing.time = 0.0;
+                    existing.pan = pan;
+                    return;
+                }
+            }
+            SoundEffect::Explosion => {
+                let exp_count = self.active_sfx.iter().filter(|s| s.s_type == SoundEffect::Explosion).count();
+                if exp_count >= 2 {
+                    if let Some(oldest) = self.active_sfx.iter_mut().filter(|s| s.s_type == SoundEffect::Explosion).max_by(|a, b| {
+                        a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal)
+                    }) {
+                        oldest.time = 0.0;
+                        oldest.pan = pan;
+                        return;
+                    }
+                }
+            }
+            _ => {}
+        }
 
         let new_instance = SfxInstance {
             s_type: sfx,
@@ -228,6 +266,9 @@ impl AudioEngine {
             // 1. Música Cyberpunk / Synthwave Shmup
             if self.music_enabled {
                 self.music_time += dt;
+                if self.music_time >= PATTERN_DURATION {
+                    self.music_time -= PATTERN_DURATION;
+                }
                 let noise_val = self.next_noise();
 
                 let total_steps = (self.music_time / SECONDS_PER_STEP) as usize;

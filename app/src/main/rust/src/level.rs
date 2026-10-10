@@ -100,7 +100,7 @@ impl LevelManager {
                 name: "STAGE 1: RUINED NEW YORK CITY".to_string(),
                 subtitle: "Earth Zero Zone - Ruined Bastion & Broken Skylines".to_string(),
                 scroll_speed: 160.0,
-                stage_length: 5600.0,
+                stage_length: 8800.0,
                 bg_color: 0xFF000000,
                 grid_color: 0x337F00EF,
             },
@@ -109,7 +109,7 @@ impl LevelManager {
                 name: "STAGE 2: DRONE FORGE".to_string(),
                 subtitle: "Earth - Automated Swarm Assembly & Smelting Vats".to_string(),
                 scroll_speed: 175.0,
-                stage_length: 5800.0,
+                stage_length: 9200.0,
                 bg_color: 0xFF140D07,
                 grid_color: 0x33FF4500,
             },
@@ -118,7 +118,7 @@ impl LevelManager {
                 name: "STAGE 3: MARS CYBER-FOUNDRY".to_string(),
                 subtitle: "Mars - Iron Oxide Canyons & Automated Mining Rigs".to_string(),
                 scroll_speed: 185.0,
-                stage_length: 6000.0,
+                stage_length: 9600.0,
                 bg_color: 0xFF1A0802,
                 grid_color: 0x33FF3300,
             },
@@ -127,7 +127,7 @@ impl LevelManager {
                 name: "STAGE 4: EUROPA SUB-GLACIAL NETWORK".to_string(),
                 subtitle: "Jupiter's Moon Europa - Sub-Zero Cryo Caverns".to_string(),
                 scroll_speed: 180.0,
-                stage_length: 6200.0,
+                stage_length: 9800.0,
                 bg_color: 0xFF03141C,
                 grid_color: 0x3300E5FF,
             },
@@ -136,7 +136,7 @@ impl LevelManager {
                 name: "STAGE 5: HEPHAESTUS SOLAR BASTION".to_string(),
                 subtitle: "Mercury / Solar Orbit - Solar Prominence & Defense Grids".to_string(),
                 scroll_speed: 210.0,
-                stage_length: 6400.0,
+                stage_length: 10500.0,
                 bg_color: 0xFF1F0F00,
                 grid_color: 0x33FFAA00,
             },
@@ -145,7 +145,7 @@ impl LevelManager {
                 name: "STAGE 6: TITAN METHANE SPIRE".to_string(),
                 subtitle: "Saturn's Moon Titan - Rings of Saturn & Methane Refineries".to_string(),
                 scroll_speed: 220.0,
-                stage_length: 6600.0,
+                stage_length: 11000.0,
                 bg_color: 0xFF191004,
                 grid_color: 0x33FF7700,
             },
@@ -154,7 +154,7 @@ impl LevelManager {
                 name: "STAGE 7: NEMESIS MOTHERSHIP FLEET".to_string(),
                 subtitle: "Deep Space - AI Armada Flagship & Flak Corridors".to_string(),
                 scroll_speed: 240.0,
-                stage_length: 7000.0,
+                stage_length: 11500.0,
                 bg_color: 0xFF0D0614,
                 grid_color: 0x33FF007F,
             },
@@ -163,7 +163,7 @@ impl LevelManager {
                 name: "STAGE 8: QUANTUM SINGULARITY CORE".to_string(),
                 subtitle: "The AI Overmind - Quantum Singularity & Master Core".to_string(),
                 scroll_speed: 260.0,
-                stage_length: 7500.0,
+                stage_length: 12500.0,
                 bg_color: 0xFF000000,
                 grid_color: 0x33FF0033,
             },
@@ -177,11 +177,28 @@ impl LevelManager {
         if self.current_phase != old_phase {
             self.last_phase = old_phase;
             self.transition_timer = 2.8;
-            self.transition_text = match self.current_phase {
-                StagePhase::AscendUp => ">>> WARNING: CYBER-TOWER ELEVATOR ASCENT >>>",
-                StagePhase::DescendDown => ">>> CAUTION: SUBTERRANEAN FOUNDRY DESCENT >>>",
-                StagePhase::HorizontalRight => ">>> ALERT: HIGH-SPEED SKYWAY SPRINT >>>",
-                StagePhase::BossEncounter => ">>> CRITICAL WARNING: COLOSSAL AI WARSHIP INCOMING >>>",
+            self.transition_text = match (self.current_stage, self.current_phase) {
+                (_, StagePhase::BossEncounter) => ">>> CRITICAL WARNING: COLOSSAL AI WARSHIP INCOMING >>>",
+                (1, StagePhase::AscendUp) => ">>> ELEVATION: SKYSCRAPER CANYON ASCENT >>>",
+                (1, StagePhase::HorizontalRight) => ">>> APPROACHING CARRIER BATTLEGROUP >>>",
+                (2, StagePhase::DescendDown) => ">>> DESCENT INTO GEOTHERMAL SMELTING VATS >>>",
+                (2, StagePhase::HorizontalRight) => ">>> AUTOMATED ASSEMBLY CORE IN SIGHT >>>",
+                (3, StagePhase::AscendUp) => ">>> ASCENDING VOLCANIC RIDGE TO EXCAVATOR RIG >>>",
+                (3, StagePhase::HorizontalRight) => ">>> CONVERGING ON HEAVY EXTRACTION PLATFORM >>>",
+                (4, StagePhase::DescendDown) => ">>> DIVING INTO DEEP ABYSSAL TRENCH >>>",
+                (4, StagePhase::HorizontalRight) => ">>> SUB-GLACIAL REACTOR CHAMBER BREACHED >>>",
+                (5, StagePhase::AscendUp) => ">>> HIGH-G ORBITAL SLINGSHOT TRAJECTORY >>>",
+                (5, StagePhase::HorizontalRight) => ">>> SOLAR ARRAY COMMAND MATRIX TARGETED >>>",
+                (6, StagePhase::AscendUp) => ">>> CLIMBING ORBITAL SPACE ELEVATOR SPIRE >>>",
+                (6, StagePhase::HorizontalRight) => ">>> RINGS OF SATURN: HIGH-ORBIT REVOLVER DOCK >>>",
+                (7, StagePhase::DescendDown) => ">>> DIVING INTO DREADNOUGHT TRENCH RUN >>>",
+                (7, StagePhase::HorizontalRight) => ">>> BREACHING MOTHERSHIP INNER HANGAR >>>",
+                (8, StagePhase::DescendDown) => ">>> PLUNGE INTO QUANTUM EVENT HORIZON >>>",
+                (8, StagePhase::AscendUp) => ">>> GRAVITATIONAL SINGULARITY ASCENT >>>",
+                (8, StagePhase::HorizontalRight) => ">>> FINAL PROTOCOL: PURGE THE AI OVERMIND >>>",
+                (_, StagePhase::AscendUp) => ">>> TRAJECTORY VECTOR: HIGH-ALTITUDE CLIMB >>>",
+                (_, StagePhase::DescendDown) => ">>> TRAJECTORY VECTOR: SUB-SURFACE DESCENT >>>",
+                (_, StagePhase::HorizontalRight) => ">>> HIGH-SPEED HORIZONTAL SPRINT ENGAGED >>>",
             };
         }
         if self.transition_timer > 0.0 {
@@ -234,28 +251,141 @@ impl LevelManager {
         }
 
         let speed = self.config.scroll_speed;
+        let p = self.stage_progress;
 
-        // Trayecto multidireccional lineal fiel a NES Final Mission & Abadox:
-        // - Sección 1 (0.00..0.28): Vuelo horizontal por la megaciudad destruida
-        // - Sección 2 (0.28..0.54): Ascenso vertical (scrolling UP) por rascacielos y cajas de ascensores
-        // - Sección 3 (0.54..0.78): Descenso vertical (scrolling DOWN) a fundiciones y fosas subterráneas
-        // - Sección 4 (0.78..1.00): Retorno a vuelo horizontal supersónico hacia el Boss
-        if self.stage_progress < 0.28 {
-            self.current_phase = StagePhase::HorizontalRight;
-            self.target_vx = speed;
-            self.target_vy = 0.0;
-        } else if self.stage_progress < 0.54 {
-            self.current_phase = StagePhase::AscendUp;
-            self.target_vx = 0.0;
-            self.target_vy = -speed; // Cámara sube hacia arriba (escenario se desplaza hacia abajo)
-        } else if self.stage_progress < 0.78 {
-            self.current_phase = StagePhase::DescendDown;
-            self.target_vx = 0.0;
-            self.target_vy = speed;  // Cámara desciende hacia abajo (escenario se desplaza hacia arriba)
-        } else {
-            self.current_phase = StagePhase::HorizontalRight;
-            self.target_vx = speed * 1.15; // Sprint final acelerado
-            self.target_vy = 0.0;
+        match self.current_stage {
+            1 => {
+                // Megaciudad de Nueva York: Infiltración horizontal -> Ascenso por rascacielos -> Aproximación al aerotransporte
+                if p < 0.55 {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed;
+                    self.target_vy = 0.0;
+                } else if p < 0.85 {
+                    self.current_phase = StagePhase::AscendUp;
+                    self.target_vx = 0.0;
+                    self.target_vy = -speed;
+                } else {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed * 1.15;
+                    self.target_vy = 0.0;
+                }
+            }
+            2 => {
+                // Drone Forge: Entrada horizontal -> Descenso a fundiciones subterráneas -> Línea de ensamblaje
+                if p < 0.40 {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed;
+                    self.target_vy = 0.0;
+                } else if p < 0.75 {
+                    self.current_phase = StagePhase::DescendDown;
+                    self.target_vx = 0.0;
+                    self.target_vy = speed;
+                } else {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed * 1.15;
+                    self.target_vy = 0.0;
+                }
+            }
+            3 => {
+                // Mars Cyber-Foundry: Vuelo rasante por cañones de óxido de hierro -> Ascenso de cordillera hacia la excavadora
+                if p < 0.60 {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed;
+                    self.target_vy = 0.0;
+                } else if p < 0.85 {
+                    self.current_phase = StagePhase::AscendUp;
+                    self.target_vx = 0.0;
+                    self.target_vy = -speed;
+                } else {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed * 1.15;
+                    self.target_vy = 0.0;
+                }
+            }
+            4 => {
+                // Europa: Cavernas de hielo bajo cero -> Inmersión en fosa hidrotermal profunda -> Reactor sub-glacial
+                if p < 0.45 {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed;
+                    self.target_vy = 0.0;
+                } else if p < 0.80 {
+                    self.current_phase = StagePhase::DescendDown;
+                    self.target_vx = 0.0;
+                    self.target_vy = speed;
+                } else {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed * 1.15;
+                    self.target_vy = 0.0;
+                }
+            }
+            5 => {
+                // Hephaestus: Carrera supersónica bajo radiación solar -> Slingshot orbital ascendente -> Bastión solar
+                if p < 0.55 {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed;
+                    self.target_vy = 0.0;
+                } else if p < 0.80 {
+                    self.current_phase = StagePhase::AscendUp;
+                    self.target_vx = 0.0;
+                    self.target_vy = -speed;
+                } else {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed * 1.15;
+                    self.target_vy = 0.0;
+                }
+            }
+            6 => {
+                // Titan: Costas de metano líquido -> Ascenso monumental por el elevador espacial hacia los anillos de Saturno
+                if p < 0.35 {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed;
+                    self.target_vy = 0.0;
+                } else if p < 0.78 {
+                    self.current_phase = StagePhase::AscendUp;
+                    self.target_vx = 0.0;
+                    self.target_vy = -speed;
+                } else {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed * 1.15;
+                    self.target_vy = 0.0;
+                }
+            }
+            7 => {
+                // Nemesis Fleet: Cinturón de asteroides denso -> Trinchera defensiva del super-dreadnought -> Hangar interior
+                if p < 0.48 {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed;
+                    self.target_vy = 0.0;
+                } else if p < 0.78 {
+                    self.current_phase = StagePhase::DescendDown;
+                    self.target_vx = 0.0;
+                    self.target_vy = speed;
+                } else {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed * 1.15;
+                    self.target_vy = 0.0;
+                }
+            }
+            _ => {
+                // Singularity Core: Vector de distorsión de realidad -> Fosa gravitacional -> Ascenso al horizonte de sucesos
+                if p < 0.35 {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed;
+                    self.target_vy = 0.0;
+                } else if p < 0.60 {
+                    self.current_phase = StagePhase::DescendDown;
+                    self.target_vx = 0.0;
+                    self.target_vy = speed;
+                } else if p < 0.82 {
+                    self.current_phase = StagePhase::AscendUp;
+                    self.target_vx = 0.0;
+                    self.target_vy = -speed;
+                } else {
+                    self.current_phase = StagePhase::HorizontalRight;
+                    self.target_vx = speed * 1.20;
+                    self.target_vy = 0.0;
+                }
+            }
         }
     }
 

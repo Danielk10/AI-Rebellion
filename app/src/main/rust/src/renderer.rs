@@ -161,55 +161,63 @@ impl Renderer {
         self.draw_point_light(buffer, cx - 180, cy - 65, 120, 0xFF00E5FF, beam_alpha);
         self.draw_point_light(buffer, cx + 180, cy + 50, 120, 0xFFFF5500, beam_alpha);
 
-        // --- 1. TITULAR: DIAMON BLACK ---
-        let t_box_w = 420;
-        let t_box_h = 56;
+        // --- 1. TITULAR PRINCIPAL: IA REBELLION ---
+        self.draw_simple_text(buffer, "DIAMON BLACK PRESENTA", cx - 85, cy - 120, 0xFF718096, 1);
+
+        let t_box_w = 480;
+        let t_box_h = 68;
         let t_x = cx - t_box_w / 2;
-        let t_y = cy - 90;
+        let t_y = cy - 100;
 
-        self.draw_rect(buffer, t_x, t_y, t_box_w as usize, t_box_h as usize, 0xFF181C26);
-        self.draw_rect(buffer, t_x + 2, t_y + 2, (t_box_w - 4) as usize, 2, 0xFF4A5568);
-        self.draw_rect(buffer, t_x + 2, t_y + (t_box_h - 4), (t_box_w - 4) as usize, 2, 0xFF0A0D14);
+        self.draw_rect(buffer, t_x, t_y, t_box_w as usize, t_box_h as usize, 0xEE101624);
+        self.draw_rect(buffer, t_x, t_y, t_box_w as usize, 3, 0xFF00E5FF);
+        self.draw_rect(buffer, t_x, t_y + t_box_h as isize - 3, t_box_w as usize, 3, 0xFFFF4500);
+        self.draw_rect(buffer, t_x + 2, t_y + 2, (t_box_w - 4) as usize, 1, 0xFF38BDF8);
 
-        self.draw_simple_text(buffer, "DIAMON BLACK", cx - 130, cy - 76, 0xFFE2E8F0, 3);
+        // Nombre del juego: IA REBELLION en gran tamaño con brillo
+        self.draw_simple_text(buffer, "IA REBELLION", cx - 180, cy - 88, 0xFFFFFFFF, 4);
+        self.draw_simple_text(buffer, "IA REBELLION", cx - 180, cy - 89, 0xFF00F0FF, 4);
+        self.draw_volumetric_light(buffer, cx as f32, (cy - 66) as f32, 90.0, 0xFF00E5FF, 0.45);
+
+        self.draw_simple_text(buffer, "CYBERNETIC ARCADE SHMUP // 100% NATIVE RUST", cx - 165, cy - 22, 0xFFFFCC00, 1);
 
         // --- 2. LOGO BADGE: POWERED BY RUST ---
-        let badge_w = 360;
-        let badge_h = 68;
+        let badge_w = 340;
+        let badge_h = 56;
         let b_x = cx - badge_w / 2;
         let b_y = cy + 10;
 
         self.draw_rect(buffer, b_x, b_y, badge_w as usize, badge_h as usize, 0xFF1E232E);
-        self.draw_rect(buffer, b_x + 3, b_y + 3, (badge_w - 6) as usize, (badge_h - 6) as usize, 0xFF2A3140);
-        self.draw_rect(buffer, b_x + 4, b_y + 4, (badge_w - 8) as usize, 2, 0xFF5A667E);
+        self.draw_rect(buffer, b_x + 2, b_y + 2, (badge_w - 4) as usize, (badge_h - 4) as usize, 0xFF2A3140);
+        self.draw_rect(buffer, b_x + 3, b_y + 3, (badge_w - 6) as usize, 1, 0xFF5A667E);
 
-        let gear_x = b_x + 48;
-        let gear_y = b_y + 34;
+        let gear_x = b_x + 40;
+        let gear_y = b_y + 28;
 
         for d in 0..8 {
             let rad = (d as f32) * (std::f32::consts::PI / 4.0) + timer * 0.8;
-            let tx = gear_x + (rad.cos() * 22.0) as isize;
-            let ty = gear_y + (rad.sin() * 22.0) as isize;
-            self.draw_circle(buffer, tx, ty, 5, 0xFFFF4500);
-            self.draw_circle(buffer, tx, ty, 3, 0xFFFFCC00);
+            let tx = gear_x + (rad.cos() * 18.0) as isize;
+            let ty = gear_y + (rad.sin() * 18.0) as isize;
+            self.draw_circle(buffer, tx, ty, 4, 0xFFFF4500);
+            self.draw_circle(buffer, tx, ty, 2, 0xFFFFCC00);
         }
 
-        self.draw_circle(buffer, gear_x, gear_y, 20, 0xFFFF4500);
-        self.draw_circle(buffer, gear_x, gear_y, 16, 0xFF1E232E);
-        self.draw_rect(buffer, gear_x - 5, gear_y - 8, 4, 16, 0xFFFFD700);
-        self.draw_rect(buffer, gear_x - 5, gear_y - 8, 10, 4, 0xFFFFD700);
-        self.draw_rect(buffer, gear_x + 1, gear_y - 8, 4, 8, 0xFFFFD700);
-        self.draw_rect(buffer, gear_x - 5, gear_y - 1, 10, 3, 0xFFFFD700);
-        self.draw_rect(buffer, gear_x + 1, gear_y + 2, 4, 6, 0xFFFFD700);
+        self.draw_circle(buffer, gear_x, gear_y, 16, 0xFFFF4500);
+        self.draw_circle(buffer, gear_x, gear_y, 12, 0xFF1E232E);
+        self.draw_rect(buffer, gear_x - 4, gear_y - 6, 3, 12, 0xFFFFD700);
+        self.draw_rect(buffer, gear_x - 4, gear_y - 6, 8, 3, 0xFFFFD700);
+        self.draw_rect(buffer, gear_x + 1, gear_y - 6, 3, 6, 0xFFFFD700);
+        self.draw_rect(buffer, gear_x - 4, gear_y - 1, 8, 2, 0xFFFFD700);
+        self.draw_rect(buffer, gear_x + 1, gear_y + 1, 3, 5, 0xFFFFD700);
 
-        self.draw_point_light(buffer, gear_x, gear_y, 45, 0xFFFF4500, 0.7);
+        self.draw_point_light(buffer, gear_x, gear_y, 35, 0xFFFF4500, 0.6);
 
-        self.draw_simple_text(buffer, "POWERED BY", b_x + 95, b_y + 14, 0xFFA0AEC0, 1);
-        self.draw_simple_text(buffer, "R U S T", b_x + 95, b_y + 32, 0xFFFF7700, 3);
+        self.draw_simple_text(buffer, "POWERED BY", b_x + 80, b_y + 12, 0xFFA0AEC0, 1);
+        self.draw_simple_text(buffer, "R U S T", b_x + 80, b_y + 28, 0xFFFF7700, 2);
 
         let tap_pulse = ((timer * 4.0).sin().abs() * 200.0) as u32;
         let tap_col = 0xFF000000 | (tap_pulse << 16) | (tap_pulse << 8) | tap_pulse;
-        self.draw_simple_text(buffer, "TOCA LA PANTALLA PARA INICIAR", cx - 170, cy + 120, tap_col, 2);
+        self.draw_simple_text(buffer, "TOCA LA PANTALLA PARA INICIAR", cx - 170, cy + 110, tap_col, 2);
     }
 
     pub fn render_frame(
