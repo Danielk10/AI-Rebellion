@@ -108,21 +108,8 @@ impl TouchControls {
             self.flick_cooldown -= dt;
         }
 
-        // Si el segundo dedo se mantiene presionado:
         if self.secondary_id != -1 {
             self.secondary_touch_time += dt;
-            // Confirmación de apuntado sostenido de satélites
-            if self.secondary_touch_time >= 0.16 && !self.secondary_has_dragged {
-                let dx = self.secondary_x - self.secondary_start_x;
-                let dy = self.secondary_y - self.secondary_start_y;
-                if dx * dx + dy * dy > 36.0 {
-                    self.secondary_has_dragged = true;
-                    self.satellite_lock = true;
-                    if self.satellite_target_angle.is_none() {
-                        self.satellite_target_angle = Some(dy.atan2(dx));
-                    }
-                }
-            }
         }
     }
 
@@ -161,7 +148,7 @@ impl TouchControls {
             self.secondary_touch_time = 0.0;
             self.secondary_has_dragged = false;
 
-            // Ataque especial por pulsación rápida con los dos dedos (two-finger tap simultáneo):
+            // Ataque especial por pulsación rápida simultánea de los dos dedos (two-finger tap):
             // Si el segundo dedo cae casi al mismo tiempo que el primero (< 0.20s)
             if (self.touch_timer - self.primary_down_time).abs() < 0.20 {
                 self.trigger_bomb = true;
@@ -192,13 +179,15 @@ impl TouchControls {
             let mut dy = y - self.secondary_start_y;
             let dist_sq = dx * dx + dy * dy;
 
-            // Al superar 14 px de desplazamiento o 0.14s, se entra en MODO SATÉLITES:
-            // Al activarse satellite_lock, cualquier cambio de dirección queda 100% bloqueado.
-            if dist_sq > 196.0 || self.secondary_touch_time > 0.14 {
+            // Control y apuntado de Satélites en 360 grados:
+            // Al arrastrar, orienta los satélites en tiempo real hacia el ángulo del vector táctil.
+            // IMPORTANTE: Durante on_touch_move NO se evalúa flick para garantizar
+            // que girar satélites en círculos o a cualquier ángulo NUNCA cambie la dirección del jugador.
+            if dist_sq > 100.0 {
                 self.secondary_has_dragged = true;
                 self.satellite_lock = true;
 
-                // Clamping analógico para radio de 60px
+                // Clamping flotante para radio de 60px
                 let dist = dist_sq.sqrt();
                 let max_radius = 60.0;
                 if dist > max_radius {
@@ -240,20 +229,23 @@ impl TouchControls {
             let dx = x - self.secondary_start_x;
             let dy = y - self.secondary_start_y;
             let dist_sq = dx * dx + dy * dy;
+            let touch_time = self.secondary_touch_time;
 
             // ==============================================================
-            // REGLA DE EXCLUSIÓN MUTUA:
-            // Si el dedo estuvo en MODO SATÉLITES (arrastró o apuntó en 360°),
-            // NUNCA cambia la dirección de la nave ni lanza bomba accidental.
+            // EXCLUSIÓN MUTUA INTELIGENTE:
+            // 1. Si el toque fue breve (< 0.40s): fue un gesto rápido deliberado:
+            //    - Desplazamiento horizontal (Flick / Swipe): cambia la orientación del jugador.
+            //    - Toque seco sin desplazamiento (< 18px): lanza la Bomba Especial EMP.
+            // 2. Si el toque fue sostenido (>= 0.40s): el jugador estuvo apuntando/girando satélites.
+            //    Al levantarse, simplemente se liberan los satélites sin alterar dirección ni gastar bomba.
             // ==============================================================
-            if !self.secondary_has_dragged && !self.satellite_lock && self.secondary_touch_time <= 0.25 {
-                // Gesto Flick / Swipe & Release deliberado:
-                // Latigazo horizontal rápido en menos de 0.25s con desplazamiento claro
-                if dx.abs() >= 40.0 && dx.abs() >= dy.abs() * 1.25 {
+            if touch_time < 0.40 {
+                if dx.abs() >= 25.0 && dx.abs() >= dy.abs() * 1.1 {
+                    // Latigazo horizontal rápido del dedo libre (Flick):
                     self.flick_facing = Some(dx > 0.0);
-                    self.flick_cooldown = 0.25;
+                    self.flick_cooldown = 0.20;
                 } else if dist_sq < 324.0 {
-                    // Toque seco en un punto (< 18 px de desplazamiento): Bomba especial EMP
+                    // Toque seco en un punto (< 18 px): Bomba especial EMP
                     self.trigger_bomb = true;
                 }
             }
