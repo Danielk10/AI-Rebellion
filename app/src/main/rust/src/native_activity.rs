@@ -639,12 +639,154 @@ unsafe fn get_engine<'a>(activity: *mut ANativeActivity) -> Option<&'a NativeEng
     }
 }
 
+/// Configuración de Pantalla Completa Inmersiva y Ocultación de Botones Virtuales
+/// Con soporte y protección desde Android API 23 (Android 6.0) hasta API 37 (Android 17)
+pub unsafe fn apply_immersive_fullscreen(activity: *mut ANativeActivity) {
+    if activity.is_null() {
+        return;
+    }
+
+    // 1. Configurar banderas de ventana NDK nativas
+    let add_flags = AWINDOW_FLAG_FULLSCREEN
+        | AWINDOW_FLAG_KEEP_SCREEN_ON
+        | AWINDOW_FLAG_LAYOUT_IN_SCREEN
+        | AWINDOW_FLAG_LAYOUT_NO_LIMITS
+        | AWINDOW_FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+    ANativeActivity_setWindowFlags(activity, add_flags, 0);
+
+    // 2. Invocación JNI en el hilo de UI para ocultar barra de navegación (botones virtuales) y barra de estado
+    let env_ptr = (*activity).env as *mut *const jni::sys::JNINativeInterface_;
+    if env_ptr.is_null() {
+        return;
+    }
+    let env = env_ptr;
+    let iface = *env;
+
+    let get_object_class = (*iface).v1_1.GetObjectClass;
+    let get_method_id = (*iface).v1_1.GetMethodID;
+    let call_object_method = (*iface).v1_1.CallObjectMethod;
+    let call_void_method = (*iface).v1_1.CallVoidMethod;
+    let exception_check = (*iface).v1_2.ExceptionCheck;
+    let exception_clear = (*iface).v1_1.ExceptionClear;
+    let delete_local_ref = (*iface).v1_1.DeleteLocalRef;
+
+    let c_get_window = CString::new("getWindow").unwrap();
+    let c_sig_window = CString::new("()Landroid/view/Window;").unwrap();
+    let c_get_decor = CString::new("getDecorView").unwrap();
+    let c_sig_decor = CString::new("()Landroid/view/View;").unwrap();
+    let c_set_sys_ui = CString::new("setSystemUiVisibility").unwrap();
+    let c_sig_set_sys_ui = CString::new("(I)V").unwrap();
+
+    let act_class = get_object_class(env, (*activity).clazz as jni::sys::jobject);
+    if act_class.is_null() {
+        return;
+    }
+
+    let get_window_mid = get_method_id(env, act_class, c_get_window.as_ptr(), c_sig_window.as_ptr());
+    delete_local_ref(env, act_class);
+    if get_window_mid.is_null() {
+        if exception_check(env) { exception_clear(env); }
+        return;
+    }
+
+    let window_obj = call_object_method(env, (*activity).clazz as jni::sys::jobject, get_window_mid);
+    if window_obj.is_null() {
+        if exception_check(env) { exception_clear(env); }
+        return;
+    }
+
+    let window_class = get_object_class(env, window_obj);
+    if window_class.is_null() {
+        delete_local_ref(env, window_obj);
+        return;
+    }
+
+    let get_decor_mid = get_method_id(env, window_class, c_get_decor.as_ptr(), c_sig_decor.as_ptr());
+    if !get_decor_mid.is_null() {
+        let decor_obj = call_object_method(env, window_obj, get_decor_mid);
+        if !decor_obj.is_null() {
+            let decor_class = get_object_class(env, decor_obj);
+            if !decor_class.is_null() {
+                let set_sys_ui_mid = get_method_id(env, decor_class, c_set_sys_ui.as_ptr(), c_sig_set_sys_ui.as_ptr());
+                if !set_sys_ui_mid.is_null() {
+                    // Flags de Inmersión Completa (SYSTEM_UI_FLAG_...):
+                    // LAYOUT_STABLE (256) | LAYOUT_HIDE_NAVIGATION (512) | LAYOUT_FULLSCREEN (1024)
+                    // HIDE_NAVIGATION (2, oculta botones virtuales) | FULLSCREEN (4, oculta estado)
+                    // IMMERSIVE_STICKY (4096, oculta automáticamente tras interacción) = 5894 (0x1706)
+                    let flags: jni::sys::jint = 5894;
+                    call_void_method(env, decor_obj, set_sys_ui_mid, flags);
+                    if exception_check(env) { exception_clear(env); }
+                }
+                delete_local_ref(env, decor_class);
+            }
+            delete_local_ref(env, decor_obj);
+        }
+    }
+
+    // Para Android 11 (API 30) hasta Android 17 (API 37):
+    // Utilizar WindowInsetsController además de setSystemUiVisibility
+    let sdk_ver = (*activity).sdk_version;
+    if sdk_ver >= 30 {
+        // window.setDecorFitsSystemWindows(false)
+        let c_set_fits = CString::new("setDecorFitsSystemWindows").unwrap();
+        let c_sig_set_fits = CString::new("(Z)V").unwrap();
+        let set_fits_mid = get_method_id(env, window_class, c_set_fits.as_ptr(), c_sig_set_fits.as_ptr());
+        if !set_fits_mid.is_null() {
+            let fits_val: c_int = 0;
+            call_void_method(env, window_obj, set_fits_mid, fits_val);
+            if exception_check(env) { exception_clear(env); }
+        }
+
+        // window.getInsetsController()
+        let c_get_controller = CString::new("getInsetsController").unwrap();
+        let c_sig_controller = CString::new("()Landroid/view/WindowInsetsController;").unwrap();
+        let get_controller_mid = get_method_id(env, window_class, c_get_controller.as_ptr(), c_sig_controller.as_ptr());
+        if !get_controller_mid.is_null() {
+            let controller_obj = call_object_method(env, window_obj, get_controller_mid);
+            if !controller_obj.is_null() {
+                let controller_class = get_object_class(env, controller_obj);
+                if !controller_class.is_null() {
+                    // controller.hide(WindowInsets.Type.systemBars() = 7)
+                    let c_hide = CString::new("hide").unwrap();
+                    let c_sig_hide = CString::new("(I)V").unwrap();
+                    let hide_mid = get_method_id(env, controller_class, c_hide.as_ptr(), c_sig_hide.as_ptr());
+                    if !hide_mid.is_null() {
+                        let sys_bars: jni::sys::jint = 7;
+                        call_void_method(env, controller_obj, hide_mid, sys_bars);
+                        if exception_check(env) { exception_clear(env); }
+                    }
+
+                    // controller.setSystemBarsBehavior(BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE = 2)
+                    let c_set_behavior = CString::new("setSystemBarsBehavior").unwrap();
+                    let c_sig_behavior = CString::new("(I)V").unwrap();
+                    let set_behavior_mid = get_method_id(env, controller_class, c_set_behavior.as_ptr(), c_sig_behavior.as_ptr());
+                    if !set_behavior_mid.is_null() {
+                        let behavior_val: jni::sys::jint = 2;
+                        call_void_method(env, controller_obj, set_behavior_mid, behavior_val);
+                        if exception_check(env) { exception_clear(env); }
+                    }
+
+                    delete_local_ref(env, controller_class);
+                }
+                delete_local_ref(env, controller_obj);
+            }
+        }
+    }
+
+    delete_local_ref(env, window_class);
+    delete_local_ref(env, window_obj);
+    if exception_check(env) {
+        exception_clear(env);
+    }
+}
+
 unsafe extern "C" fn on_start(_activity: *mut ANativeActivity) {
     log_info!("ANativeActivity::onStart");
 }
 
 unsafe extern "C" fn on_resume(activity: *mut ANativeActivity) {
     log_info!("ANativeActivity::onResume");
+    apply_immersive_fullscreen(activity);
     if let Some(engine) = get_engine(activity) {
         engine.is_paused.store(false, Ordering::SeqCst);
     }
@@ -685,12 +827,7 @@ unsafe extern "C" fn on_destroy(activity: *mut ANativeActivity) {
 unsafe extern "C" fn on_window_focus_changed(activity: *mut ANativeActivity, has_focus: c_int) {
     log_info!("ANativeActivity::onWindowFocusChanged(hasFocus={})", has_focus);
     if has_focus != 0 && !activity.is_null() {
-        let add_flags = AWINDOW_FLAG_FULLSCREEN
-            | AWINDOW_FLAG_KEEP_SCREEN_ON
-            | AWINDOW_FLAG_LAYOUT_IN_SCREEN
-            | AWINDOW_FLAG_LAYOUT_NO_LIMITS
-            | AWINDOW_FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
-        ANativeActivity_setWindowFlags(activity, add_flags, 0);
+        apply_immersive_fullscreen(activity);
     }
     if let Some(engine) = get_engine(activity) {
         engine.has_focus.store(has_focus != 0, Ordering::SeqCst);
@@ -798,13 +935,8 @@ pub unsafe extern "C" fn ANativeActivity_onCreate(
         return;
     }
 
-    // Configurar banderas de ventana para cubrir el 100% de la pantalla (notch / display cutout)
-    let add_flags = AWINDOW_FLAG_FULLSCREEN
-        | AWINDOW_FLAG_KEEP_SCREEN_ON
-        | AWINDOW_FLAG_LAYOUT_IN_SCREEN
-        | AWINDOW_FLAG_LAYOUT_NO_LIMITS
-        | AWINDOW_FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
-    ANativeActivity_setWindowFlags(activity, add_flags, 0);
+    // Configurar pantalla completa inmersiva y ocultación de botones virtuales (API 23..37)
+    apply_immersive_fullscreen(activity);
 
     let callbacks = &mut *(*activity).callbacks;
     callbacks.on_start = Some(on_start);

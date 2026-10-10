@@ -6,6 +6,13 @@
 //! - Gesto Flick: deslizamiento horizontal rápido en dirección contraria conmuta orientación.
 //! - Hold & Drag con segundo dedo: bloquea y apunta satélites orbitales en 360 grados.
 
+#[derive(Clone, Copy, Debug)]
+pub struct TouchHistoryPoint {
+    pub x: f32,
+    pub y: f32,
+    pub time: f32,
+}
+
 #[derive(Clone, Debug)]
 pub struct TouchControls {
     pub primary_id: i32,
@@ -28,9 +35,11 @@ pub struct TouchControls {
     pub secondary_touch_time: f32,
     pub secondary_has_dragged: bool,
 
-    // Detección de Gesto Flick / Deslizamiento Rápido con dedo primario
-    pub flick_anchor_x: f32,
-    pub flick_anchor_time: f32,
+    // Detección estricta de Gesto Flick / Arrastre Rápido Horizontal
+    pub touch_timer: f32,
+    pub history: [TouchHistoryPoint; 8],
+    pub history_len: usize,
+    pub history_idx: usize,
     pub flick_cooldown: f32,
     pub flick_facing: Option<bool>, // Some(true) = derecha, Some(false) = izquierda
 
@@ -65,8 +74,10 @@ impl TouchControls {
             secondary_start_y: 0.0,
             secondary_touch_time: 0.0,
             secondary_has_dragged: false,
-            flick_anchor_x: 0.0,
-            flick_anchor_time: 0.0,
+            touch_timer: 0.0,
+            history: [TouchHistoryPoint { x: 0.0, y: 0.0, time: 0.0 }; 8],
+            history_len: 0,
+            history_idx: 0,
             flick_cooldown: 0.0,
             flick_facing: None,
             is_touching: false,
@@ -87,6 +98,7 @@ impl TouchControls {
     }
 
     pub fn update(&mut self, dt: f32) {
+        self.touch_timer += dt;
         self.time_since_last_tap += dt;
         self.trigger_bomb = false;
         self.toggle_facing = false;
@@ -94,12 +106,6 @@ impl TouchControls {
 
         if self.flick_cooldown > 0.0 {
             self.flick_cooldown -= dt;
-        }
-
-        self.flick_anchor_time += dt;
-        if self.flick_anchor_time >= 0.08 {
-            self.flick_anchor_x = self.primary_x;
-            self.flick_anchor_time = 0.0;
         }
 
         // Si el segundo dedo se mantiene presionado sin soltarlo:
@@ -137,9 +143,11 @@ impl TouchControls {
             self.is_touching = true;
             self.is_firing = true;
 
-            // Inicializar detección de flick horizontal
-            self.flick_anchor_x = x;
-            self.flick_anchor_time = 0.0;
+            // Inicializar historial de tracking para detección de arrastre rápido (flick)
+            self.history_len = 1;
+            self.history_idx = 0;
+            self.history[0] = TouchHistoryPoint { x, y, time: self.touch_timer };
+            self.flick_cooldown = 0.0;
 
             // Detección de doble toque rápido (< 0.35s) para lanzar Bomba EMP
             if self.time_since_last_tap < 0.35 {
@@ -169,18 +177,40 @@ impl TouchControls {
             self.is_touching = true;
             self.is_firing = true;
 
-            // Detección de Gesto Flick / Swipe Rápido Horizontal (dedo primario)
-            if self.flick_cooldown <= 0.0 {
-                let dx_flick = x - self.flick_anchor_x;
-                let dt_flick = self.flick_anchor_time.max(0.016);
-                let vx_flick = dx_flick / dt_flick;
+            let now = self.touch_timer;
+            self.history_idx = (self.history_idx + 1) % 8;
+            self.history[self.history_idx] = TouchHistoryPoint { x, y, time: now };
+            if self.history_len < 8 {
+                self.history_len += 1;
+            }
 
-                // Si supera umbral de velocidad (> 650 px/s) y distancia mínima (> 35 px)
-                if dx_flick.abs() > 35.0 && vx_flick.abs() > 650.0 {
-                    self.flick_facing = Some(dx_flick > 0.0);
-                    self.flick_cooldown = 0.28;
-                    self.flick_anchor_x = x;
-                    self.flick_anchor_time = 0.0;
+            // Detección de Gesto Flick / Arrastre Rápido Horizontal (dedo primario)
+            // Solo cambia la orientación si se realiza un latigazo rápido intencional,
+            // garantizando que arrastrar el dedo hacia adelante/atrás para mover al jugador
+            // NUNCA altere la dirección configurada.
+            if self.flick_cooldown <= 0.0 && self.history_len >= 2 {
+                for i in 1..self.history_len {
+                    let past_idx = (self.history_idx + 8 - i) % 8;
+                    let sample = self.history[past_idx];
+                    let dt = now - sample.time;
+                    if dt >= 0.025 && dt <= 0.12 {
+                        let dx = x - sample.x;
+                        let dy = y - sample.y;
+                        let vx = dx / dt.max(0.016);
+
+                        // Umbrales estrictos de arrastre rápido intencional:
+                        // 1. Distancia horizontal mínima: >= 70 px
+                        // 2. Velocidad explosiva de swipe: >= 1700 px/s
+                        // 3. Dominancia horizontal clara: dx >= dy * 1.4
+                        if dx.abs() >= 70.0 && vx.abs() >= 1700.0 && dx.abs() >= dy.abs() * 1.4 {
+                            self.flick_facing = Some(dx > 0.0);
+                            self.flick_cooldown = 0.28;
+                            // Resetea el historial para evitar activaciones múltiples en el mismo trazo
+                            self.history_len = 1;
+                            self.history[self.history_idx] = TouchHistoryPoint { x, y, time: now };
+                            break;
+                        }
+                    }
                 }
             }
 
