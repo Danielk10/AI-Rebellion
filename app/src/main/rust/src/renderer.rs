@@ -49,26 +49,38 @@ pub struct Renderer {
     pub scroll_vy: f32,
     pub stage_phase: StagePhase,
     pub stage_progress: f32,
+    /// Puntuación total mostrada en el HUD superior derecho
+    pub hud_score: u32,
 }
 
+/// Color de contorno (outline) cel-shading para separar personajes del fondo
+const OUTLINE: u32 = 0xFF05070D;
+
 impl Renderer {
-    pub fn new(w: usize, h: usize) -> Self {
+    fn build_stars(w: usize, h: usize) -> Vec<Star> {
         let mut stars = Vec::with_capacity(140);
-        for i in 0..140 {
+        for i in 0..140usize {
             let speed = match i % 4 {
                 0 => 30.0,
                 1 => 70.0,
                 2 => 140.0,
                 _ => 220.0,
             };
+            let hx = Self::hash(i * 7919 + 13);
+            let hy = Self::hash(i * 104729 + 7);
             stars.push(Star {
-                x: ((i * 37) % w) as f32,
-                y: ((i * 47) % h) as f32,
+                x: (hx % w.max(1)) as f32,
+                y: (hy % h.max(1)) as f32,
                 speed,
                 size: if speed > 130.0 { 2 } else { 1 },
                 brightness: ((i * 19) % 155 + 100) as u8,
             });
         }
+        stars
+    }
+
+    pub fn new(w: usize, h: usize) -> Self {
+        let stars = Self::build_stars(w, h);
 
         Self {
             stars,
@@ -82,12 +94,28 @@ impl Renderer {
             scroll_vy: 0.0,
             stage_phase: StagePhase::HorizontalRight,
             stage_progress: 0.0,
+            hud_score: 0,
         }
     }
 
     pub fn resize(&mut self, w: usize, h: usize) {
+        if w != self.width || h != self.height {
+            self.stars = Self::build_stars(w, h);
+        }
         self.width = w;
         self.height = h;
+    }
+
+    /// Hash entero rápido (determinista) para detalles procedimentales estables
+    #[inline(always)]
+    fn hash(x: usize) -> usize {
+        let mut v = (x as u32).wrapping_mul(0x9E37_79B9) ^ 0x85EB_CA6B;
+        v ^= v >> 15;
+        v = v.wrapping_mul(0x2C1B_3C6D);
+        v ^= v >> 12;
+        v = v.wrapping_mul(0x297A_2D39);
+        v ^= v >> 15;
+        v as usize
     }
 
     pub fn add_explosion(&mut self, x: f32, y: f32, count: usize, base_color: u32) {
@@ -1132,12 +1160,12 @@ impl Renderer {
         }
     }
 
-    /// 3. Torretas de Esporas Pulsantes con Dilatación de Respiración
+    /// 3. Torretas Antiaéreas (Tamaño Fijo sin Dilatación)
     pub fn draw_spore_pod_turret(
         &self,
         buffer: &mut [u32],
         enemy: &Enemy,
-        anim_time: f32,
+        _anim_time: f32,
     ) {
         let ex = enemy.x;
         let ey = enemy.y;
@@ -1148,17 +1176,15 @@ impl Renderer {
         self.draw_aa_capsule(buffer, ex - 12.0, anchor_y, ex - 6.0, ey, 3.5, 0xFF0F172A);
         self.draw_aa_capsule(buffer, ex + 12.0, anchor_y, ex + 6.0, ey, 3.5, 0xFF0F172A);
 
-        let breathe = (anim_time * 4.5).sin();
-        let bulb_r = 16.0 + breathe * 2.8;
+        let bulb_r = 16.0;
 
         self.draw_aa_circle(buffer, ex, ey, bulb_r, 0xFF2E1065, 0xFF581C87, 2.5);
 
-        let sac_r = bulb_r * 0.65;
+        let sac_r = 10.4;
         let sac_col = 0xFF10B981;
-        let sac_pulse = (breathe * 0.3 + 0.7).clamp(0.0, 1.0);
-        let inner_col = Self::lerp_color(0xFF064E3B, 0xFF6EE7B7, sac_pulse);
+        let inner_col = 0xFF34D399;
         self.draw_aa_circle(buffer, ex, ey, sac_r, inner_col, sac_col, 1.5);
-        self.draw_volumetric_light(buffer, ex, ey, bulb_r + 20.0, sac_col, 0.65 * sac_pulse);
+        self.draw_volumetric_light(buffer, ex, ey, bulb_r + 18.0, sac_col, 0.55);
 
         let aim_x = ex + enemy.aim_angle.cos() * (bulb_r + 2.0);
         let aim_y = ey + enemy.aim_angle.sin() * (bulb_r + 2.0);
@@ -1166,44 +1192,41 @@ impl Renderer {
         self.draw_aa_circle(buffer, aim_x, aim_y, 3.0, 0xFFFFFFFF, sac_col, 1.0);
     }
 
-    /// 4. Flores Mecánicas Trampa con Pétalos Navaja y Estambre Láser
+    /// 4. Flores Mecánicas Trampa con Pétalos Navaja y Estambre Láser (Tamaño Fijo)
     pub fn draw_flower_trap(
         &self,
         buffer: &mut [u32],
         enemy: &Enemy,
         anim_time: f32,
-        open_factor: f32,
+        _open_factor: f32,
     ) {
         let ex = enemy.x;
         let ey = enemy.y;
         let petal_count = 6;
         let base_radius = 20.0;
+        let open_factor = 0.5;
 
         let stem_base_y = if enemy.is_ceiling { ey - 22.0 } else { ey + 22.0 };
         self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 5.0, 0xFF14532D);
         self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 2.0, 0xFF22C55E);
 
         let stamen_glow = 0xFF00F0FF;
-        let charge_pulse = (anim_time * 12.0).sin().abs();
-        let stamen_r = 6.0 + open_factor * 3.0;
+        let stamen_r = 7.5;
 
-        if open_factor > 0.15 {
-            self.draw_aa_circle(buffer, ex, ey, stamen_r, 0xFFFFFFFF, stamen_glow, 2.0);
-            self.draw_volumetric_light(buffer, ex, ey, 32.0 * open_factor, stamen_glow, 0.75 * charge_pulse);
+        self.draw_aa_circle(buffer, ex, ey, stamen_r, 0xFFFFFFFF, stamen_glow, 2.0);
+        self.draw_volumetric_light(buffer, ex, ey, 16.0, stamen_glow, 0.65);
 
-            for i in 0..4 {
-                let f_angle = (i as f32) * (std::f32::consts::PI * 0.5) + anim_time * 2.0;
-                let fx = ex + f_angle.cos() * (stamen_r + 5.0);
-                let fy = ey + f_angle.sin() * (stamen_r + 5.0);
-                self.draw_aa_capsule(buffer, ex, ey, fx, fy, 1.2, 0xFFFFFFFF);
-                self.draw_aa_circle(buffer, fx, fy, 1.8, stamen_glow, 0xFFFFFFFF, 0.5);
-            }
+        for i in 0..4 {
+            let f_angle = (i as f32) * (std::f32::consts::PI * 0.5) + anim_time * 2.0;
+            let fx = ex + f_angle.cos() * (stamen_r + 5.0);
+            let fy = ey + f_angle.sin() * (stamen_r + 5.0);
+            self.draw_aa_capsule(buffer, ex, ey, fx, fy, 1.2, 0xFFFFFFFF);
+            self.draw_aa_circle(buffer, fx, fy, 1.8, stamen_glow, 0xFFFFFFFF, 0.5);
         }
 
         for p in 0..petal_count {
             let angle = (p as f32) * (std::f32::consts::PI * 2.0 / petal_count as f32);
-            let blossom_spread = open_factor * 16.0;
-            let petal_dist = base_radius + blossom_spread;
+            let petal_dist = base_radius + 8.0;
             let px = ex + angle.cos() * petal_dist;
             let py = ey + angle.sin() * petal_dist;
 
