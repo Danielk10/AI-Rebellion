@@ -14,6 +14,31 @@ pub enum StagePhase {
 
 pub type Phase = StagePhase;
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ObstacleStyle {
+    SteelGirder,      // Stage 1: Vigas Warren, tuberías y pilares urbanos
+    SmeltingPress,    // Stage 2: Prensas hidráulicas y crisoles de fundición
+    MarsCanyonRock,   // Stage 3: Formaciones de óxido marciano y pilones mineros
+    CryoIcePillar,    // Stage 4: Columnas criogénicas de Europa y bio-nodos Abadox
+    SolarShield,      // Stage 5: Blindajes térmicos solares y colectores Dyson
+    MethaneTank,      // Stage 6: Silos de metano líquido y celosías de Titán
+    ArmadaBulkhead,   // Stage 7: Mamparas acorazadas y torretas de la flota nodriza
+    QuantumMonolith,  // Stage 8: Monolitos cuánticos y bobinas de singularidad
+}
+
+#[derive(Clone, Debug)]
+pub struct StageObstacle {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub style: ObstacleStyle,
+    pub destructible: bool,
+    pub health: f32,
+    pub max_health: f32,
+    pub active: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct StageConfig {
     pub number: u8,
@@ -37,6 +62,7 @@ pub struct LevelManager {
     pub target_vy: f32,
     pub current_phase: StagePhase,
     pub last_phase: StagePhase,
+    pub inside_chamber: bool,
     pub transition_timer: f32,
     pub transition_text: &'static str,
     pub distance_traveled: f32,
@@ -44,6 +70,8 @@ pub struct LevelManager {
     pub stage_progress: f32,
     pub boss_spawned: bool,
     pub spawn_timer: f32,
+    pub obstacle_timer: f32,
+    pub obstacles: Vec<StageObstacle>,
     pub config: StageConfig,
 }
 
@@ -61,6 +89,7 @@ impl LevelManager {
             target_vy: 0.0,
             current_phase: StagePhase::HorizontalRight,
             last_phase: StagePhase::HorizontalRight,
+            inside_chamber: false,
             transition_timer: 0.0,
             transition_text: "",
             distance_traveled: 0.0,
@@ -68,6 +97,8 @@ impl LevelManager {
             stage_progress: 0.0,
             boss_spawned: false,
             spawn_timer: 1.0,
+            obstacle_timer: 1.8,
+            obstacles: Vec::with_capacity(24),
             config,
         }
     }
@@ -84,6 +115,7 @@ impl LevelManager {
         self.target_vy = 0.0;
         self.current_phase = StagePhase::HorizontalRight;
         self.last_phase = StagePhase::HorizontalRight;
+        self.inside_chamber = false;
         self.transition_timer = 0.0;
         self.transition_text = "";
         self.distance_traveled = 0.0;
@@ -91,6 +123,8 @@ impl LevelManager {
         self.stage_progress = 0.0;
         self.boss_spawned = false;
         self.spawn_timer = 1.0;
+        self.obstacle_timer = 1.8;
+        self.obstacles.clear();
     }
 
     fn get_config(stage: u8) -> StageConfig {
@@ -171,75 +205,88 @@ impl LevelManager {
     }
 
     pub fn update(&mut self, dt: f32, screen_w: f32, screen_h: f32, enemies: &mut Vec<Enemy>) -> bool {
-        // 1. Determinar fase y velocidades objetivo de trayectoria según el avance del nivel
+        // 1. Determinar fase y velocidades objetivo de trayectoria lineal estilo Final Mission
         let old_phase = self.current_phase;
+        let was_in_chamber = self.inside_chamber;
         self.update_phase_and_trajectory();
-        if self.current_phase != old_phase {
-            let p = self.stage_progress;
-            self.last_phase = old_phase;
-            self.transition_timer = 2.8;
-            self.transition_text = match (self.current_stage, self.current_phase) {
-                (_, StagePhase::BossEncounter) => ">>> CRITICAL WARNING: COLOSSAL AI WARSHIP INCOMING >>>",
-                (1, StagePhase::AscendUp) => ">>> VERTICAL CLIMB: SKYSCRAPER CANYON ASCENT >>>",
-                (1, StagePhase::HorizontalRight) if p < 0.72 => ">>> ROOFTOPS: SKYSCRAPER SUMMITS & ANTENNA GRID >>>",
-                (1, StagePhase::DescendDown) => ">>> VERTICAL DIVE: INDUSTRIAL CHASM DESCENT >>>",
-                (1, StagePhase::HorizontalRight) => ">>> SKY-HIGHWAY: CONVERGING ON TITAN-01 WARCRAWLER >>>",
-                (2, StagePhase::DescendDown) => ">>> DESCENT INTO GEOTHERMAL SMELTING VATS >>>",
-                (2, StagePhase::HorizontalRight) => ">>> AUTOMATED ASSEMBLY CORE IN SIGHT >>>",
-                (3, StagePhase::AscendUp) => ">>> ASCENDING VOLCANIC RIDGE TO EXCAVATOR RIG >>>",
-                (3, StagePhase::HorizontalRight) => ">>> CONVERGING ON HEAVY EXTRACTION PLATFORM >>>",
-                (4, StagePhase::DescendDown) => ">>> DIVING INTO DEEP ABYSSAL TRENCH >>>",
-                (4, StagePhase::HorizontalRight) => ">>> SUB-GLACIAL REACTOR CHAMBER BREACHED >>>",
-                (5, StagePhase::AscendUp) => ">>> HIGH-G ORBITAL SLINGSHOT TRAJECTORY >>>",
-                (5, StagePhase::HorizontalRight) => ">>> SOLAR ARRAY COMMAND MATRIX TARGETED >>>",
-                (6, StagePhase::AscendUp) => ">>> CLIMBING ORBITAL SPACE ELEVATOR SPIRE >>>",
-                (6, StagePhase::HorizontalRight) => ">>> RINGS OF SATURN: HIGH-ORBIT REVOLVER DOCK >>>",
-                (7, StagePhase::DescendDown) => ">>> DIVING INTO DREADNOUGHT TRENCH RUN >>>",
-                (7, StagePhase::HorizontalRight) => ">>> BREACHING MOTHERSHIP INNER HANGAR >>>",
-                (8, StagePhase::DescendDown) => ">>> PLUNGE INTO QUANTUM EVENT HORIZON >>>",
-                (8, StagePhase::AscendUp) => ">>> GRAVITATIONAL SINGULARITY ASCENT >>>",
-                (8, StagePhase::HorizontalRight) => ">>> FINAL PROTOCOL: PURGE THE AI OVERMIND >>>",
-                (_, StagePhase::AscendUp) => ">>> TRAJECTORY VECTOR: HIGH-ALTITUDE CLIMB >>>",
-                (_, StagePhase::DescendDown) => ">>> TRAJECTORY VECTOR: SUB-SURFACE DESCENT >>>",
-                (_, StagePhase::HorizontalRight) => ">>> HIGH-SPEED HORIZONTAL SPRINT ENGAGED >>>",
+
+        // Entrar en cámara interior (último tramo antes del jefe) activa la transición de cámara interior;
+        // mientras tanto, el ascenso/descenso vertical durante el nivel es 100% lineal y continuo.
+        let now_in_chamber = self.stage_progress >= 0.78 && !self.boss_spawned;
+        self.inside_chamber = now_in_chamber;
+
+        if now_in_chamber && !was_in_chamber {
+            self.transition_timer = 2.2;
+            self.transition_text = match self.current_stage {
+                1 => ">>> ENTERING INNER FORTRESS CHAMBER: TITAN-01 LAIR >>>",
+                2 => ">>> ENTERING CENTRAL SMELTING REACTOR CHAMBER >>>",
+                3 => ">>> ENTERING SUB-MARS CORE EXCAVATION CHAMBER >>>",
+                4 => ">>> BREACHING ABADOX BIO-CYBERNETIC CHAMBER >>>",
+                5 => ">>> ENTERING SOLAR CORE CONTAINMENT CHAMBER >>>",
+                6 => ">>> ENTERING SATURN ORBITAL DOCKING CHAMBER >>>",
+                7 => ">>> BREACHING MOTHERSHIP INNER COMMAND HANGAR >>>",
+                _ => ">>> ENTERING NYX-OVERMIND SINGULARITY CHAMBER >>>",
             };
+        } else if self.current_phase != old_phase {
+            self.last_phase = old_phase;
         }
+
         if self.transition_timer > 0.0 {
             self.transition_timer = (self.transition_timer - dt).max(0.0);
         }
 
-        // 2. Transición suave de la trayectoria de cámara (curvas y amortiguación física)
-        let blend_rate = 2.8;
+        // 2. Transición lineal suave de la trayectoria de cámara (estilo Final Mission)
+        let blend_rate = 2.4;
         self.scroll_vx += (self.target_vx - self.scroll_vx) * (blend_rate * dt).min(1.0);
         self.scroll_vy += (self.target_vy - self.scroll_vy) * (blend_rate * dt).min(1.0);
 
-        // 3. Integración del vector de desplazamiento 2D
+        // 3. Integración continua del vector de desplazamiento 2D
         self.scroll_x += self.scroll_vx * dt;
         self.scroll_y += self.scroll_vy * dt;
 
-        // 4. Acumular distancia lineal recorrida a lo largo de la ruta
+        // 4. Desplazar obstáculos físicos del escenario linealmente con la cámara
+        for obs in self.obstacles.iter_mut() {
+            if !obs.active {
+                continue;
+            }
+            obs.x -= self.scroll_vx * dt;
+            obs.y -= self.scroll_vy * dt;
+            if obs.x < -160.0 || obs.x > screen_w + 220.0 || obs.y < -160.0 || obs.y > screen_h + 220.0 {
+                obs.active = false;
+            }
+        }
+        self.obstacles.retain(|o| o.active);
+
+        // 5. Acumular distancia lineal recorrida a lo largo de la ruta
         let speed = (self.scroll_vx * self.scroll_vx + self.scroll_vy * self.scroll_vy).sqrt();
         self.distance_traveled += speed * dt;
         self.scroll_pos = self.distance_traveled;
         self.stage_progress = (self.distance_traveled / self.config.stage_length).clamp(0.0, 1.0);
 
-        // 5. Comprueba si debe spawnear el Boss al culminar el trayecto
+        // 6. Comprueba si debe spawnear el Boss al culminar el trayecto
         if self.stage_progress >= 1.0 && !self.boss_spawned {
             self.boss_spawned = true;
             self.current_phase = StagePhase::BossEncounter;
-            self.transition_timer = 2.8;
-            self.transition_text = ">>> CRITICAL WARNING: COLOSSAL AI WARSHIP INCOMING >>>";
+            self.transition_timer = 2.5;
+            self.transition_text = ">>> CRITICAL WARNING: SUPREME AI BOSS DETECTED >>>";
             self.target_vx = 0.0;
             self.target_vy = 0.0;
+            self.obstacles.clear();
             return true;
         }
 
-        // 6. Oleadas periódicas adaptadas a la dirección del vuelo
+        // 7. Oleadas periódicas de enemigos y obstáculos de escenario adaptados a la dirección lineal
         if !self.boss_spawned {
             self.spawn_timer -= dt;
             if self.spawn_timer <= 0.0 {
                 self.spawn_timer = self.calculate_spawn_timer();
                 self.spawn_wave(screen_w, screen_h, enemies);
+            }
+
+            self.obstacle_timer -= dt;
+            if self.obstacle_timer <= 0.0 {
+                self.obstacle_timer = 2.4;
+                self.spawn_stage_obstacle(screen_w, screen_h);
             }
         }
         false
@@ -685,6 +732,143 @@ impl LevelManager {
                     carrier.vy = -80.0;
                     enemies.push(carrier);
                 }
+            }
+            StagePhase::BossEncounter => {}
+        }
+    }
+
+    /// Genera objetos físicos y estructuras del escenario con las que el jugador colisiona estilo Final Mission
+    fn spawn_stage_obstacle(&mut self, screen_w: f32, screen_h: f32) {
+        let style = match self.current_stage {
+            1 => ObstacleStyle::SteelGirder,
+            2 => ObstacleStyle::SmeltingPress,
+            3 => ObstacleStyle::MarsCanyonRock,
+            4 => ObstacleStyle::CryoIcePillar,
+            5 => ObstacleStyle::SolarShield,
+            6 => ObstacleStyle::MethaneTank,
+            7 => ObstacleStyle::ArmadaBulkhead,
+            _ => ObstacleStyle::QuantumMonolith,
+        };
+
+        let pattern = (self.distance_traveled as usize / 180) % 4;
+
+        match self.current_phase {
+            StagePhase::HorizontalRight => {
+                let sx = screen_w + 90.0;
+                match pattern {
+                    0 => {
+                        // Viga / Columna superior colgante
+                        self.obstacles.push(StageObstacle {
+                            x: sx,
+                            y: 88.0,
+                            width: 58.0,
+                            height: 92.0,
+                            style,
+                            destructible: false,
+                            health: 999.0,
+                            max_health: 999.0,
+                            active: true,
+                        });
+                    }
+                    1 => {
+                        // Estructura inferior / Pilar elevado desde el suelo
+                        self.obstacles.push(StageObstacle {
+                            x: sx,
+                            y: screen_h - 92.0,
+                            width: 64.0,
+                            height: 96.0,
+                            style,
+                            destructible: false,
+                            health: 999.0,
+                            max_health: 999.0,
+                            active: true,
+                        });
+                    }
+                    2 => {
+                        // Plataforma / Nodo blindado flotante central (destruible con disparos concentrados)
+                        let py = if (self.distance_traveled as usize / 360) % 2 == 0 {
+                            screen_h * 0.36
+                        } else {
+                            screen_h * 0.64
+                        };
+                        self.obstacles.push(StageObstacle {
+                            x: sx,
+                            y: py,
+                            width: 84.0,
+                            height: 36.0,
+                            style,
+                            destructible: true,
+                            health: 180.0,
+                            max_health: 180.0,
+                            active: true,
+                        });
+                    }
+                    _ => {
+                        // Compuerta / Corredor doble superior e inferior con amplio paso central
+                        self.obstacles.push(StageObstacle {
+                            x: sx,
+                            y: 74.0,
+                            width: 52.0,
+                            height: 68.0,
+                            style,
+                            destructible: false,
+                            health: 999.0,
+                            max_health: 999.0,
+                            active: true,
+                        });
+                        self.obstacles.push(StageObstacle {
+                            x: sx,
+                            y: screen_h - 78.0,
+                            width: 52.0,
+                            height: 68.0,
+                            style,
+                            destructible: false,
+                            health: 999.0,
+                            max_health: 999.0,
+                            active: true,
+                        });
+                    }
+                }
+            }
+            StagePhase::AscendUp => {
+                // El jugador asciende: las vigas horizontales entran por arriba y bajan linealmente
+                let sy = -50.0;
+                let (ox, ow, destructible) = match pattern % 3 {
+                    0 => (125.0, 120.0, false),
+                    1 => (screen_w - 125.0, 120.0, false),
+                    _ => (screen_w * 0.5, 96.0, true),
+                };
+                self.obstacles.push(StageObstacle {
+                    x: ox,
+                    y: sy,
+                    width: ow,
+                    height: 32.0,
+                    style,
+                    destructible,
+                    health: 160.0,
+                    max_health: 160.0,
+                    active: true,
+                });
+            }
+            StagePhase::DescendDown => {
+                // El jugador desciende: las vigas entran por abajo y suben linealmente
+                let sy = screen_h + 50.0;
+                let (ox, ow, destructible) = match pattern % 3 {
+                    0 => (130.0, 120.0, false),
+                    1 => (screen_w - 130.0, 120.0, false),
+                    _ => (screen_w * 0.5, 96.0, true),
+                };
+                self.obstacles.push(StageObstacle {
+                    x: ox,
+                    y: sy,
+                    width: ow,
+                    height: 32.0,
+                    style,
+                    destructible,
+                    health: 160.0,
+                    max_health: 160.0,
+                    active: true,
+                });
             }
             StagePhase::BossEncounter => {}
         }

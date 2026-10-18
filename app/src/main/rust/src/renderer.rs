@@ -12,7 +12,7 @@
 use crate::boss::{Boss, BossId};
 use crate::bullet::{Bullet, BulletType};
 use crate::enemy::{Enemy, EnemyType, Item, ItemType};
-use crate::level::StagePhase;
+use crate::level::{ObstacleStyle, StageObstacle, StagePhase};
 use crate::player::{Player, WeaponType};
 
 #[derive(Clone, Copy, Debug)]
@@ -164,7 +164,7 @@ impl Renderer {
         self.particles.retain(|p| p.life > 0.0);
     }
 
-    /// Renderiza la pantalla de presentación Splash de Diamon Black & Powered by Rust
+    /// Renderiza la pantalla de presentación Splash original de Diamon Black & Powered by Rust
     pub fn render_splash_screen(&self, buffer: &mut [u32], timer: f32) {
         let w = self.width as isize;
         let h = self.height as isize;
@@ -248,6 +248,335 @@ impl Renderer {
         self.draw_simple_text(buffer, "TOCA LA PANTALLA PARA INICIAR", cx - 170, cy + 110, tap_col, 2);
     }
 
+    /// Renderiza el Menú Principal conservando intacta la animación original de Rust + los 3 botones del menú
+    pub fn render_title_menu(&self, buffer: &mut [u32], timer: f32) {
+        let w = self.width as isize;
+        let h = self.height as isize;
+
+        // Fondo oscuro original de fibra de carbono y circuitos
+        buffer.fill(0xFF07090E);
+
+        // Trazas de circuitos cibernéticos de fondo
+        for line_y in (40..h).step_by(60) {
+            self.draw_rect(buffer, 0, line_y, w as usize, 1, 0xFF0E1422);
+        }
+        for line_x in (60..w).step_by(80) {
+            self.draw_rect(buffer, line_x, 0, 1, h as usize, 0xFF0E1422);
+        }
+
+        let cx = w / 2;
+        let cy = h / 2 - 40;
+
+        // Destello de haz anamórfico central (cian a la izquierda, naranja a la derecha)
+        let beam_alpha = ((timer * 2.5).sin().abs() * 0.6).min(0.6);
+        self.draw_rect(buffer, 40, cy - 65, (w - 80) as usize, 2, 0xFF00E5FF);
+        self.draw_point_light(buffer, cx - 180, cy - 65, 120, 0xFF00E5FF, beam_alpha);
+        self.draw_point_light(buffer, cx + 180, cy + 50, 120, 0xFFFF5500, beam_alpha);
+
+        // --- 1. TITULAR PRINCIPAL ORIGINAL: IA REBELLION ---
+        self.draw_simple_text(buffer, "DIAMON BLACK PRESENTA", cx - 85, cy - 120, 0xFF718096, 1);
+
+        let t_box_w = 480;
+        let t_box_h = 68;
+        let t_x = cx - t_box_w / 2;
+        let t_y = cy - 100;
+
+        self.draw_rect(buffer, t_x, t_y, t_box_w as usize, t_box_h as usize, 0xEE101624);
+        self.draw_rect(buffer, t_x, t_y, t_box_w as usize, 3, 0xFF00E5FF);
+        self.draw_rect(buffer, t_x, t_y + t_box_h as isize - 3, t_box_w as usize, 3, 0xFFFF4500);
+        self.draw_rect(buffer, t_x + 2, t_y + 2, (t_box_w - 4) as usize, 1, 0xFF38BDF8);
+
+        // Nombre del juego: IA REBELLION en gran tamaño con brillo
+        self.draw_simple_text(buffer, "IA REBELLION", cx - 180, cy - 88, 0xFFFFFFFF, 4);
+        self.draw_simple_text(buffer, "IA REBELLION", cx - 180, cy - 89, 0xFF00F0FF, 4);
+        self.draw_volumetric_light(buffer, cx as f32, (cy - 66) as f32, 90.0, 0xFF00E5FF, 0.45);
+
+        self.draw_simple_text(buffer, "CYBERNETIC ARCADE SHMUP // 100% NATIVE RUST", cx - 165, cy - 22, 0xFFFFCC00, 1);
+
+        // --- 2. LOGO BADGE ORIGINAL: POWERED BY RUST (con animación de engranaje y 'R') ---
+        let badge_w = 340;
+        let badge_h = 56;
+        let b_x = cx - badge_w / 2;
+        let b_y = cy + 10;
+
+        self.draw_rect(buffer, b_x, b_y, badge_w as usize, badge_h as usize, 0xFF1E232E);
+        self.draw_rect(buffer, b_x + 2, b_y + 2, (badge_w - 4) as usize, (badge_h - 4) as usize, 0xFF2A3140);
+        self.draw_rect(buffer, b_x + 3, b_y + 3, (badge_w - 6) as usize, 1, 0xFF5A667E);
+
+        let gear_x = b_x + 40;
+        let gear_y = b_y + 28;
+
+        for d in 0..8 {
+            let rad = (d as f32) * (std::f32::consts::PI / 4.0) + timer * 0.8;
+            let tx = gear_x + (rad.cos() * 18.0) as isize;
+            let ty = gear_y + (rad.sin() * 18.0) as isize;
+            self.draw_circle(buffer, tx, ty, 4, 0xFFFF4500);
+            self.draw_circle(buffer, tx, ty, 2, 0xFFFFCC00);
+        }
+
+        self.draw_circle(buffer, gear_x, gear_y, 16, 0xFFFF4500);
+        self.draw_circle(buffer, gear_x, gear_y, 12, 0xFF1E232E);
+        self.draw_rect(buffer, gear_x - 4, gear_y - 6, 3, 12, 0xFFFFD700);
+        self.draw_rect(buffer, gear_x - 4, gear_y - 6, 8, 3, 0xFFFFD700);
+        self.draw_rect(buffer, gear_x + 1, gear_y - 6, 3, 6, 0xFFFFD700);
+        self.draw_rect(buffer, gear_x - 4, gear_y - 1, 8, 2, 0xFFFFD700);
+        self.draw_rect(buffer, gear_x + 1, gear_y + 1, 3, 5, 0xFFFFD700);
+
+        self.draw_point_light(buffer, gear_x, gear_y, 35, 0xFFFF4500, 0.6);
+
+        self.draw_simple_text(buffer, "POWERED BY", b_x + 80, b_y + 12, 0xFFA0AEC0, 1);
+        self.draw_simple_text(buffer, "R U S T", b_x + 80, b_y + 28, 0xFFFF7700, 2);
+
+        // --- 3. BOTONES DEL MENU PRINCIPAL (Solo inician al tocar su botón correspondiente) ---
+        let btn_w = 300usize;
+        let bx = cx - (btn_w as isize) / 2;
+
+        // Botón 1: INICIAR JUEGO (cy + 84, alto 40)
+        let y_start = cy + 84;
+        let pulse = ((timer * 5.0).sin().abs() * 0.5 + 0.5).clamp(0.0, 1.0);
+        let start_border = Self::lerp_color(0xFF00A8CC, 0xFF00FFCC, pulse);
+        self.draw_rect(buffer, bx, y_start, btn_w, 40, 0xEE0B2239);
+        self.draw_rect(buffer, bx, y_start, btn_w, 2, start_border);
+        self.draw_rect(buffer, bx, y_start + 38, btn_w, 2, start_border);
+        self.draw_simple_text(buffer, "INICIAR JUEGO", cx - 78, y_start + 13, 0xFFFFFFFF, 2);
+
+        // Botón 2: MULTIJUGADOR BLUETOOTH (cy + 132, alto 40)
+        let y_multi = cy + 132;
+        self.draw_rect(buffer, bx, y_multi, btn_w, 40, 0xEE181432);
+        self.draw_rect(buffer, bx, y_multi, btn_w, 2, 0xFF38BDF8);
+        self.draw_rect(buffer, bx, y_multi + 38, btn_w, 2, 0xFF38BDF8);
+        self.draw_simple_text(buffer, "MULTIJUGADOR BLUETOOTH", cx - 132, y_multi + 13, 0xFF00F0FF, 2);
+
+        // Botón 3: CONFIGURACIONES (cy + 180, alto 40)
+        let y_settings = cy + 180;
+        self.draw_rect(buffer, bx, y_settings, btn_w, 40, 0xEE1A1E29);
+        self.draw_rect(buffer, bx, y_settings, btn_w, 2, 0xFFFFCC00);
+        self.draw_rect(buffer, bx, y_settings + 38, btn_w, 2, 0xFFFFCC00);
+        self.draw_simple_text(buffer, "CONFIGURACIONES", cx - 90, y_settings + 13, 0xFFFFD700, 2);
+    }
+
+    /// Pantalla dedicada para configurar el Multijugador Bluetooth de 4 Jugadores (RFCOMM)
+    pub fn render_multiplayer_menu(
+        &self,
+        buffer: &mut [u32],
+        _timer: f32,
+        is_host: bool,
+        local_player_id: u8,
+        _squad_size: u8,
+        _connected_peers: u8,
+    ) {
+        let w = self.width as isize;
+        let h = self.height as isize;
+        let cx = w / 2;
+        let cy = h / 2;
+
+        buffer.fill(0xFF07090E);
+        for y in (40..h).step_by(60) {
+            self.draw_rect(buffer, 0, y, w as usize, 1, 0xFF0E1422);
+        }
+
+        let panel_w = 460usize;
+        let panel_h = 270usize;
+        let px0 = cx - (panel_w as isize) / 2;
+        let py0 = cy - (panel_h as isize) / 2;
+
+        self.draw_rect(buffer, px0, py0, panel_w, panel_h, 0xEE0B1324);
+        self.draw_rect(buffer, px0, py0, panel_w, 3, 0xFF00E5FF);
+        self.draw_rect(buffer, px0, py0 + panel_h as isize - 3, panel_w, 3, 0xFF00E5FF);
+
+        self.draw_simple_text(
+            buffer,
+            "MULTIJUGADOR BLUETOOTH (4 JUGADORES)",
+            cx - 216,
+            py0 + 16,
+            0xFF00F0FF,
+            2,
+        );
+
+        // Fila 1: Rol Bluetooth (cy - 75, altura 42)
+        let role_y = cy - 75;
+        let half_w = panel_w / 2 - 8;
+        let host_col = if is_host { 0xFF00FF77 } else { 0xFF475569 };
+        let cli_col = if !is_host { 0xFF00E5FF } else { 0xFF475569 };
+
+        self.draw_rect(buffer, px0 + 4, role_y, half_w, 42, if is_host { 0xFF0D2E22 } else { 0xFF111C2D });
+        self.draw_rect(buffer, px0 + 4, role_y, half_w, 2, host_col);
+        self.draw_simple_text(buffer, "CREAR PARTIDA (HOST)", px0 + 22, role_y + 15, host_col, 1);
+
+        self.draw_rect(buffer, cx + 4, role_y, half_w, 42, if !is_host { 0xFF102A42 } else { 0xFF111C2D });
+        self.draw_rect(buffer, cx + 4, role_y, half_w, 2, cli_col);
+        self.draw_simple_text(buffer, "UNIRSE (CLIENTE BT)", cx + 26, role_y + 15, cli_col, 1);
+
+        // Fila 2: Selección de Jugador 1 a 4 (cy - 12, altura 54)
+        let slot_y = cy - 12;
+        let slot_w = panel_w / 4 - 6;
+        let labels = ["JUGADOR 1", "JUGADOR 2", "JUGADOR 3", "JUGADOR 4"];
+        let names = ["ARNOLD", "SIGOURNEY", "JAX", "ORION"];
+        let cols = [0xFF00F0FF, 0xFFFFB703, 0xFF00FF77, 0xFFFFD700];
+
+        for i in 0..4usize {
+            let sx = px0 + 4 + (i as isize) * (slot_w as isize + 6);
+            let selected = local_player_id as usize == i;
+            let border = if selected { 0xFFFFFFFF } else { cols[i] };
+            let bg = if selected { 0xFF1E3A5F } else { 0xFF0F172A };
+
+            self.draw_rect(buffer, sx, slot_y, slot_w, 54, bg);
+            self.draw_rect(buffer, sx, slot_y, slot_w, 2, border);
+            self.draw_rect(buffer, sx, slot_y + 52, slot_w, 2, border);
+            self.draw_simple_text(buffer, labels[i], sx + 14, slot_y + 12, cols[i], 1);
+            self.draw_simple_text(buffer, names[i], sx + 14, slot_y + 30, 0xFFE2E8F0, 1);
+        }
+
+        // Fila 3: Botones de Acción (cy + 65, altura 44)
+        let bot_y = cy + 65;
+        self.draw_rect(buffer, px0 + 4, bot_y, half_w, 44, 0xFF0D2E22);
+        self.draw_rect(buffer, px0 + 4, bot_y, half_w, 2, 0xFF00FF77);
+        self.draw_simple_text(buffer, "INICIAR PARTIDA", px0 + 24, bot_y + 15, 0xFF00FF77, 2);
+
+        self.draw_rect(buffer, cx + 4, bot_y, half_w, 44, 0xFF2E1218);
+        self.draw_rect(buffer, cx + 4, bot_y, half_w, 2, 0xFFFF3344);
+        self.draw_simple_text(buffer, "VOLVER", cx + 74, bot_y + 15, 0xFFFFCC00, 2);
+    }
+
+    /// Pantalla de Configuraciones (Música y Sonidos SFX)
+    pub fn render_settings_menu(
+        &self,
+        buffer: &mut [u32],
+        _timer: f32,
+        music_on: bool,
+        sfx_on: bool,
+    ) {
+        let w = self.width as isize;
+        let h = self.height as isize;
+        let cx = w / 2;
+        let cy = h / 2;
+
+        buffer.fill(0xFF07090E);
+        for y in (40..h).step_by(60) {
+            self.draw_rect(buffer, 0, y, w as usize, 1, 0xFF0E1422);
+        }
+
+        let card_w = 380usize;
+        let card_h = 230usize;
+        let px0 = cx - (card_w as isize) / 2;
+        let py0 = cy - (card_h as isize) / 2;
+
+        self.draw_rect(buffer, px0, py0, card_w, card_h, 0xEE0D1526);
+        self.draw_rect(buffer, px0, py0, card_w, 3, 0xFFFFCC00);
+        self.draw_rect(buffer, px0, py0 + card_h as isize - 3, card_w, 3, 0xFFFFCC00);
+
+        self.draw_simple_text(buffer, "CONFIGURACIONES", cx - 90, py0 + 16, 0xFFFFD700, 2);
+
+        let btn_w = 320usize;
+        let bx = cx - (btn_w as isize) / 2;
+
+        // 1. Música (cy - 54, alto 44)
+        let y_music = cy - 54;
+        let m_col = if music_on { 0xFF00FF77 } else { 0xFFFF3344 };
+        self.draw_rect(buffer, bx, y_music, btn_w, 44, 0xFF141E30);
+        self.draw_rect(buffer, bx, y_music, btn_w, 2, m_col);
+        let m_txt = if music_on { "MUSICA: ENCENDIDA" } else { "MUSICA: APAGADA" };
+        self.draw_simple_text(buffer, m_txt, bx + 54, y_music + 15, m_col, 2);
+
+        // 2. SFX (cy + 2, alto 44)
+        let y_sfx = cy + 2;
+        let s_col = if sfx_on { 0xFF00E5FF } else { 0xFFFF3344 };
+        self.draw_rect(buffer, bx, y_sfx, btn_w, 44, 0xFF141E30);
+        self.draw_rect(buffer, bx, y_sfx, btn_w, 2, s_col);
+        let s_txt = if sfx_on { "SONIDOS: ENCENDIDOS" } else { "SONIDOS: APAGADOS" };
+        self.draw_simple_text(buffer, s_txt, bx + 42, y_sfx + 15, s_col, 2);
+
+        // 3. Volver (cy + 58, alto 44)
+        let y_back = cy + 58;
+        self.draw_rect(buffer, bx, y_back, btn_w, 44, 0xFF281822);
+        self.draw_rect(buffer, bx, y_back, btn_w, 2, 0xFFFFCC00);
+        self.draw_simple_text(buffer, "VOLVER", cx - 36, y_back + 15, 0xFFFFD700, 2);
+    }
+
+    /// Menú superpuesto al tocar el botón virtual de Pausa en la esquina superior derecha
+    pub fn render_pause_menu(&self, buffer: &mut [u32], _timer: f32, stage_num: u8, score: u32) {
+        let w = self.width as isize;
+        let h = self.height as isize;
+        let cx = w / 2;
+        let cy = h / 2;
+
+        // Oscurecer ligeramente el fondo del juego
+        self.draw_rect(buffer, 0, 0, w as usize, h as usize, 0x9904070E);
+
+        let box_w = 340usize;
+        let box_h = 240usize;
+        let px0 = cx - (box_w as isize) / 2;
+        let py0 = cy - (box_h as isize) / 2;
+
+        self.draw_rect(buffer, px0, py0, box_w, box_h, 0xEE0D1526);
+        self.draw_rect(buffer, px0, py0, box_w, 3, 0xFF00E5FF);
+        self.draw_rect(buffer, px0, py0 + box_h as isize - 3, box_w, 3, 0xFFFF4500);
+
+        let st_txt = format!("PAUSA TACTICA - NIVEL {} // PTS {}", stage_num, score);
+        self.draw_simple_text(buffer, &st_txt, cx - 120, py0 + 16, 0xFF38BDF8, 1);
+        self.draw_simple_text(buffer, "JUEGO EN PAUSA", cx - 84, py0 + 34, 0xFFFFFFFF, 2);
+
+        let btn_w = 280usize;
+        let bx = cx - (btn_w as isize) / 2;
+
+        // Botón 1: RESUME (cy - 58)
+        let y_resume = cy - 58;
+        self.draw_rect(buffer, bx, y_resume, btn_w, 42, 0xFF0D2E22);
+        self.draw_rect(buffer, bx, y_resume, btn_w, 2, 0xFF00FF77);
+        self.draw_simple_text(buffer, "RESUME / CONTINUAR", bx + 32, y_resume + 14, 0xFF00FF77, 2);
+
+        // Botón 2: CONFIGURACIONES (cy - 2)
+        let y_settings = cy - 2;
+        self.draw_rect(buffer, bx, y_settings, btn_w, 42, 0xFF162038);
+        self.draw_rect(buffer, bx, y_settings, btn_w, 2, 0xFF00E5FF);
+        self.draw_simple_text(buffer, "CONFIGURACIONES", bx + 50, y_settings + 14, 0xFF00F0FF, 2);
+
+        // Botón 3: IR AL MENU (cy + 54)
+        let y_menu = cy + 54;
+        self.draw_rect(buffer, bx, y_menu, btn_w, 42, 0xFF331219);
+        self.draw_rect(buffer, bx, y_menu, btn_w, 2, 0xFFFF3344);
+        self.draw_simple_text(buffer, "IR AL MENU", bx + 80, y_menu + 14, 0xFFFFCC00, 2);
+    }
+
+    /// Renderiza obstáculos estructurales colisionables del escenario (Estilo Final Mission)
+    pub fn draw_stage_obstacle(&self, buffer: &mut [u32], obs: &StageObstacle) {
+        let ox = (obs.x - obs.width * 0.5) as isize;
+        let oy = (obs.y - obs.height * 0.5) as isize;
+        let ow = obs.width as usize;
+        let oh = obs.height as usize;
+
+        let (base_col, trim_col, core_col) = match obs.style {
+            ObstacleStyle::SteelGirder => (0xFF283244, 0xFFC74C0C, 0xFF00E5FF),
+            ObstacleStyle::SmeltingPress => (0xFF3B1F14, 0xFFFF5500, 0xFFFFCC00),
+            ObstacleStyle::MarsCanyonRock => (0xFF5C1D0E, 0xFF9A3412, 0xFFFF3300),
+            ObstacleStyle::CryoIcePillar => (0xFF0B4F6C, 0xFF38BDF8, 0xFF00FFFF),
+            ObstacleStyle::SolarShield => (0xFF422006, 0xFFF59E0B, 0xFFFFEE55),
+            ObstacleStyle::MethaneTank => (0xFF362F19, 0xFFEAB308, 0xFF39FF14),
+            ObstacleStyle::ArmadaBulkhead => (0xFF1E1B4B, 0xFF9333EA, 0xFFFF007F),
+            ObstacleStyle::QuantumMonolith => (0xFF090D16, 0xFFFF0055, 0xFF00F0FF),
+        };
+
+        self.draw_rect(buffer, ox, oy, ow, oh, base_col);
+        self.draw_rect(buffer, ox, oy, ow, 3, trim_col);
+        self.draw_rect(buffer, ox, oy + oh as isize - 3, ow, 3, trim_col);
+        self.draw_rect(buffer, ox, oy, 3, oh, trim_col);
+        self.draw_rect(buffer, ox + ow as isize - 3, oy, 3, oh, trim_col);
+
+        for ry in (8..oh.saturating_sub(8)).step_by(18) {
+            self.draw_rect(buffer, ox + 5, oy + ry as isize, ow.saturating_sub(10), 2, trim_col);
+        }
+
+        if obs.destructible {
+            let hp_ratio = (obs.health / obs.max_health).clamp(0.0, 1.0);
+            let cx = obs.x as isize;
+            let cy = obs.y as isize;
+            let glow_col = Self::lerp_color(0xFFFF0033, core_col, hp_ratio);
+            self.draw_circle(buffer, cx, cy, 8, glow_col);
+            self.draw_circle(buffer, cx, cy, 4, 0xFFFFFFFF);
+            self.draw_point_light(buffer, cx, cy, 24, glow_col, 0.55);
+        }
+    }
+
     pub fn render_frame(
         &mut self,
         buffer: &mut [u32],
@@ -257,6 +586,8 @@ impl Renderer {
         items: &[Item],
         boss: &Option<Boss>,
         bullets: &[Bullet],
+        obstacles: &[StageObstacle],
+        inside_chamber: bool,
         stage_num: u8,
         stage_name: &str,
         transition_timer: f32,
@@ -265,10 +596,10 @@ impl Renderer {
         let w = self.width;
         let h = self.height;
 
-        // 1. Escenario multidireccional enriquecido
-        self.render_stage_environment(buffer, stage_num);
+        // 1. Escenario multidireccional lineal continuo (Tierra, Planetas, Lunas y Espacio)
+        self.render_stage_environment(buffer, stage_num, inside_chamber);
 
-        // 2. Campo de estrellas reactivo
+        // 2. Campo de estrellas reactivo al desplazamiento lineal 2D
         for s in self.stars.iter() {
             let px = s.x as usize;
             let py = s.y as usize;
@@ -281,7 +612,14 @@ impl Renderer {
             }
         }
 
-        // 3. Proyectiles y ráfagas de energía
+        // 3. Obstáculos físicos y estructuras colisionables del escenario (Estilo Final Mission)
+        for obs in obstacles.iter() {
+            if obs.active {
+                self.draw_stage_obstacle(buffer, obs);
+            }
+        }
+
+        // 4. Proyectiles y ráfagas de energía
         for b in bullets.iter() {
             if !b.active {
                 continue;
@@ -319,7 +657,7 @@ impl Renderer {
             }
         }
 
-        // 4. Cápsulas de Items / Power-Ups flotantes estilo Final Mission
+        // 5. Cápsulas de Items / Power-Ups flotantes estilo Final Mission
         for item in items.iter() {
             if !item.active {
                 continue;
@@ -327,7 +665,7 @@ impl Renderer {
             self.draw_item_capsule(buffer, item);
         }
 
-        // 5. Enemigos comunes detallados y orientables
+        // 6. Enemigos de IA Rebelde detallados y orientables
         for e in enemies.iter() {
             if !e.active {
                 continue;
@@ -335,14 +673,14 @@ impl Renderer {
             self.draw_enemy(buffer, e);
         }
 
-        // 5. Jefe de fase (Boss)
+        // 7. Jefe de fase (Boss)
         if let Some(b) = boss.as_ref() {
             if !b.defeated {
                 self.draw_boss(buffer, b);
             }
         }
 
-        // 6. Efectos de partículas / explosiones con resplandor aditivo
+        // 8. Efectos de partículas / explosiones con resplandor aditivo
         for p in self.particles.iter() {
             let px = p.x as isize;
             let py = p.y as isize;
@@ -351,7 +689,7 @@ impl Renderer {
             self.draw_point_light(buffer, px, py, sz + 12, p.color, 0.4);
         }
 
-        // 7. Personaje: Comando Cibernético Moderno en todos los niveles
+        // 9. Personaje: Escuadrón de Comandos Cibernéticos (1-4P)
         for player in players.iter() {
             if !player.active {
                 continue;
@@ -359,377 +697,242 @@ impl Renderer {
             self.draw_modern_commando(buffer, player);
         }
 
-        // 8. HUD Limpio Superior SIN BOTONES VIRTUALES
+        // 10. HUD Superior con Botón Virtual de Pausa en esquina superior derecha
         self.render_clean_hud(buffer, players, stage_num, stage_name);
 
-        // 9. Banner cinemático de transición de sección estilo Final Mission
+        // 11. Banner cinemático SOLO cuando se entra en una cámara interior o Boss
         if transition_timer > 0.0 && !transition_text.is_empty() {
             self.render_section_transition(buffer, transition_timer, transition_text);
         }
     }
 
-    /// Renderiza escenarios temáticos basados en Final Mission NES y trayectos multidireccionales
-    fn render_stage_environment(&self, buffer: &mut [u32], stage: u8) {
+    /// Renderiza escenarios del Sistema Solar con transición lineal continua (scroll 2D X/Y) y cámaras interiores
+    fn render_stage_environment(&self, buffer: &mut [u32], stage: u8, inside_chamber: bool) {
         let w = self.width;
         let h = self.height;
         let s_x = self.scroll_x;
         let s_y = self.scroll_y;
         let t = self.anim_time;
-        let progress = self.stage_progress.clamp(0.0, 1.0);
+        let _progress = self.stage_progress.clamp(0.0, 1.0);
+        // Desplazamiento vertical continuo para dar sensación lineal de ascenso/descenso estilo Final Mission
+        let y_shift = (s_y * 0.35) as isize;
 
         match stage {
             1 => {
-                buffer.fill(0xFF000000);
+                // NIVEL 1: TIERRA - RUINAS DE NUEVA YORK BAJO ASEDIO SINTÉTICO
+                buffer.fill(0xFF040710);
 
-                match self.stage_phase {
-                    StagePhase::HorizontalRight => {
-                        if progress < 0.28 {
-                            // === SECCIÓN 1: Lower Ruined Street & Pipe Platforms ===
-                            for nx in 0..(w / 16 + 2) {
-                                let rx = (nx * 16) as isize;
-                                let cloud_h = 24 + (((nx as f32 * 0.4 + t * 0.5).sin() * 8.0) as usize);
-                                self.draw_rect(buffer, rx, 0, 16, cloud_h, 0xFF44009B);
-                                self.draw_rect(buffer, rx, 0, 16, cloud_h.saturating_sub(6), 0xFF7F00EF);
-                            }
+                // Luna terrestre fracturada y satélites orbitales de la IA en el cielo
+                let moon_y = (85 - (y_shift / 8)).clamp(30, h as isize - 120);
+                self.draw_aa_circle(buffer, (w as isize - 170) as f32, moon_y as f32, 34.0, 0xFFCBD5E1, 0xFF00E5FF, 1.5);
+                self.draw_volumetric_light(buffer, (w as isize - 170) as f32, moon_y as f32, 58.0, 0xFF00E5FF, 0.35);
 
-                            let bld_offset1 = (s_x * 0.25) as usize % 96;
-                            for i in 0..(w / 96 + 2) {
-                                let bx = (i * 96) as isize - bld_offset1 as isize;
-                                let bld_h = 160 + ((i * 47) % 110);
-                                let by = h as isize - 70 - bld_h as isize;
-                                self.draw_rect(buffer, bx, by, 76, bld_h, 0xFF183C5C);
-                                self.draw_rect(buffer, bx + 36, by - 18, 3, 18, 0xFF737373);
-                                for wy in 0..(bld_h / 28) {
-                                    self.draw_rect(buffer, bx + 20, by + 16 + (wy * 28) as isize, 4, 4, 0xFFFBFBFB);
-                                }
-                            }
+                if !inside_chamber {
+                    // Cielo tormentoso electromagnético
+                    for nx in 0..(w / 24 + 2) {
+                        let rx = (nx * 24) as isize;
+                        let cloud_h = 22 + (((nx as f32 * 0.4 + t * 0.8).sin() * 8.0) as usize);
+                        self.draw_rect(buffer, rx, 0, 24, cloud_h, 0xFF3B0764);
+                        self.draw_rect(buffer, rx, 0, 24, cloud_h.saturating_sub(6), 0xFF6B21A8);
+                    }
 
-                            let bld_offset2 = (s_x * 0.50) as usize % 120;
-                            for i in 0..(w / 120 + 2) {
-                                let bx = (i * 120) as isize - bld_offset2 as isize;
-                                let bld_h = 210 + ((i * 31) % 95);
-                                let by = h as isize - 65 - bld_h as isize;
-                                self.draw_rect(buffer, bx, by, 90, bld_h, 0xFF44009B);
-                                for wx in 0..7 {
-                                    self.draw_rect(buffer, bx + 10 + (wx * 11) as isize, by + 12, 5, bld_h - 24, 0xFF7F00EF);
-                                }
-                            }
-
-                            let pipe_scroll = (s_x * 0.85) as usize % 64;
-                            let top_pipe_y = 50;
-                            let bot_pipe_y = h as isize - 64;
-
-                            self.draw_rect(buffer, 0, top_pipe_y, w, 14, 0xFF737373);
-                            self.draw_rect(buffer, 0, top_pipe_y + 2, w, 5, 0xFFBBBBBB);
-                            self.draw_rect(buffer, 0, top_pipe_y + 3, w, 2, 0xFFFBFBFB);
-
-                            self.draw_rect(buffer, 0, bot_pipe_y, w, 16, 0xFF737373);
-                            self.draw_rect(buffer, 0, bot_pipe_y + 3, w, 6, 0xFFBBBBBB);
-                            self.draw_rect(buffer, 0, bot_pipe_y + 4, w, 2, 0xFFFBFBFB);
-
-                            for f in 0..(w / 64 + 2) {
-                                let fx = (f * 64) as isize - pipe_scroll as isize;
-                                self.draw_rect(buffer, fx, top_pipe_y - 2, 6, 18, 0xFFBBBBBB);
-                                self.draw_rect(buffer, fx, bot_pipe_y - 2, 6, 20, 0xFFBBBBBB);
-                            }
-
-                            let girder_scroll = (s_x * 0.85) as usize % 80;
-                            for g in 0..(w / 80 + 2) {
-                                let gx = (g * 80) as isize - girder_scroll as isize;
-                                let gy = bot_pipe_y - 18;
-                                self.draw_rect(buffer, gx, gy, 74, 16, 0xFFC74C0C);
-                                self.draw_rect(buffer, gx, gy, 74, 2, 0xFFA30000);
-                                self.draw_rect(buffer, gx, gy + 14, 74, 2, 0xFFA30000);
-                                for x_i in 0..3 {
-                                    self.draw_rect(buffer, gx + 8 + (x_i * 20) as isize, gy + 3, 10, 10, 0xFF181C26);
-                                }
-                            }
-
-                            let ground_y = h as isize - 38;
-                            self.draw_rect(buffer, 0, ground_y, w, 38, 0xFF877000);
-                            self.draw_rect(buffer, 0, ground_y, w, 3, 0xFFFBD7A7);
-                            for deb in (0..w).step_by(18) {
-                                let dy = ground_y + 6 + ((deb * 13) % 24) as isize;
-                                self.draw_rect(buffer, deb as isize, dy, 5, 4, 0xFF44009B);
-                                self.draw_rect(buffer, deb as isize + 2, dy + 1, 2, 2, 0xFFFBFBFB);
-                            }
-                        } else if progress < 0.72 {
-                            // === SECCIÓN 3: Rooftops & Skyscraper Summits (Techos altos y antenas estilo Final Mission) ===
-                            buffer.fill(0xFF070B14);
-
-                            // Siluetas de rascacielos lejanos con ventanas iluminadas procedimentales
-                            let dist_offset = (s_x * 0.15) as usize % 140;
-                            for i in 0..(w / 140 + 2) {
-                                let bx = (i * 140) as isize - dist_offset as isize;
-                                let bld_h = 240 + ((i * 59) % 130);
-                                let by = h as isize - bld_h as isize;
-                                self.draw_rect(buffer, bx, by, 110, bld_h, 0xFF0D1524);
-                                self.draw_rect(buffer, bx + 55, by - 26, 2, 26, 0xFF475569);
-                                let blink = ((t * 4.0) as usize + i) % 2 == 0;
-                                self.draw_circle(buffer, bx + 56, by - 28, 2, if blink { 0xFFFF0033 } else { 0xFF440011 });
-
-                                for wy in 0..(bld_h / 24) {
-                                    let win_lit = ((i * 7 + wy * 13) % 5) != 0;
-                                    let win_col = if win_lit { 0x6600F0FF } else { 0x22003344 };
-                                    self.draw_rect(buffer, bx + 20, by + 16 + (wy * 24) as isize, 6, 8, win_col);
-                                    self.draw_rect(buffer, bx + 50, by + 16 + (wy * 24) as isize, 6, 8, win_col);
-                                    self.draw_rect(buffer, bx + 80, by + 16 + (wy * 24) as isize, 6, 8, win_col);
-                                }
-                            }
-
-                            // Techos de rascacielos en el plano medio con antenas parabólicas y silos de agua
-                            let mid_offset = (s_x * 0.45) as usize % 160;
-                            for i in 0..(w / 160 + 2) {
-                                let mx = (i * 160) as isize - mid_offset as isize;
-                                let roof_h = 130 + ((i * 43) % 70);
-                                let ry = h as isize - roof_h as isize;
-                                self.draw_rect(buffer, mx, ry, 135, roof_h, 0xFF162033);
-                                self.draw_rect(buffer, mx, ry, 135, 3, 0xFF38BDF8);
-
-                                // Depósito de agua cilíndrico de acero
-                                let silo_x = mx + 25;
-                                let silo_y = ry - 32;
-                                self.draw_rect(buffer, silo_x, silo_y, 28, 32, 0xFF334155);
-                                self.draw_rect(buffer, silo_x, silo_y, 28, 2, 0xFF64748B);
-                                self.draw_rect(buffer, silo_x, silo_y + 14, 28, 2, 0xFF1E293B);
-                                self.draw_rect(buffer, silo_x + 6, silo_y + 32, 4, 8, 0xFF1E293B);
-                                self.draw_rect(buffer, silo_x + 18, silo_y + 32, 4, 8, 0xFF1E293B);
-
-                                // Antena de radar parabólica
-                                let ant_x = mx + 85;
-                                self.draw_rect(buffer, ant_x, ry - 38, 3, 38, 0xFF94A3B8);
-                                self.draw_circle(buffer, ant_x + 1, ry - 38, 7, 0xFF475569);
-                                self.draw_circle(buffer, ant_x + 1, ry - 38, 4, 0xFF00E5FF);
-
-                                // Letrero de neón cyberpunk en la fachada del techo
-                                if i % 2 == 0 {
-                                    let neon_pulse = (t * 6.0).sin().abs() * 0.5 + 0.5;
-                                    let n_col = Self::lerp_color(0xFF550022, 0xFFFF0055, neon_pulse);
-                                    self.draw_rect(buffer, mx + 15, ry + 12, 105, 20, 0xEE0B0F19);
-                                    self.draw_rect(buffer, mx + 15, ry + 12, 105, 1, n_col);
-                                    self.draw_rect(buffer, mx + 15, ry + 32, 105, 1, n_col);
-                                    self.draw_simple_text(buffer, "CYBER-NY", mx + 26, ry + 16, n_col, 1);
-                                }
-                            }
-
-                            // Suelo de azotea en primer plano con conductos industriales y luces de baliza
-                            let fore_offset = (s_x * 0.85) as usize % 90;
-                            let base_roof_y = h as isize - 50;
-                            self.draw_rect(buffer, 0, base_roof_y, w, 50, 0xFF1E293B);
-                            self.draw_rect(buffer, 0, base_roof_y, w, 4, 0xFF475569);
-                            self.draw_rect(buffer, 0, base_roof_y + 4, w, 2, 0xFF64748B);
-
-                            for fx in 0..(w / 90 + 2) {
-                                let px = (fx * 90) as isize - fore_offset as isize;
-                                self.draw_rect(buffer, px, base_roof_y - 12, 34, 12, 0xFF334155);
-                                for g in 0..4 {
-                                    self.draw_rect(buffer, px + 4 + (g * 7) as isize, base_roof_y - 10, 4, 8, 0xFF0F172A);
-                                }
-                                let beacon_on = ((t * 8.0) as usize + fx) % 2 == 0;
-                                self.draw_circle(buffer, px + 45, base_roof_y - 6, 3, if beacon_on { 0xFFFFCC00 } else { 0xFF443300 });
-                            }
-                        } else {
-                            // === SECCIÓN 5: Elevated Sky-Highway Leading to TITAN-01 Warcrawler ===
-                            let dist_offset = (s_x * 0.20) as usize % 110;
-                            for d_i in 0..(w / 110 + 2) {
-                                let dx = (d_i * 110) as isize - dist_offset as isize;
-                                self.draw_rect(buffer, dx, (h / 2) as isize, 90, (h / 2) as usize, 0xFF0F1726);
-                            }
-
-                            let storm_flash = (t * 5.0).sin() > 0.85;
-                            if storm_flash {
-                                self.draw_rect(buffer, 0, 0, w, 60, 0x339400D3);
-                            }
-
-                            let hw_y = h as isize - 75;
-                            self.draw_rect(buffer, 0, hw_y, w, 55, 0xFF2B303A);
-                            self.draw_rect(buffer, 0, hw_y, w, 4, 0xFF737373);
-                            self.draw_rect(buffer, 0, hw_y + 4, w, 2, 0xFFFBFBFB);
-
-                            let lane_scroll = (s_x * 1.10) as usize % 48;
-                            for l_i in 0..(w / 48 + 2) {
-                                let lx = (l_i * 48) as isize - lane_scroll as isize;
-                                self.draw_rect(buffer, lx, hw_y + 24, 24, 3, 0xFFFFD700);
-                                self.draw_rect(buffer, lx, hw_y + 42, 18, 2, 0xFFE2E8F0);
-                            }
-
-                            let rail_scroll = (s_x * 1.10) as usize % 40;
-                            self.draw_rect(buffer, 0, hw_y - 12, w, 12, 0xFFC74C0C);
-                            for r_i in 0..(w / 40 + 2) {
-                                let rx = (r_i * 40) as isize - rail_scroll as isize;
-                                self.draw_rect(buffer, rx, hw_y - 12, 14, 12, 0xFF111111);
-                            }
-
-                            for post_i in 0..(w / 120 + 2) {
-                                let px = (post_i * 120) as isize - rail_scroll as isize;
-                                self.draw_rect(buffer, px, hw_y - 30, 4, 18, 0xFFBBBBBB);
-                                let alarm_on = ((t * 8.0) as usize + post_i) % 2 == 0;
-                                let al_col = if alarm_on { 0xFFFF0033 } else { 0xFF440011 };
-                                self.draw_circle(buffer, px + 2, hw_y - 32, 4, al_col);
-                            }
+                    // Rascacielos en parallax 2D continuo (responden tanto a s_x como a s_y)
+                    let bld_offset1 = (s_x * 0.25) as usize % 96;
+                    for i in 0..(w / 96 + 2) {
+                        let bx = (i * 96) as isize - bld_offset1 as isize;
+                        let bld_h = 190 + ((i * 47) % 130);
+                        let by = h as isize - 50 - bld_h as isize - (y_shift / 4);
+                        self.draw_rect(buffer, bx, by, 76, (bld_h + 120) as usize, 0xFF112238);
+                        for wy in 0..((bld_h + 80) / 26) {
+                            let win_col = if (i + wy) % 3 == 0 { 0xFF00E5FF } else { 0xFF475569 };
+                            self.draw_rect(buffer, bx + 16, by + 14 + (wy * 26) as isize, 6, 8, win_col);
+                            self.draw_rect(buffer, bx + 48, by + 14 + (wy * 26) as isize, 6, 8, win_col);
                         }
                     }
-                    StagePhase::AscendUp => {
-                        // === SECCIÓN 2: Vertical ASCENT (scrolling UP) through Skyscraper Shaft ===
-                        buffer.fill(0xFF0F081D);
 
-                        let shaft_bg_scroll = (s_y.abs() * 0.40) as usize % 80;
-                        for y_b in 0..(h / 80 + 2) {
-                            let by = (y_b * 80) as isize + shaft_bg_scroll as isize - 80;
-                            self.draw_rect(buffer, 50, by, w - 100, 32, 0xFF1B0B33);
-                            for win_x in (60..(w - 60)).step_by(28) {
-                                self.draw_rect(buffer, win_x as isize, by + 8, 8, 16, 0xFF6500B8);
-                            }
-                        }
-
-                        let cable_scroll = (s_y.abs() * 0.85) as usize % 40;
-                        let cable1_x = (w as f32 * 0.32) as isize;
-                        let cable2_x = (w as f32 * 0.68) as isize;
-                        self.draw_rect(buffer, cable1_x, 0, 3, h, 0xFF4A5568);
-                        self.draw_rect(buffer, cable2_x, 0, 3, h, 0xFF4A5568);
-
-                        for y_beam in 0..(h / 120 + 2) {
-                            let beam_y = (y_beam * 120) as isize + cable_scroll as isize - 40;
-                            self.draw_rect(buffer, 0, beam_y, 80, 10, 0xFFC74C0C);
-                            self.draw_rect(buffer, 0, beam_y + 2, 80, 2, 0xFFFBD7A7);
-                            self.draw_rect(buffer, w as isize - 80, beam_y, 80, 10, 0xFFC74C0C);
-                            self.draw_rect(buffer, w as isize - 80, beam_y + 2, 80, 2, 0xFFFBD7A7);
-                        }
-
-                        self.draw_rect(buffer, 0, 0, 48, h, 0xFF2B0A4E);
-                        self.draw_rect(buffer, 44, 0, 4, h, 0xFF737373);
-                        self.draw_rect(buffer, 46, 0, 2, h, 0xFFBBBBBB);
-
-                        self.draw_rect(buffer, w as isize - 48, 0, 48, h, 0xFF2B0A4E);
-                        self.draw_rect(buffer, w as isize - 48, 0, 4, h, 0xFF737373);
-                        self.draw_rect(buffer, w as isize - 46, 0, 2, h, 0xFFBBBBBB);
-
-                        let bracket_scroll = (s_y.abs() * 0.90) as usize % 70;
-                        for b_i in 0..(h / 70 + 2) {
-                            let by = (b_i * 70) as isize + bracket_scroll as isize - 70;
-                            self.draw_rect(buffer, 36, by, 12, 16, 0xFFBBBBBB);
-                            self.draw_circle(buffer, 42, by + 8, 3, 0xFFFF2020);
-                            self.draw_rect(buffer, w as isize - 48, by, 12, 16, 0xFFBBBBBB);
-                            self.draw_circle(buffer, w as isize - 42, by + 8, 3, 0xFFFF2020);
+                    let bld_offset2 = (s_x * 0.55) as usize % 128;
+                    for i in 0..(w / 128 + 2) {
+                        let bx = (i * 128) as isize - bld_offset2 as isize;
+                        let bld_h = 220 + ((i * 31) % 110);
+                        let by = h as isize - 42 - bld_h as isize - (y_shift / 2);
+                        self.draw_rect(buffer, bx, by, 94, (bld_h + 150) as usize, 0xFF1E1B4B);
+                        self.draw_rect(buffer, bx, by, 94, 3, 0xFF38BDF8);
+                        for wx in 0..6 {
+                            self.draw_rect(buffer, bx + 10 + (wx * 14) as isize, by + 12, 5, bld_h, 0xFF4C1D95);
                         }
                     }
-                    StagePhase::DescendDown => {
-                        // === SECCIÓN 3: Vertical DESCENT (scrolling DOWN) into Subterranean Foundry ===
-                        buffer.fill(0xFF140803);
 
-                        let magma_pulse = ((t * 4.0).sin().abs() * 30.0) as usize;
-                        let abyss_h = 90 + magma_pulse;
-                        self.draw_rect(buffer, 0, h as isize - abyss_h as isize, w, abyss_h, 0x44FF3300);
-                        self.draw_rect(buffer, 0, h as isize - 40, w, 40, 0x77FF6600);
-                        self.draw_rect(buffer, 0, h as isize - 15, w, 15, 0xAAFFAA00);
-
-                        let foundry_scroll = (s_y.abs() * 0.80) as usize % 90;
-                        for y_f in 0..(h / 90 + 2) {
-                            let fy = (y_f * 90) as isize - foundry_scroll as isize;
-                            self.draw_rect(buffer, 54, fy, w - 108, 14, 0xFF2E1A11);
-                            self.draw_rect(buffer, 54, fy + 4, w - 108, 4, 0xFFFF4500);
-                        }
-
-                        self.draw_rect(buffer, 0, 0, 52, h, 0xFF24140D);
-                        self.draw_rect(buffer, 48, 0, 4, h, 0xFFFF4500);
-                        self.draw_rect(buffer, w as isize - 52, 0, 52, h, 0xFF24140D);
-                        self.draw_rect(buffer, w as isize - 52, 0, 4, h, 0xFFFF4500);
-
-                        for v_i in 0..(h / 65 + 2) {
-                            let vy = (v_i * 65) as isize - foundry_scroll as isize;
-                            self.draw_rect(buffer, 38, vy, 14, 18, 0xFF73503C);
-                            self.draw_circle(buffer, 45, vy + 9, 3, 0xFFFFCC00);
-                            self.draw_rect(buffer, w as isize - 52, vy, 14, 18, 0xFF73503C);
-                            self.draw_circle(buffer, w as isize - 45, vy + 9, 3, 0xFFFFCC00);
+                    // Cuando sube o baja en vertical (estilo Final Mission), vigas laterales de ascensor exterior
+                    if self.stage_phase == StagePhase::AscendUp || self.stage_phase == StagePhase::DescendDown {
+                        let v_scroll = (s_y.abs() * 0.85) as usize % 72;
+                        self.draw_rect(buffer, 0, 0, 34, h, 0xCC1E293B);
+                        self.draw_rect(buffer, w as isize - 34, 0, 34, h, 0xCC1E293B);
+                        for b_i in 0..(h / 72 + 2) {
+                            let by = (b_i * 72) as isize + v_scroll as isize - 72;
+                            self.draw_rect(buffer, 0, by, 42, 12, 0xFFC74C0C);
+                            self.draw_rect(buffer, w as isize - 42, by, 42, 12, 0xFFC74C0C);
+                            self.draw_circle(buffer, 38, by + 6, 3, 0xFF00F0FF);
+                            self.draw_circle(buffer, w as isize - 38, by + 6, 3, 0xFF00F0FF);
                         }
                     }
-                    StagePhase::BossEncounter => {
-                        // === ARENA DE JEFE: TITAN-01 Warcrawler Arrival ===
-                        let storm_flash = (t * 8.0).sin() > 0.70;
-                        let sky_col = if storm_flash { 0xFF220033 } else { 0xFF0A0410 };
-                        buffer.fill(sky_col);
 
-                        let hw_y = h as isize - 75;
-                        self.draw_rect(buffer, 0, hw_y, w, 55, 0xFF1E232E);
-                        self.draw_rect(buffer, 0, hw_y, w, 4, 0xFFFF0055);
-                        for grid_x in (0..w).step_by(50) {
-                            self.draw_rect(buffer, grid_x as isize, hw_y, 2, 55, 0x44FF0055);
+                    // Autopista/suelo inferior desplazándose linealmente
+                    let ground_y = (h as isize - 44 - (y_shift / 3)).clamp(h as isize - 70, h as isize + 40);
+                    if ground_y < h as isize {
+                        let pipe_scroll = (s_x * 0.90) as usize % 64;
+                        self.draw_rect(buffer, 0, ground_y, w, (h as isize - ground_y) as usize, 0xFF1E293B);
+                        self.draw_rect(buffer, 0, ground_y, w, 4, 0xFF00E5FF);
+                        for f in 0..(w / 64 + 2) {
+                            let fx = (f * 64) as isize - pipe_scroll as isize;
+                            self.draw_rect(buffer, fx, ground_y - 10, 40, 10, 0xFFC74C0C);
                         }
+                    }
+                } else {
+                    // CÁMARA INTERIOR DEL NODO TITAN-01
+                    buffer.fill(0xFF090414);
+                    let chamber_scroll = (s_x * 0.9) as usize % 80;
+                    self.draw_rect(buffer, 0, 0, w, 46, 0xFF1E1B4B);
+                    self.draw_rect(buffer, 0, 44, w, 3, 0xFFFF0055);
+                    self.draw_rect(buffer, 0, h as isize - 48, w, 48, 0xFF1E1B4B);
+                    self.draw_rect(buffer, 0, h as isize - 48, w, 3, 0xFFFF0055);
+                    for i in 0..(w / 80 + 2) {
+                        let cx = (i * 80) as isize - chamber_scroll as isize;
+                        self.draw_rect(buffer, cx, 47, 12, h - 95, 0x44311042);
+                        let pulse = ((t * 6.0 + i as f32).sin().abs() * 0.6) + 0.2;
+                        self.draw_point_light(buffer, cx + 6, (h / 2) as isize, 36, 0xFFFF0055, pulse);
                     }
                 }
             }
-            // Nivel 2: Fábrica de Drones (Earth)
             2 => {
-                buffer.fill(0xFF140D07);
-                let beam_offset = (s_x * 0.4) as usize % 120;
-                for bx in 0..(w / 120 + 2) {
-                    let rx = (bx * 120) as isize - beam_offset as isize;
-                    self.draw_rect(buffer, rx, 0, 14, 90, 0xFF2E2218);
-                    self.draw_rect(buffer, rx, h as isize - 90, 14, 90, 0xFF2E2218);
-                    let flash = (t * 4.0).sin() > 0.0;
-                    let light_col = if flash { 0xFFFF4500 } else { 0xFF661100 };
-                    self.draw_circle(buffer, rx + 7, 85, 4, light_col);
-                    self.draw_circle(buffer, rx + 7, h as isize - 85, 4, light_col);
+                // NIVEL 2: FORJA AUTOMATIZADA DE DRONES (EARTH CORE FOUNDRY)
+                buffer.fill(0xFF120A05);
+                let beam_offset = (s_x * 0.5) as usize % 110;
+                let v_mod = (y_shift % 90).abs() as usize;
+                for bx in 0..(w / 110 + 2) {
+                    let rx = (bx * 110) as isize - beam_offset as isize;
+                    self.draw_rect(buffer, rx, 0, 22, h, 0xFF241710);
+                    for gy in (0..h).step_by(90) {
+                        let py = ((gy + v_mod) % h) as isize;
+                        self.draw_rect(buffer, rx - 18, py, 58, 12, 0xFF3E2723);
+                        self.draw_circle(buffer, rx + 11, py + 6, 4, 0xFFFF5500);
+                    }
                 }
-                self.draw_rect(buffer, 0, h as isize - 24, w, 24, 0xFFFF5500);
-                self.draw_rect(buffer, 0, h as isize - 12, w, 12, 0xFFFFCC00);
+                if inside_chamber {
+                    self.draw_rect(buffer, 0, 0, w, 42, 0xFF2E1508);
+                    self.draw_rect(buffer, 0, 40, w, 3, 0xFFFF7700);
+                }
+                let lava_h = 26 + ((t * 4.0).sin().abs() * 8.0) as usize;
+                self.draw_rect(buffer, 0, h as isize - lava_h as isize, w, lava_h, 0xFFFF4500);
+                self.draw_rect(buffer, 0, h as isize - 10, w, 10, 0xFFFFD700);
             }
-            // Nivel 3: Mars Cyber-Foundry (Mars)
             3 => {
-                buffer.fill(0xFF1A0802);
-                let canyon_scroll = (s_x * 0.35) as usize % 100;
-                for c in 0..(w / 100 + 2) {
-                    let cx = (c * 100) as isize - canyon_scroll as isize;
-                    let c_h = 140 + ((c * 43) % 120);
-                    let cy = h as isize - c_h as isize;
-                    self.draw_rect(buffer, cx, cy, 85, c_h, 0xFF541B08);
-                    self.draw_rect(buffer, cx + 10, cy + 15, 65, 4, 0xFFFF3300);
+                // NIVEL 3: MARTE - FUNDICIÓN CIBERNÉTICA OLYMPUS Y LUNAS FOBOS / DEIMOS
+                buffer.fill(0xFF1A0703);
+                // Lunas de Marte: Fobos y Deimos en el cielo marciano
+                let phobos_y = (78 - (y_shift / 9)).clamp(24, h as isize - 140);
+                self.draw_aa_circle(buffer, (w as isize - 220) as f32, phobos_y as f32, 22.0, 0xFF9A3412, 0xFFFF7700, 1.5);
+                self.draw_aa_circle(buffer, (w as isize - 110) as f32, (phobos_y + 34) as f32, 12.0, 0xFF7C2D12, 0xFFFDBA74, 1.2);
+
+                let canyon_scroll = (s_x * 0.42) as usize % 110;
+                for c in 0..(w / 110 + 2) {
+                    let cx = (c * 110) as isize - canyon_scroll as isize;
+                    let c_h = 150 + ((c * 43) % 120);
+                    let cy = h as isize - c_h as isize - (y_shift / 4);
+                    self.draw_rect(buffer, cx, cy, 94, (c_h + 120) as usize, 0xFF431407);
+                    self.draw_rect(buffer, cx + 10, cy + 16, 74, 4, 0xFFFF3300);
+                    self.draw_rect(buffer, cx + 24, cy + 44, 46, 3, 0xFF00E5FF);
+                }
+                if inside_chamber {
+                    self.draw_rect(buffer, 0, 0, w, 46, 0xFF431407);
+                    self.draw_rect(buffer, 0, 44, w, 3, 0xFFFF3300);
+                    self.draw_rect(buffer, 0, h as isize - 46, w, 46, 0xFF431407);
                 }
             }
-            // Nivel 4: Europa Sub-Glacial Network (Jupiter)
             4 => {
-                buffer.fill(0xFF03141C);
-                let ice_scroll = (s_x * 0.5) as usize % 80;
-                for ic in 0..(w / 80 + 2) {
-                    let ix = (ic * 80) as isize - ice_scroll as isize;
-                    let stalac = 50 + ((ic * 29) % 60);
-                    self.draw_rect(buffer, ix, 0, 24, stalac, 0xFF0A3C52);
-                    self.draw_rect(buffer, ix + 4, 0, 8, stalac - 6, 0xFF00E5FF);
+                // NIVEL 4: LUNA EUROPA (JÚPITER) - OCÉANO SUBGLACIAL BIOMECÁNICO
+                buffer.fill(0xFF02131D);
+                // Júpiter colosal y su Gran Mancha Roja visibles a través de la bóveda de hielo
+                let jup_y = (115 - (y_shift / 10)).clamp(40, h as isize - 100);
+                self.draw_aa_circle(buffer, (w as isize - 180) as f32, jup_y as f32, 62.0, 0xFF9A5B32, 0xFFFCD34D, 2.0);
+                self.draw_aa_circle(buffer, (w as isize - 160) as f32, (jup_y + 14) as f32, 16.0, 0xFFDC2626, 0xFFFCA5A5, 1.5);
+
+                let ice_scroll = (s_x * 0.55) as usize % 84;
+                for ic in 0..(w / 84 + 2) {
+                    let ix = (ic * 84) as isize - ice_scroll as isize;
+                    let stalac = 54 + ((ic * 29) % 64);
+                    self.draw_rect(buffer, ix, 0, 32, stalac, 0xFF083344);
+                    self.draw_rect(buffer, ix + 6, 0, 10, stalac.saturating_sub(8), 0xFF00E5FF);
+                    let floor_h = 44 + ((ic * 19) % 48);
+                    self.draw_rect(buffer, ix, h as isize - floor_h as isize, 38, floor_h, 0xFF083344);
+                    self.draw_rect(buffer, ix + 8, h as isize - floor_h as isize, 14, 4, 0xFF38BDF8);
+                }
+                if inside_chamber {
+                    self.draw_rect(buffer, 0, 0, w, 48, 0xFF064E3B);
+                    self.draw_rect(buffer, 0, h as isize - 48, w, 48, 0xFF064E3B);
                 }
             }
-            // Nivel 5: Hephaestus Solar Bastion (Mercury / Solar Orbit)
             5 => {
-                buffer.fill(0xFF1F0F00);
-                let flare = ((t * 2.0).sin().abs() * 30.0) as isize;
-                self.draw_rect(buffer, 0, 0, w, 40 + flare as usize, 0xFFFF7700);
-                self.draw_rect(buffer, 0, 0, w, 20 + (flare / 2) as usize, 0xFFFFDD00);
+                // NIVEL 5: ÓRBITA DE MERCURIO - BASTIÓN SOLAR HEPHAESTUS
+                buffer.fill(0xFF1C0A00);
+                let flare = ((t * 3.0).sin().abs() * 28.0) as usize;
+                self.draw_rect(buffer, 0, 0, w, 42 + flare, 0xFFFF5500);
+                self.draw_rect(buffer, 0, 0, w, 20 + flare / 2, 0xFFFFD700);
+                // Esfera solar gigante y anillos colectores Dyson de la IA
+                self.draw_volumetric_light(buffer, (w / 2) as f32, 30.0, 160.0, 0xFFFF9900, 0.5);
+                let ring_scroll = (s_x * 0.6) as usize % 120;
+                for r_i in 0..(w / 120 + 2) {
+                    let rx = (r_i * 120) as isize - ring_scroll as isize;
+                    let ry = h as isize - 75 - (y_shift / 5);
+                    self.draw_rect(buffer, rx, ry, 88, 18, 0xFF451A03);
+                    self.draw_rect(buffer, rx, ry, 88, 3, 0xFFFFD700);
+                }
             }
-            // Nivel 6: Titan Methane Spire (Saturn)
             6 => {
-                buffer.fill(0xFF191004);
-                self.draw_rect(buffer, 0, 30, w, 8, 0xFFC29B38);
-                self.draw_rect(buffer, 0, 34, w, 2, 0xFFF7E294);
+                // NIVEL 6: LUNA TITÁN Y ANILLOS DE SATURNO - TORRE DE METANO
+                buffer.fill(0xFF140D04);
+                // Saturno y sus anillos dorados en el horizonte de Titán
+                let sat_x = (w as isize - 190) as f32;
+                let sat_y = (105 - (y_shift / 8)).clamp(40, h as isize - 120) as f32;
+                self.draw_aa_capsule(buffer, sat_x - 85.0, sat_y + 18.0, sat_x + 85.0, sat_y - 18.0, 7.0, 0xFFD97706);
+                self.draw_aa_circle(buffer, sat_x, sat_y, 38.0, 0xFFB45309, 0xFFFDE68A, 2.0);
+                self.draw_aa_capsule(buffer, sat_x - 92.0, sat_y + 20.0, sat_x + 92.0, sat_y - 20.0, 3.0, 0xFFFef08a);
+
+                let spire_scroll = (s_x * 0.5) as usize % 100;
+                for s_i in 0..(w / 100 + 2) {
+                    let sx = (s_i * 100) as isize - spire_scroll as isize;
+                    self.draw_rect(buffer, sx, h as isize - 58, 72, 58, 0xFF291D0E);
+                    self.draw_rect(buffer, sx, h as isize - 58, 72, 3, 0xFFF59E0B);
+                }
             }
-            // Nivel 7: Nemesis Mothership Fleet (Deep Space)
             7 => {
-                buffer.fill(0xFF0D0614);
-                let hull_offset = (s_x * 0.4) as usize % 140;
+                // NIVEL 7: ESPACIO INTERPLANETARIO - SUPER-ARMADA NEMESIS DE LA IA
+                buffer.fill(0xFF08040F);
+                let hull_offset = (s_x * 0.45) as usize % 140;
                 for h_i in 0..(w / 140 + 2) {
                     let hx = (h_i * 140) as isize - hull_offset as isize;
-                    self.draw_rect(buffer, hx, h as isize - 100, 120, 100, 0xFF1E172E);
-                    self.draw_rect(buffer, hx + 20, h as isize - 80, 80, 14, 0xFFFF007F);
+                    let hy = h as isize - 95 - (y_shift / 5);
+                    self.draw_rect(buffer, hx, hy, 122, 110, 0xFF1E172E);
+                    self.draw_rect(buffer, hx + 16, hy + 16, 90, 12, 0xFFFF007F);
+                    self.draw_rect(buffer, hx, 0, 110, 36, 0xFF151022);
+                    self.draw_rect(buffer, hx + 20, 32, 70, 3, 0xFF00F0FF);
                 }
             }
-            // Nivel 8: Quantum Singularity Core (The AI Overmind)
             _ => {
-                buffer.fill(0xFF000000);
-                let grid_offset = (s_x * 0.6) as usize % 50;
-                for gx in 0..(w / 50 + 2) {
-                    let rx = (gx * 50) as isize - grid_offset as isize;
-                    self.draw_rect(buffer, rx, 0, 1, h, 0x44FF0033);
+                // NIVEL 8: NÚCLEO DE SINGULARIDAD CUÁNTICA (OVERMIND SOLAR CORE)
+                buffer.fill(0xFF020008);
+                let grid_offset = (s_x * 0.65) as usize % 52;
+                let grid_y_off = (s_y.abs() * 0.65) as usize % 52;
+                for gx in 0..(w / 52 + 2) {
+                    let rx = (gx * 52) as isize - grid_offset as isize;
+                    self.draw_rect(buffer, rx, 0, 1, h, 0x44FF0044);
                 }
-                let vortex_r = 50 + ((t * 4.0).sin().abs() * 14.0) as usize;
-                self.draw_point_light(buffer, (w / 2) as isize, (h / 2) as isize, vortex_r, 0xFFFF0055, 0.7);
+                for gy in 0..(h / 52 + 2) {
+                    let ry = (gy * 52) as isize - grid_y_off as isize;
+                    self.draw_rect(buffer, 0, ry, w, 1, 0x4400E5FF);
+                }
+                let vortex_r = 58 + ((t * 4.5).sin().abs() * 18.0) as usize;
+                self.draw_point_light(buffer, (w / 2) as isize, (h / 2) as isize, vortex_r, 0xFFFF0055, 0.75);
+                self.draw_aa_circle(buffer, (w / 2) as f32, (h / 2) as f32, 26.0, 0xFF090014, 0xFF00F0FF, 2.5);
             }
         }
     }
@@ -1012,7 +1215,7 @@ impl Renderer {
     // Renderizado de Arquetipos de Enemigos Avanzados
     // ==============================================================================
 
-    /// 1. Sintéticos Humanoides Modernos (Porcelana Blanca / Obsidiana con Katana o Rifle)
+    /// 1. Sintéticos Humanoides Modernos de la Rebelión IA (Porcelana Blanca / Obsidiana con Alas de Plasma y Halo Neuronal)
     pub fn draw_modern_humanoid_synth(
         &self,
         buffer: &mut [u32],
@@ -1034,6 +1237,11 @@ impl Renderer {
         let hover_y = (t * 5.0 + ex * 0.05).sin() * 3.5;
         let cy = ey + hover_y;
 
+        // Propulsores dorsales / Alas de energía de la IA Rebelde
+        let wing_flare = (t * 14.0).sin().abs() * 6.0;
+        self.draw_aa_capsule(buffer, ex + 4.0, cy - 6.0, ex + 18.0 + wing_flare, cy - 18.0, 2.4, glow_col);
+        self.draw_aa_capsule(buffer, ex + 4.0, cy + 2.0, ex + 16.0 + wing_flare, cy + 12.0, 2.0, glow_col);
+
         let leg_swing = (t * 7.0).sin();
         let left_thigh_end = (ex + leg_swing * 6.0, cy + 14.0);
         let right_thigh_end = (ex - leg_swing * 6.0, cy + 14.0);
@@ -1053,9 +1261,11 @@ impl Renderer {
         self.draw_aa_capsule(buffer, ex, cy - 2.0, ex, cy + 10.0, 7.5, joint_col);
         self.draw_aa_capsule(buffer, ex, cy - 4.0, ex, cy + 6.0, 6.5, plate_col);
         self.draw_aa_capsule(buffer, ex, cy - 2.0, ex, cy + 5.0, 1.8, glow_col);
-        self.draw_volumetric_light(buffer, ex, cy + 1.0, 14.0, glow_col, 0.45);
+        self.draw_volumetric_light(buffer, ex, cy + 1.0, 16.0, glow_col, 0.55);
 
         let head_y = cy - 14.0;
+        // Halo neuronal cibernético flotando sobre la cabeza del sintético
+        self.draw_aa_capsule(buffer, ex - 8.0, head_y - 9.0, ex + 8.0, head_y - 9.0, 1.2, glow_col);
         self.draw_aa_circle(buffer, ex, head_y, 7.0, plate_col, joint_col, 1.2);
         self.draw_aa_capsule(buffer, ex - 3.0, head_y - 4.5, ex + 2.0, head_y - 4.5, 1.5, highlight_col);
 
@@ -1244,7 +1454,7 @@ impl Renderer {
         }
     }
 
-    /// 5. Dron Cazador Predatorio de Alas en Flecha Invertida
+    /// 5. Dron Cazador Predatorio de Alas en Flecha Invertida y Escudo Frontal IA
     pub fn draw_predatory_drone(
         &self,
         buffer: &mut [u32],
@@ -1274,8 +1484,9 @@ impl Renderer {
         self.draw_aa_capsule(buffer, ex + 6.0, ey - 2.0, ex - 14.0, ey - 2.0, 5.5, 0xFF475569);
 
         let sensor_x = ex - 16.0;
-        self.draw_aa_circle(buffer, sensor_x, ey, 4.5, 0xFFFF0033, 0xFFFFFFFF, 1.2);
-        self.draw_volumetric_light(buffer, sensor_x, ey, 24.0, 0xFFFF0033, 0.7);
+        self.draw_aa_circle(buffer, sensor_x, ey, 4.8, 0xFFFF0033, 0xFFFFFFFF, 1.4);
+        self.draw_aa_capsule(buffer, sensor_x - 5.0, ey - 9.0, sensor_x - 5.0, ey + 9.0, 1.2, 0xFF00F0FF);
+        self.draw_volumetric_light(buffer, sensor_x, ey, 26.0, 0xFFFF0033, 0.75);
     }
 
     /// 6. Leviatán Mecánico Biomecánico de Asalto (Mecha Leviathan)
@@ -1289,7 +1500,7 @@ impl Renderer {
         let ey = enemy.y;
         let r = enemy.radius;
 
-        self.draw_aa_circle(buffer, ex, ey, r, 0xFF0F172A, 0xFF334155, 3.0);
+        self.draw_aa_circle(buffer, ex, ey, r, 0xFF0F172A, 0xFF38BDF8, 3.0);
         self.draw_aa_circle(buffer, ex, ey, r - 5.0, 0xFF1E293B, 0xFF475569, 2.0);
         self.draw_aa_capsule(buffer, ex - r * 0.6, ey - r * 0.5, ex + r * 0.6, ey - r * 0.5, 2.0, 0xFF94A3B8);
 
@@ -1580,23 +1791,25 @@ impl Renderer {
         }
     }
 
-    /// Renderiza jefes colosales (Boss)
+    /// Renderiza los 8 Jefes Colosales del Sistema Solar (Bosses)
     pub fn draw_boss(&self, buffer: &mut [u32], b: &Boss) {
         let bx = b.x as isize;
         let by = b.y as isize;
+        let bxf = b.x;
+        let byf = b.y;
         let r = b.radius as usize;
+        let rf = b.radius;
         let t = self.anim_time;
         let w = self.width;
 
         match b.id {
             BossId::Stage1TitanWarcrawler => {
+                // Etapa 1 (Tierra NYC): TITAN-01 Warcrawler con orugas pesadas y cañones gemelos
                 self.draw_rect(buffer, bx - 60, by - 55, 120, 110, 0xFF2A2E3B);
                 self.draw_rect(buffer, bx - 70, by + 40, 140, 22, 0xFF181C24);
                 self.draw_rect(buffer, bx - 65, by + 45, 130, 4, 0xFF737373);
-
                 self.draw_rect(buffer, bx - 55, by - 48, 100, 20, 0xFFC74C0C);
                 self.draw_rect(buffer, bx - 55, by - 48, 100, 4, 0xFF111111);
-
                 self.draw_rect(buffer, bx - 30, by - 70, 40, 18, 0xFF4A5568);
                 self.draw_circle(buffer, bx - 35, by - 62, 7, 0xFFFF2020);
 
@@ -1605,27 +1818,85 @@ impl Renderer {
                 self.draw_circle(buffer, bx, by, core_r, core_color);
                 self.draw_circle(buffer, bx, by, 8, 0xFFFFFFFF);
                 self.draw_point_light(buffer, bx, by, 65, core_color, 0.8);
-
-                if b.health < b.max_health * 0.5 && ((t * 18.0) as usize % 2 == 0) {
-                    self.draw_circle(buffer, bx - 40, by - 20, 3, 0xFFFFD700);
-                    self.draw_circle(buffer, bx + 20, by + 10, 4, 0xFFFF4500);
-                }
             }
-            _ => {
-                self.draw_circle(buffer, bx, by, r, 0xFF2B2D42);
-                self.draw_circle(buffer, bx, by, r.saturating_sub(6), 0xFF1A1B29);
-                self.draw_rect(buffer, bx - (r as isize / 2), by - (r as isize / 2), r, r, 0xFF3D405B);
-                self.draw_rect(buffer, bx - r as isize - 16, by - 24, 22, 10, 0xFF495057);
-                self.draw_rect(buffer, bx - r as isize - 16, by + 14, 22, 10, 0xFF495057);
-
-                let core_color = if (t * 4.0).sin() > 0.0 { 0xFFFF0055 } else { 0xFFFF5500 };
-                self.draw_circle(buffer, bx, by, 22, core_color);
-                self.draw_circle(buffer, bx, by, 12, 0xFFFFFFFF);
-                self.draw_point_light(buffer, bx, by, r + 70, core_color, 0.85);
+            BossId::Stage2BlazeColossus => {
+                // Etapa 2 (Forja Terrestre): Coloso Térmico de Magma con pistones incandescentes
+                self.draw_aa_circle(buffer, bxf, byf, rf, 0xFF3E1809, 0xFFFF5500, 4.0);
+                for arm in 0..4 {
+                    let a = t * 1.8 + (arm as f32) * std::f32::consts::FRAC_PI_2;
+                    let ax = bxf + a.cos() * (rf + 22.0);
+                    let ay = byf + a.sin() * (rf + 22.0);
+                    self.draw_aa_capsule(buffer, bxf, byf, ax, ay, 7.0, 0xFF7C2D12);
+                    self.draw_aa_circle(buffer, ax, ay, 11.0, 0xFFFFCC00, 0xFFFF3300, 2.5);
+                }
+                self.draw_aa_circle(buffer, bxf, byf, 24.0, 0xFFFFFFFF, 0xFFFF4500, 4.0);
+                self.draw_volumetric_light(buffer, bxf, byf, rf + 50.0, 0xFFFF5500, 0.85);
+            }
+            BossId::Stage3SentinelHunter => {
+                // Etapa 3 (Marte): Cazador Perforador Marciano con mandíbulas láser y taladro de plasma
+                self.draw_aa_circle(buffer, bxf, byf, rf, 0xFF450A0A, 0xFFEF4444, 3.5);
+                let jaw = (t * 5.0).sin().abs() * 14.0;
+                self.draw_aa_capsule(buffer, bxf - 20.0, byf - 30.0, bxf - rf - 28.0, byf - 12.0 - jaw, 6.0, 0xFF991B1B);
+                self.draw_aa_capsule(buffer, bxf - 20.0, byf + 30.0, bxf - rf - 28.0, byf + 12.0 + jaw, 6.0, 0xFF991B1B);
+                self.draw_aa_circle(buffer, bxf, byf, 20.0, 0xFFFFFFFF, 0xFF00F0FF, 3.5);
+                self.draw_volumetric_light(buffer, bxf, byf, rf + 45.0, 0xFFFF2200, 0.8);
+            }
+            BossId::Stage4GaiaBioCore => {
+                // Etapa 4 (Europa): Kraken Ciber-Orgánico Abisal con tentáculos bioluminiscentes
+                for tent in 0..5 {
+                    let base_a = std::f32::consts::PI + (tent as f32 - 2.0) * 0.35;
+                    self.draw_cyber_vine(buffer, bxf, byf, rf * 1.45, base_a, t + tent as f32, 0xFF064E3B, 0xFF00F0FF);
+                }
+                self.draw_aa_circle(buffer, bxf, byf, rf * 0.85, 0xFF083344, 0xFF00E5FF, 3.5);
+                self.draw_aa_circle(buffer, bxf, byf, 24.0, 0xFFFFFFFF, 0xFF39FF14, 4.0);
+                self.draw_volumetric_light(buffer, bxf, byf, rf + 55.0, 0xFF00F0FF, 0.85);
+            }
+            BossId::Stage5LuxFortress => {
+                // Etapa 5 (Órbita Solar): Arconte Dyson con anillos solares concéntricos y espejos de fusión
+                for wing in 0..6 {
+                    let a = t * 1.4 + (wing as f32) * (std::f32::consts::PI / 3.0);
+                    let wx = bxf + a.cos() * (rf + 18.0);
+                    let wy = byf + a.sin() * (rf + 18.0);
+                    self.draw_aa_capsule(buffer, bxf, byf, wx, wy, 5.5, 0xFFD97706);
+                    self.draw_aa_circle(buffer, wx, wy, 9.0, 0xFFFFFFFF, 0xFFFFD700, 2.0);
+                }
+                self.draw_aa_circle(buffer, bxf, byf, rf * 0.75, 0xFF78350F, 0xFFFFD700, 4.0);
+                self.draw_aa_circle(buffer, bxf, byf, 26.0, 0xFFFFFFFF, 0xFFFF8800, 4.0);
+                self.draw_volumetric_light(buffer, bxf, byf, rf + 70.0, 0xFFFFAA00, 0.9);
+            }
+            BossId::Stage6OrionStriker => {
+                // Etapa 6 (Titán / Saturno): Centinela Anillado Orbital con giroscopios gravitacionales
+                self.draw_aa_capsule(buffer, bxf - rf - 20.0, byf - 28.0, bxf + rf + 20.0, byf + 28.0, 6.0, 0xFFEAB308);
+                self.draw_aa_capsule(buffer, bxf - rf - 20.0, byf + 28.0, bxf + rf + 20.0, byf - 28.0, 6.0, 0xFF38BDF8);
+                self.draw_aa_circle(buffer, bxf, byf, rf * 0.8, 0xFF1E293B, 0xFFFDE047, 3.5);
+                self.draw_aa_circle(buffer, bxf, byf, 20.0, 0xFFFFFFFF, 0xFF00F0FF, 3.5);
+                self.draw_volumetric_light(buffer, bxf, byf, rf + 50.0, 0xFFFACC15, 0.85);
+            }
+            BossId::Stage7NebulaDread => {
+                // Etapa 7 (Espacio Profundo): Acorazado Insignia Nemesis con baterías pesadas
+                self.draw_rect(buffer, bx - r as isize, by - 56, r * 2, 112, 0xFF1E1B4B);
+                self.draw_rect(buffer, bx - r as isize - 24, by - 36, 36, 18, 0xFF4C1D95);
+                self.draw_rect(buffer, bx - r as isize - 24, by + 18, 36, 18, 0xFF4C1D95);
+                self.draw_aa_circle(buffer, bxf, byf, 26.0, 0xFFFFFFFF, 0xFFFF007F, 4.5);
+                self.draw_volumetric_light(buffer, bxf, byf, rf + 65.0, 0xFFFF007F, 0.9);
+            }
+            BossId::Stage8NyxOvermind => {
+                // Etapa 8 (Singularidad Cuántica): NYX OVERMIND - Deidad Cibernética del Sistema Solar
+                for node in 0..8 {
+                    let a = -t * 2.2 + (node as f32) * (std::f32::consts::PI / 4.0);
+                    let nx = bxf + a.cos() * (rf + 20.0);
+                    let ny = byf + a.sin() * (rf + 20.0);
+                    self.draw_aa_capsule(buffer, bxf, byf, nx, ny, 3.5, 0xFF9333EA);
+                    self.draw_aa_circle(buffer, nx, ny, 8.0, 0xFFFFFFFF, 0xFF00F0FF, 2.0);
+                }
+                let pulse_col = if (t * 6.0).sin() > 0.0 { 0xFFFF0055 } else { 0xFF00F0FF };
+                self.draw_aa_circle(buffer, bxf, byf, rf * 0.8, 0xFF090014, pulse_col, 4.5);
+                self.draw_aa_circle(buffer, bxf, byf, 28.0, 0xFFFFFFFF, pulse_col, 4.0);
+                self.draw_volumetric_light(buffer, bxf, byf, rf + 85.0, pulse_col, 0.95);
             }
         }
 
-        let max_w = 520;
+        let max_w = 460.min(w.saturating_sub(260));
         let cur_w = ((b.health / b.max_health).clamp(0.0, 1.0) * max_w as f32) as usize;
         let bar_x = (w as isize - max_w as isize) / 2;
         self.draw_rect(buffer, bar_x - 6, 22, max_w + 12, 22, 0xFF550000);
@@ -1634,7 +1905,7 @@ impl Renderer {
         self.draw_rect(buffer, bar_x, 26, cur_w, 3, 0xFFFF99AA);
     }
 
-    /// Renderiza la interfaz de juego limpia (HUD) SIN BOTONES EN PANTALLA
+    /// Renderiza el HUD Superior incluyendo el Botón Virtual de Pausa [ || ] en la esquina superior derecha
     fn render_clean_hud(
         &self,
         buffer: &mut [u32],
@@ -1675,8 +1946,22 @@ impl Renderer {
                 self.draw_circle(buffer, vx, 44, 4, 0xFF00D2FF);
             }
 
-            let st_bar_x = self.width as isize - 160;
-            self.draw_rect(buffer, st_bar_x, 20, 130, 20, 0x99111122);
+            // Indicadores compactos de escuadrón cooperativo (2P-4P)
+            if players.len() > 1 {
+                let cols = [0xFF00F0FF, 0xFFFFB703, 0xFF00FF77, 0xFFFFD700];
+                for (idx, p) in players.iter().enumerate().skip(1) {
+                    let badge_x = 318 + ((idx as isize - 1) * 54);
+                    let col = if p.active && p.lives > 0 { cols[idx.min(3)] } else { 0xFF475569 };
+                    self.draw_rect(buffer, badge_x, 20, 48, 16, 0xDD111622);
+                    self.draw_rect(buffer, badge_x, 20, 48, 1, col);
+                    let p_txt = format!("P{}x{}", idx + 1, p.lives.max(0));
+                    self.draw_simple_text(buffer, &p_txt, badge_x + 6, 24, col, 1);
+                }
+            }
+
+            // Barra de progreso de los 8 Niveles desplazada ligeramente a la izquierda del botón de Pausa
+            let st_bar_x = self.width as isize - 208;
+            self.draw_rect(buffer, st_bar_x, 20, 128, 20, 0x99111122);
             for dot in 1..=8 {
                 let dot_col = if dot == stage_num {
                     0xFFFFFF00
@@ -1687,6 +1972,20 @@ impl Renderer {
                 };
                 self.draw_circle(buffer, st_bar_x + (dot as isize * 14), 30, 4, dot_col);
             }
+
+            // Botón Virtual de Pausa [ || ] en la esquina superior derecha (x >= width - 78, y <= 58)
+            let p_btn_x = self.width as isize - 68;
+            let p_btn_y = 14;
+            let p_btn_w = 52usize;
+            let p_btn_h = 34usize;
+            self.draw_rect(buffer, p_btn_x, p_btn_y, p_btn_w, p_btn_h, 0xEE101C2E);
+            self.draw_rect(buffer, p_btn_x, p_btn_y, p_btn_w, 2, 0xFF00F0FF);
+            self.draw_rect(buffer, p_btn_x, p_btn_y + p_btn_h as isize - 2, p_btn_w, 2, 0xFF00F0FF);
+            self.draw_rect(buffer, p_btn_x, p_btn_y, 2, p_btn_h, 0xFF00F0FF);
+            self.draw_rect(buffer, p_btn_x + p_btn_w as isize - 2, p_btn_y, 2, p_btn_h, 0xFF00F0FF);
+            // Barras verticales de Pausa ||
+            self.draw_rect(buffer, p_btn_x + 17, p_btn_y + 8, 6, 18, 0xFFFFD700);
+            self.draw_rect(buffer, p_btn_x + 29, p_btn_y + 8, 6, 18, 0xFFFFD700);
         }
     }
 
@@ -1835,7 +2134,7 @@ impl Renderer {
         self.draw_circle(buffer, bx + banner_w as isize - 24, by + banner_h as isize / 2, 4, 0xFFFFFFFF);
 
         let title_x = bx + 48;
-        self.draw_simple_text(buffer, "TRAJECTORY ALTERATION DETECTED", title_x, by + 12, 0xFFE2E8F0, 1);
+        self.draw_simple_text(buffer, "CHAMBER BREACH DETECTED", title_x, by + 12, 0xFFE2E8F0, 1);
         self.draw_simple_text(buffer, text, title_x, by + 32, border_col, 2);
     }
 
@@ -1969,7 +2268,7 @@ impl Renderer {
         }
     }
 
-    /// Escena de Game Over estilo arcade
+    /// Escena de Game Over estilo arcade (regresa al Menú Principal al tocar)
     pub fn render_game_over_scene(&self, buffer: &mut [u32], timer: f32, score: u32) {
         let w = self.width as isize;
         let h = self.height as isize;
@@ -1990,10 +2289,10 @@ impl Renderer {
 
         let pulse = ((timer * 4.0).sin().abs() * 255.0) as u32;
         let col = 0xFF000000 | (pulse << 16) | (pulse << 8) | pulse;
-        self.draw_simple_text(buffer, "TOCA LA PANTALLA PARA REINICIAR", cx - 170, cy + 55, col, 2);
+        self.draw_simple_text(buffer, "TOCA PARA IR AL MENU PRINCIPAL", cx - 180, cy + 55, col, 2);
     }
 
-    /// Escena de Victoria Final tras vencer al Jefe 8
+    /// Escena de Victoria Final tras vencer al Jefe 8 (regresa al Menú Principal al tocar)
     pub fn render_victory_scene(&self, buffer: &mut [u32], timer: f32, score: u32) {
         let w = self.width as isize;
         let h = self.height as isize;
@@ -2015,7 +2314,7 @@ impl Renderer {
 
         let pulse = ((timer * 4.0).sin().abs() * 255.0) as u32;
         let col = 0xFF000000 | (pulse << 16) | (pulse << 8) | pulse;
-        self.draw_simple_text(buffer, "TOCA LA PANTALLA PARA JUGAR DE NUEVO", cx - 190, cy + 65, col, 2);
+        self.draw_simple_text(buffer, "TOCA PARA IR AL MENU PRINCIPAL", cx - 180, cy + 65, col, 2);
     }
 
     fn get_char_glyph(ch: char) -> [u8; 7] {
@@ -2062,6 +2361,9 @@ impl Renderer {
             '<' => [0b00001, 0b00010, 0b00100, 0b01000, 0b00100, 0b00010, 0b00001],
             '[' => [0b01110, 0b01000, 0b01000, 0b01000, 0b01000, 0b01000, 0b01110],
             ']' => [0b01110, 0b00010, 0b00010, 0b00010, 0b00010, 0b00010, 0b01110],
+            '(' => [0b00110, 0b01000, 0b01000, 0b01000, 0b01000, 0b01000, 0b00110],
+            ')' => [0b01100, 0b00010, 0b00010, 0b00010, 0b00010, 0b00010, 0b01100],
+            '|' => [0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100],
             '/' => [0b00001, 0b00010, 0b00010, 0b00100, 0b01000, 0b01000, 0b10000],
             '+' => [0b00000, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00000],
             '-' => [0b00000, 0b00000, 0b00000, 0b11111, 0b00000, 0b00000, 0b00000],
