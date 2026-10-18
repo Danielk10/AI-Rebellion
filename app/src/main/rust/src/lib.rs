@@ -1,7 +1,9 @@
 pub mod audio;
 pub mod boss;
 pub mod bullet;
+pub mod commando;
 pub mod enemy;
+pub mod enemy_render;
 pub mod game;
 pub mod level;
 pub mod multiplayer;

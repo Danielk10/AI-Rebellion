@@ -83,6 +83,14 @@ pub struct Player {
     pub fire_timer: f32,
     pub active: bool,
     pub facing_right: bool,
+    pub facing_scale: f32, // -1.0 (izquierda) .. +1.0 (derecha) para giro 3D continuo sin saltos bruscos
+    pub flight_pitch: f32, // Inclinación aerodinámica del cuerpo en radianes
+    pub flight_thrust: f32, // Intensidad de empuje de los reactores (0.0 .. 1.0)
+    pub is_backpedaling: bool, // Postura táctica de vuelo hacia atrás disparando hacia el frente (Final Mission)
+    pub measured_vx: f32,
+    pub measured_vy: f32,
+    pub prev_x: f32,
+    pub prev_y: f32,
     pub anim_timer: f32,
     pub jetpack_active: bool,
     pub recoil_anim: f32, // Micro-animación de retroceso del rifle (1.0 = disparo, decae a 0.0)
@@ -110,6 +118,14 @@ impl Player {
             fire_timer: 0.0,
             active: true,
             facing_right: true,
+            facing_scale: 1.0,
+            flight_pitch: 0.0,
+            flight_thrust: 0.4,
+            is_backpedaling: false,
+            measured_vx: 0.0,
+            measured_vy: 0.0,
+            prev_x: start_x,
+            prev_y: start_y,
             anim_timer: 0.0,
             jetpack_active: true,
             recoil_anim: 0.0,
@@ -119,6 +135,18 @@ impl Player {
 
     pub fn set_facing(&mut self, right: bool) {
         self.facing_right = right;
+    }
+
+    pub fn reset_pose(&mut self) {
+        self.facing_scale = if self.facing_right { 1.0 } else { -1.0 };
+        self.flight_pitch = 0.0;
+        self.bank_angle = 0.0;
+        self.flight_thrust = 0.4;
+        self.is_backpedaling = false;
+        self.measured_vx = 0.0;
+        self.measured_vy = 0.0;
+        self.prev_x = self.x;
+        self.prev_y = self.y;
     }
 
     pub fn update(
@@ -140,17 +168,48 @@ impl Player {
             self.fire_timer -= dt;
         }
 
+        // Medir velocidad real de desplazamiento (incluye arrastre táctil)
+        let raw_vx = (self.x - self.prev_x) / dt.max(0.0001);
+        let raw_vy = (self.y - self.prev_y) / dt.max(0.0001);
+        self.prev_x = self.x;
+        self.prev_y = self.y;
+        self.measured_vx += (raw_vx - self.measured_vx) * (18.0 * dt).min(1.0);
+        self.measured_vy += (raw_vy - self.measured_vy) * (18.0 * dt).min(1.0);
+
+        // Giro 3D continuo suave (~0.16s) evitando cambios bruscos
+        let target_scale = if self.facing_right { 1.0 } else { -1.0 };
+        self.facing_scale += (target_scale - self.facing_scale) * (11.5 * dt).min(1.0);
+
         // Amortiguación del retroceso del arma (recoil kickback)
         if self.recoil_anim > 0.0 {
             self.recoil_anim = (self.recoil_anim - dt * 14.0).max(0.0);
         }
 
-        // Micro-animación de inclinación de vuelo (Flight Banking)
+        // Dinámica de vuelo coherente con el movimiento estilo Final Mission
         let dir_sign = if self.facing_right { 1.0 } else { -1.0 };
-        let pitch_target = (self.vy * 0.045).clamp(-14.0, 14.0);
-        let surge_target = (self.vx * dir_sign * 0.018).clamp(-6.0, 6.0);
-        let desired_bank = pitch_target + surge_target;
-        self.bank_angle += (desired_bank - self.bank_angle) * (16.0 * dt).min(1.0);
+        let forward_speed = self.measured_vx * dir_sign;
+        let is_moving = self.measured_vx.abs() > 15.0 || self.measured_vy.abs() > 15.0;
+        self.jetpack_active = is_moving;
+        self.is_backpedaling = forward_speed < -20.0;
+
+        let mut target_pitch = if self.is_backpedaling {
+            0.14 * dir_sign
+        } else {
+            -0.28 * dir_sign * (forward_speed.abs() / 420.0).clamp(0.0, 1.0)
+        };
+        target_pitch += (self.measured_vy * 0.0008).clamp(-0.25, 0.25) * dir_sign;
+        if !is_moving {
+            target_pitch += (self.anim_timer * 3.5).sin() * 0.04;
+        }
+        self.flight_pitch += (target_pitch - self.flight_pitch) * (14.0 * dt).min(1.0);
+        self.bank_angle = self.flight_pitch.to_degrees();
+
+        let speed_mag = (self.measured_vx * self.measured_vx + self.measured_vy * self.measured_vy).sqrt();
+        self.flight_thrust = if is_moving {
+            (speed_mag / 380.0).clamp(0.4, 1.0)
+        } else {
+            0.25 + (self.anim_timer * 6.0).sin().abs() * 0.1
+        };
 
         // Amortiguación inercial para retorno suave al hover neutro
         self.vx *= (1.0 - dt * 4.0).max(0.0);
@@ -168,6 +227,11 @@ impl Player {
             return;
         }
 
+        // Durante el corte exacto de giro corporal (de frente a la cámara), suprimir el disparo
+        if self.facing_scale.abs() < 0.20 {
+            return;
+        }
+
         self.fire_timer = match self.weapon {
             WeaponType::Vulcan => 0.11,
             WeaponType::Laser => 0.20,
@@ -179,9 +243,13 @@ impl Player {
         self.recoil_anim = 1.0;
 
         let owner = BulletOwner::Player(self.id);
-        let dir = if self.facing_right { 1.0 } else { -1.0 };
-        let gun_x = self.x + dir * 28.0;
-        let gun_y = self.y - 2.0;
+        let dir = if self.facing_scale >= 0.0 { 1.0 } else { -1.0 };
+        let cos_p = self.flight_pitch.cos();
+        let sin_p = self.flight_pitch.sin();
+        let rot_gx = 28.0 * cos_p - (-2.0) * sin_p;
+        let rot_gy = 28.0 * sin_p + (-2.0) * cos_p;
+        let gun_x = self.x + rot_gx * dir;
+        let gun_y = self.y + rot_gy;
 
         // Disparo principal del fusil de asalto pesado anti-IA (Inspirado en Final Mission)
         match self.weapon {

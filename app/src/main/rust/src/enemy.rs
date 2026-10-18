@@ -106,6 +106,9 @@ pub struct Enemy {
     pub active: bool,
     pub time_alive: f32,
     pub aim_angle: f32,   // Orientación del cañón o sensor hacia el jugador
+    pub heading: f32,     // Ángulo continuo de rumbo/orientación espacial de vuelo
+    pub facing_dir: f32,  // Dirección horizontal suavizada (-1.0 izq, +1.0 der) para sintéticos
+    pub hit_flash: f32,   // Destello blanco/ámbar al recibir impacto de disparo
     pub is_ceiling: bool, // Montada en techo o invertida (retrocompatibilidad)
     pub anchor: EnemyAnchor, // Tipo de anclaje (FreeFlying, Ceiling, Floor, LeftWall, RightWall)
     pub item_drop: Option<ItemType>, // Ítem garantizado que suelta al ser destruido
@@ -178,6 +181,9 @@ impl Enemy {
             active: true,
             time_alive: 0.0,
             aim_angle,
+            heading: aim_angle,
+            facing_dir: -1.0,
+            hit_flash: 0.0,
             is_ceiling,
             anchor,
             item_drop,
@@ -201,6 +207,34 @@ impl Enemy {
         let dx = player_x - self.x;
         let dy = player_y - self.y;
         self.aim_angle = dy.atan2(dx);
+
+        // Suavizado continuo del rumbo de vuelo (heading) hacia el vector de velocidad
+        let speed_sq = self.vx * self.vx + self.vy * self.vy;
+        if speed_sq > 400.0 {
+            let target_heading = self.vy.atan2(self.vx);
+            let mut diff = target_heading - self.heading;
+            while diff < -std::f32::consts::PI { diff += std::f32::consts::TAU; }
+            while diff > std::f32::consts::PI { diff -= std::f32::consts::TAU; }
+            self.heading += diff * (dt * 6.5).min(1.0);
+        } else {
+            let mut diff = self.aim_angle - self.heading;
+            while diff < -std::f32::consts::PI { diff += std::f32::consts::TAU; }
+            while diff > std::f32::consts::PI { diff -= std::f32::consts::TAU; }
+            self.heading += diff * (dt * 4.0).min(1.0);
+        }
+
+        // Suavizado de orientación horizontal para sintéticos bípedos
+        let target_facing = if self.vx.abs() > 15.0 {
+            if self.vx > 0.0 { 1.0 } else { -1.0 }
+        } else {
+            if (player_x - self.x) > 0.0 { 1.0 } else { -1.0 }
+        };
+        self.facing_dir += (target_facing - self.facing_dir) * (dt * 7.0).min(1.0);
+
+        // Disipación del destello de impacto
+        if self.hit_flash > 0.0 {
+            self.hit_flash = (self.hit_flash - dt * 8.0).max(0.0);
+        }
 
         // Movimiento según patrón táctico y tipo de anclaje:
         // Las torretas ancladas son desplazadas exclusivamente por el vector de scroll en game.rs.

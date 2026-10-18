@@ -533,6 +533,7 @@ impl Game {
             p.active = true;
             p.invulnerable_timer = 2.0;
             p.facing_right = true;
+            p.reset_pose();
         }
 
         self.touch_controls.flick_facing = None;
@@ -754,18 +755,34 @@ impl Game {
                 e.x -= scroll_vx * dt;
                 e.y -= scroll_vy * dt;
 
-                // Bloquear su coordenada contra la superficie anclada para que sobresalgan limpiamente
+                // Solo bloquear contra la superficie si esa componente de scroll no está en movimiento relativo
                 match e.anchor {
-                    EnemyAnchor::Ceiling => { e.y = 78.0; }
-                    EnemyAnchor::Floor => { e.y = h_f - 82.0; }
-                    EnemyAnchor::LeftWall => { e.x = 52.0; }
-                    EnemyAnchor::RightWall => { e.x = w_f - 52.0; }
+                    EnemyAnchor::Ceiling => {
+                        if scroll_vy.abs() < 5.0 {
+                            e.y = 78.0;
+                        }
+                    }
+                    EnemyAnchor::Floor => {
+                        if scroll_vy.abs() < 5.0 {
+                            e.y = h_f - 82.0;
+                        }
+                    }
+                    EnemyAnchor::LeftWall => {
+                        if scroll_vx.abs() < 5.0 {
+                            e.x = 52.0;
+                        }
+                    }
+                    EnemyAnchor::RightWall => {
+                        if scroll_vx.abs() < 5.0 {
+                            e.x = w_f - 52.0;
+                        }
+                    }
                     EnemyAnchor::FreeFlying => {}
                 }
             } else {
-                // Enemigos voladores libres
+                // Enemigos voladores libres acompañan el flujo del scroll
                 if current_phase == StagePhase::AscendUp || current_phase == StagePhase::DescendDown {
-                    e.y -= scroll_vy * dt * 0.35;
+                    e.y -= scroll_vy * dt * 0.40;
                 }
             }
             e.update(dt, p_x, p_y, &mut self.bullets);
@@ -802,6 +819,7 @@ impl Game {
 
         for e in self.enemies.iter_mut() {
             e.health -= 300.0;
+            e.hit_flash = 1.0;
             if e.health <= 0.0 {
                 e.active = false;
                 self.total_score += 150;
@@ -900,6 +918,7 @@ impl Game {
                                 b.active = false;
                             }
                             e.health -= b.damage;
+                            e.hit_flash = 1.0;
                             self.renderer.add_explosion(b.x, b.y, 4, 0xFFFFFF00);
 
                             if e.health <= 0.0 {
@@ -1040,6 +1059,7 @@ impl Game {
                 if dist < (e.radius + 16.0) {
                     let died = p.take_damage(18.0);
                     e.health -= 40.0;
+                    e.hit_flash = 1.0;
                     if e.health <= 0.0 {
                         e.active = false;
                         self.renderer.add_explosion(e.x, e.y, 14, 0xFFFF4500);

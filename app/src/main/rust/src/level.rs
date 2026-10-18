@@ -296,7 +296,7 @@ impl LevelManager {
     /// Gestiona la transición limpia entre orientaciones de nivel:
     /// Banners cinemáticos compactos y de corta duración (transition_timer = 1.2s),
     /// sin banners sobre el jefe para no obstruir la visión del combate.
-    pub fn handle_phase_transition(&mut self, screen_w: f32, screen_h: f32, enemies: &mut Vec<Enemy>) {
+    pub fn handle_phase_transition(&mut self, _screen_w: f32, _screen_h: f32, enemies: &mut Vec<Enemy>) {
         if self.current_phase == StagePhase::BossEncounter {
             self.transition_timer = 0.0;
             self.transition_text = "";
@@ -328,42 +328,27 @@ impl LevelManager {
 
         match self.current_phase {
             StagePhase::AscendUp | StagePhase::DescendDown => {
-                // Entrando a pozo vertical:
-                // 1. Desactivar torretas de techo/suelo para que no queden flotando en el aire del pozo
+                // Transición continua a pozo vertical estilo Final Mission:
+                // No se eliminan torretas ni obstáculos bruscamente; se dejan desplazar
+                // de forma natural con el vector de cámara hasta salir de pantalla.
                 for e in enemies.iter_mut() {
-                    if e.anchor == EnemyAnchor::Ceiling || e.anchor == EnemyAnchor::Floor {
-                        e.active = false;
-                    } else if e.anchor == EnemyAnchor::FreeFlying {
-                        e.x = e.x.clamp(60.0 + e.radius, screen_w - 60.0 - e.radius);
-                        e.vx = 0.0;
+                    if e.anchor == EnemyAnchor::FreeFlying {
                         if self.current_phase == StagePhase::AscendUp {
-                            e.vy = 120.0;
+                            e.vy += (120.0 - e.vy) * 0.5;
                         } else {
-                            e.vy = -120.0;
+                            e.vy += (-120.0 - e.vy) * 0.5;
                         }
                     }
                 }
-                // 2. Retirar obstáculos horizontales que no encajan en el pozo vertical
-                self.obstacles.retain(|o| {
-                    o.destructible && o.x >= 65.0 && o.x <= screen_w - 65.0
-                });
             }
             StagePhase::HorizontalRight => {
-                // Saliendo a corredor horizontal (azoteas / autopista aérea / túnel interior):
-                // 1. Desactivar torretas de pared lateral para que no queden flotando en el aire
+                // Transición continua a corredor horizontal:
                 for e in enemies.iter_mut() {
-                    if e.anchor == EnemyAnchor::LeftWall || e.anchor == EnemyAnchor::RightWall {
-                        e.active = false;
-                    } else if e.anchor == EnemyAnchor::FreeFlying {
-                        e.y = e.y.clamp(56.0 + e.radius, screen_h - 52.0 - e.radius);
-                        e.vx = -150.0;
-                        e.vy = 0.0;
+                    if e.anchor == EnemyAnchor::FreeFlying {
+                        e.vx += (-160.0 - e.vx) * 0.5;
+                        e.vy *= 0.5;
                     }
                 }
-                // 2. Retirar obstáculos verticales residuales
-                self.obstacles.retain(|o| {
-                    o.destructible && o.y >= 80.0 && o.y <= screen_h - 80.0
-                });
             }
             StagePhase::BossEncounter => {
                 self.obstacles.clear();
@@ -543,22 +528,28 @@ impl LevelManager {
     }
 
     /// Devuelve los límites espaciales del jugador (min_x, max_x, min_y, max_y)
-    /// según la fase activa (corredor horizontal vs pozo vertical)
+    /// con interpolación continua basada en el vector de velocidad de desplazamiento
     pub fn get_player_bounds(&self, screen_w: f32, screen_h: f32) -> (f32, f32, f32, f32) {
-        match self.current_phase {
-            StagePhase::HorizontalRight => {
-                if self.inside_chamber {
-                    (36.0, screen_w - 36.0, 52.0, screen_h - 52.0)
-                } else {
-                    (36.0, screen_w - 36.0, 40.0, screen_h - 52.0)
-                }
-            }
-            StagePhase::AscendUp | StagePhase::DescendDown => {
-                // Pozos verticales: delimitados por las paredes laterales de 56px
-                (60.0, screen_w - 60.0, 32.0, screen_h - 32.0)
-            }
-            StagePhase::BossEncounter => (36.0, screen_w - 36.0, 44.0, screen_h - 44.0),
+        if self.current_phase == StagePhase::BossEncounter {
+            return (36.0, screen_w - 36.0, 44.0, screen_h - 44.0);
         }
+
+        let speed_tot = self.scroll_vx.abs() + self.scroll_vy.abs() + 0.001;
+        let vert_ratio = (self.scroll_vy.abs() / speed_tot).clamp(0.0, 1.0);
+
+        let min_x = 36.0 + 24.0 * vert_ratio;
+        let max_x = screen_w - min_x;
+
+        let (base_min_y, base_max_y) = if self.inside_chamber {
+            (52.0, screen_h - 52.0)
+        } else {
+            (40.0, screen_h - 52.0)
+        };
+
+        let min_y = base_min_y - 8.0 * vert_ratio;
+        let max_y = base_max_y + 20.0 * vert_ratio;
+
+        (min_x, max_x, min_y, max_y)
     }
 
     fn spawn_wave(&mut self, screen_w: f32, screen_h: f32, enemies: &mut Vec<Enemy>) {
