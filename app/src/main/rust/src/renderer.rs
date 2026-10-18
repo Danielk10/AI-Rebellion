@@ -475,16 +475,94 @@ impl Renderer {
             ObstacleStyle::QuantumMonolith => (0xFF090D16, 0xFFFF0055, 0xFF00F0FF),
         };
 
+        // Fondo base y marco exterior
         self.draw_rect(buffer, ox, oy, ow, oh, base_col);
-        self.draw_rect(buffer, ox, oy, ow, 3, trim_col);
-        self.draw_rect(buffer, ox, oy + oh as isize - 3, ow, 3, trim_col);
-        self.draw_rect(buffer, ox, oy, 3, oh, trim_col);
-        self.draw_rect(buffer, ox + ow as isize - 3, oy, 3, oh, trim_col);
+        self.draw_rect(buffer, ox, oy, ow, 2, trim_col);
+        self.draw_rect(buffer, ox, oy + oh as isize - 2, ow, 2, trim_col);
+        self.draw_rect(buffer, ox, oy, 2, oh, trim_col);
+        self.draw_rect(buffer, ox + ow as isize - 2, oy, 2, oh, trim_col);
 
-        for ry in (8..oh.saturating_sub(8)).step_by(18) {
-            self.draw_rect(buffer, ox + 5, oy + ry as isize, ow.saturating_sub(10), 2, trim_col);
+        // Detalles morfológicos según el estilo de obstáculo
+        match obs.style {
+            ObstacleStyle::SteelGirder => {
+                // Celosía reticulada Warren con cruces en X
+                let step = 24;
+                for gy in (4..oh.saturating_sub(step)).step_by(step) {
+                    let y0 = oy + gy as isize;
+                    let y1 = y0 + step as isize;
+                    self.draw_aa_capsule(buffer, ox as f32 + 4.0, y0 as f32, (ox + ow as isize - 4) as f32, y1 as f32, 1.2, trim_col);
+                    self.draw_aa_capsule(buffer, (ox + ow as isize - 4) as f32, y0 as f32, ox as f32 + 4.0, y1 as f32, 1.2, trim_col);
+                }
+                // Baliza de servicio
+                self.draw_circle(buffer, ox + 6, oy + 6, 2, core_col);
+                self.draw_circle(buffer, ox + ow as isize - 6, oy + 6, 2, core_col);
+            }
+            ObstacleStyle::SmeltingPress => {
+                // Pistón hidráulico central y rejillas de calor
+                let pw = (ow / 3).max(6);
+                let px = ox + (ow as isize - pw as isize) / 2;
+                self.draw_rect(buffer, px, oy + 4, pw, oh.saturating_sub(8), 0xFF241710);
+                self.draw_rect(buffer, px + 2, oy + 4, pw.saturating_sub(4), oh.saturating_sub(8), 0xFFFF5500);
+                for ry in (6..oh.saturating_sub(6)).step_by(12) {
+                    self.draw_rect(buffer, ox + 3, oy + ry as isize, 4, 3, 0xFFFFCC00);
+                    self.draw_rect(buffer, ox + ow as isize - 7, oy + ry as isize, 4, 3, 0xFFFFCC00);
+                }
+            }
+            ObstacleStyle::MarsCanyonRock => {
+                // Estratos sedimentarios de óxido ferroso
+                for ry in (8..oh.saturating_sub(6)).step_by(14) {
+                    let band_col = if (ry / 14) % 2 == 0 { 0xFF7C2D12 } else { 0xFF9A3412 };
+                    self.draw_rect(buffer, ox + 4, oy + ry as isize, ow.saturating_sub(8), 5, band_col);
+                }
+                self.draw_rect(buffer, ox + (ow / 2) as isize - 1, oy + 4, 2, oh.saturating_sub(8), 0xFFFF3300);
+            }
+            ObstacleStyle::CryoIcePillar => {
+                // Cristal de hielo facetado y núcleo bio-orgánico Abadox
+                let cx = ox + (ow / 2) as isize;
+                self.draw_rect(buffer, cx - 2, oy + 4, 4, oh.saturating_sub(8), core_col);
+                for ry in (10..oh.saturating_sub(10)).step_by(20) {
+                    self.draw_circle(buffer, cx, oy + ry as isize, 4, 0xFF00FFFF);
+                    self.draw_rect(buffer, ox + 4, oy + ry as isize, ow.saturating_sub(8), 1, 0xFFE0F2FE);
+                }
+            }
+            ObstacleStyle::SolarShield => {
+                // Paneles térmicos cerámicos reflectores
+                for rx in (6..ow.saturating_sub(6)).step_by(16) {
+                    self.draw_rect(buffer, ox + rx as isize, oy + 4, 2, oh.saturating_sub(8), 0xFFFFEE55);
+                }
+                for ry in (8..oh.saturating_sub(8)).step_by(16) {
+                    self.draw_rect(buffer, ox + 4, oy + ry as isize, ow.saturating_sub(8), 2, trim_col);
+                }
+            }
+            ObstacleStyle::MethaneTank => {
+                // Tanque criogénico con columna indicadora de nivel verde neón
+                let tube_x = ox + (ow as isize / 2) - 3;
+                self.draw_rect(buffer, tube_x, oy + 6, 6, oh.saturating_sub(12), 0xFF142410);
+                self.draw_rect(buffer, tube_x + 1, oy + 8, 4, oh.saturating_sub(16), 0xFF39FF14);
+                for ry in (12..oh.saturating_sub(10)).step_by(22) {
+                    self.draw_rect(buffer, ox + 3, oy + ry as isize, ow.saturating_sub(6), 2, trim_col);
+                }
+            }
+            ObstacleStyle::ArmadaBulkhead => {
+                // Placas acorazadas militares con líneas de energía magenta
+                for ry in (8..oh.saturating_sub(8)).step_by(16) {
+                    self.draw_rect(buffer, ox + 4, oy + ry as isize, ow.saturating_sub(8), 2, 0xFFFF007F);
+                    self.draw_circle(buffer, ox + 6, oy + ry as isize + 1, 2, 0xFF00F0FF);
+                }
+            }
+            ObstacleStyle::QuantumMonolith => {
+                // Monolito cuántico con glifos holográficos
+                let cx = ox + (ow / 2) as isize;
+                self.draw_rect(buffer, cx - 1, oy + 4, 2, oh.saturating_sub(8), 0xFF00F0FF);
+                for ry in (8..oh.saturating_sub(8)).step_by(14) {
+                    let gw = if (ry / 14) % 2 == 0 { ow.saturating_sub(12) } else { ow.saturating_sub(20) };
+                    let gx = ox + (ow as isize - gw as isize) / 2;
+                    self.draw_rect(buffer, gx, oy + ry as isize, gw, 2, 0xFFFF0055);
+                }
+            }
         }
 
+        // Núcleo destruible con indicador de daño
         if obs.destructible {
             let hp_ratio = (obs.health / obs.max_health).clamp(0.0, 1.0);
             let cx = obs.x as isize;
@@ -519,14 +597,21 @@ impl Renderer {
         self.render_stage_environment(buffer, stage_num, inside_chamber);
 
         // 2. Campo de estrellas reactivo al desplazamiento lineal 2D
-        for s in self.stars.iter() {
-            let px = s.x as usize;
-            let py = s.y as usize;
-            if px < w && py < h {
-                let col = 0xFF000000 | ((s.brightness as u32) << 16) | ((s.brightness as u32) << 8) | (s.brightness as u32);
-                buffer[py * w + px] = col;
-                if s.size > 1 && px + 1 < w {
-                    buffer[py * w + px + 1] = col;
+        // Solo visible en el espacio o en atmósfera diáfana exterior (nunca en fundiciones subterráneas ni dentro de cámaras)
+        let show_stars = !inside_chamber
+            && stage_num != 2
+            && !(stage_num == 4 && self.stage_progress > 0.45);
+
+        if show_stars {
+            for s in self.stars.iter() {
+                let px = s.x as usize;
+                let py = s.y as usize;
+                if px < w && py < h {
+                    let col = 0xFF000000 | ((s.brightness as u32) << 16) | ((s.brightness as u32) << 8) | (s.brightness as u32);
+                    buffer[py * w + px] = col;
+                    if s.size > 1 && px + 1 < w {
+                        buffer[py * w + px + 1] = col;
+                    }
                 }
             }
         }
@@ -549,9 +634,13 @@ impl Renderer {
 
             match b.b_type {
                 BulletType::LaserBeam => {
-                    self.draw_rect(buffer, bx - 22, by - 4, 44, 8, b.color);
-                    self.draw_rect(buffer, bx - 18, by - 2, 36, 4, 0xFFFFFFFF);
-                    self.draw_point_light(buffer, bx, by, 28, b.color, 0.4);
+                    let beam_w = (r * 3 + 16).max(46);
+                    let beam_h = (r + 2).max(8);
+                    let beam_hw = (beam_w / 2) as isize;
+                    let beam_hh = (beam_h / 2) as isize;
+                    self.draw_rect(buffer, bx - beam_hw, by - beam_hh, beam_w, beam_h, b.color);
+                    self.draw_rect(buffer, bx - beam_hw + 4, by - beam_hh + 2, beam_w.saturating_sub(8), beam_h.saturating_sub(4), 0xFFFFFFFF);
+                    self.draw_point_light(buffer, bx, by, beam_w + 8, b.color, 0.45);
                 }
                 BulletType::SpreadWave => {
                     self.draw_circle(buffer, bx, by, r + 1, b.color);
@@ -619,8 +708,9 @@ impl Renderer {
         // 10. HUD Superior con Botón Virtual de Pausa en esquina superior derecha
         self.render_clean_hud(buffer, players, stage_num, stage_name);
 
-        // 11. Banner cinemático SOLO cuando se entra en una cámara interior o Boss
-        if transition_timer > 0.0 && !transition_text.is_empty() {
+        // 11. Banner cinemático compacto en transiciones (nunca cuando el jefe está en pantalla)
+        let boss_active = boss.as_ref().map_or(false, |b| !b.defeated);
+        if !boss_active && transition_timer > 0.0 && !transition_text.is_empty() {
             self.render_section_transition(buffer, transition_timer, transition_text);
         }
     }
@@ -638,72 +728,161 @@ impl Renderer {
 
         match stage {
             1 => {
-                // NIVEL 1: TIERRA - RUINAS DE NUEVA YORK BAJO ASEDIO SINTÉTICO
-                buffer.fill(0xFF040710);
+                // NIVEL 1: TIERRA - RUINAS DE NUEVA YORK BAJO ASEDIO SINTÉTICO (CYBER-NY)
+                buffer.fill(0xFF04060E);
 
-                // Luna terrestre fracturada y satélites orbitales de la IA en el cielo
-                let moon_y = (85 - (y_shift / 8)).clamp(30, h as isize - 120);
-                self.draw_aa_circle(buffer, (w as isize - 170) as f32, moon_y as f32, 34.0, 0xFFCBD5E1, 0xFF00E5FF, 1.5);
-                self.draw_volumetric_light(buffer, (w as isize - 170) as f32, moon_y as f32, 58.0, 0xFF00E5FF, 0.35);
+                // Gradiente atmosférico vertical del cielo nocturno
+                for y in 0..(h.min(180)) {
+                    let grad = (y as f32 / 180.0) * 0.4;
+                    let sky_tint = Self::lerp_color(0xFF080D1A, 0xFF140824, grad);
+                    self.draw_rect(buffer, 0, y as isize, w, 1, sky_tint);
+                }
+
+                // Luna terrestre fracturada con red de defensa orbital de la IA
+                let moon_y = (78 - (y_shift / 8)).clamp(26, h as isize - 120);
+                let moon_x = (w as isize - 160) as f32;
+                self.draw_aa_circle(buffer, moon_x, moon_y as f32, 34.0, 0xFFCBD5E1, 0xFF00E5FF, 1.8);
+                // Grieta tectónica de energía en la luna
+                self.draw_aa_capsule(buffer, moon_x - 12.0, moon_y as f32 - 18.0, moon_x + 8.0, moon_y as f32 + 20.0, 1.4, 0xFF00F0FF);
+                self.draw_volumetric_light(buffer, moon_x, moon_y as f32, 65.0, 0xFF00E5FF, 0.40);
 
                 if !inside_chamber {
-                    // Cielo tormentoso electromagnético
-                    for nx in 0..(w / 24 + 2) {
-                        let rx = (nx * 24) as isize;
-                        let cloud_h = 22 + (((nx as f32 * 0.4 + t * 0.8).sin() * 8.0) as usize);
-                        self.draw_rect(buffer, rx, 0, 24, cloud_h, 0xFF3B0764);
-                        self.draw_rect(buffer, rx, 0, 24, cloud_h.saturating_sub(6), 0xFF6B21A8);
+                    // 1. Cielo electromagnético limpio con nubes volumétricas y relámpagos distantes
+                    let storm_flash = (t * 1.8).sin().abs() > 0.94;
+                    for nx in 0..(w / 36 + 2) {
+                        let rx = (nx * 36) as isize;
+                        let cloud_wave = ((nx as f32 * 0.35 + t * 0.6).sin() * 9.0) as usize;
+                        let cloud_h = 24 + cloud_wave;
+                        let c_col1 = if storm_flash && nx % 3 == 0 { 0xFF6B21A8 } else { 0xFF1C0A33 };
+                        let c_col2 = if storm_flash && nx % 3 == 0 { 0xFF9333EA } else { 0xFF2E1065 };
+                        self.draw_rect(buffer, rx, 0, 36, cloud_h, c_col1);
+                        self.draw_rect(buffer, rx, 0, 36, cloud_h.saturating_sub(6), c_col2);
                     }
 
-                    // Rascacielos en parallax 2D continuo (responden tanto a s_x como a s_y)
-                    let bld_offset1 = (s_x * 0.25) as usize % 96;
-                    for i in 0..(w / 96 + 2) {
-                        let bx = (i * 96) as isize - bld_offset1 as isize;
-                        let bld_h = 190 + ((i * 47) % 130);
-                        let by = h as isize - 50 - bld_h as isize - (y_shift / 4);
-                        self.draw_rect(buffer, bx, by, 76, (bld_h + 120) as usize, 0xFF112238);
-                        for wy in 0..((bld_h + 80) / 26) {
-                            let win_col = if (i + wy) % 3 == 0 { 0xFF00E5FF } else { 0xFF475569 };
-                            self.draw_rect(buffer, bx + 16, by + 14 + (wy * 26) as isize, 6, 8, win_col);
-                            self.draw_rect(buffer, bx + 48, by + 14 + (wy * 26) as isize, 6, 8, win_col);
+                    // 2. Parallax Lejano (Capa 1 - Mega-Estructuras y agujas de telecomunicación en el horizonte)
+                    let bld_offset0 = (s_x * 0.14) as usize % 140;
+                    for i in 0..(w / 140 + 2) {
+                        let bx = (i * 140) as isize - bld_offset0 as isize;
+                        let bld_h = 240 + ((i * 59) % 140);
+                        let by = h as isize - 40 - bld_h as isize - (y_shift / 6);
+                        self.draw_rect(buffer, bx, by, 85, (bld_h + 160) as usize, 0xFF0B1422);
+                        // Baliza de advertencia aeronáutica en la cúspide
+                        self.draw_circle(buffer, bx + 42, by - 4, 3, 0xFFFF2020);
+                        self.draw_point_light(buffer, bx + 42, by - 4, 12, 0xFFFF2020, 0.5);
+                    }
+
+                    // 3. Parallax Medio: Rascacielos derruidos con vigas de acero expuestas y ventanas rotas
+                    let bld_offset1 = (s_x * 0.32) as usize % 110;
+                    for i in 0..(w / 110 + 2) {
+                        let bx = (i * 110) as isize - bld_offset1 as isize;
+                        let bld_h = 200 + ((i * 47) % 130);
+                        let by = h as isize - 48 - bld_h as isize - (y_shift / 4);
+
+                        // Cuerpo principal del rascacielos derruido
+                        self.draw_rect(buffer, bx, by, 88, (bld_h + 140) as usize, 0xFF101B2E);
+                        self.draw_rect(buffer, bx, by, 88, 2, 0xFF38BDF8);
+
+                        // Vigas de acero expuestas (esqueleto metálico sobresaliendo del techo roto)
+                        self.draw_aa_capsule(buffer, (bx + 12) as f32, by as f32, (bx + 8) as f32, (by - 18) as f32, 1.4, 0xFF475569);
+                        self.draw_aa_capsule(buffer, (bx + 30) as f32, by as f32, (bx + 36) as f32, (by - 24) as f32, 1.4, 0xFF64748B);
+                        self.draw_aa_capsule(buffer, (bx + 54) as f32, by as f32, (bx + 50) as f32, (by - 16) as f32, 1.4, 0xFF475569);
+                        self.draw_aa_capsule(buffer, (bx + 8) as f32, (by - 12) as f32, (bx + 36) as f32, (by - 12) as f32, 1.0, 0xFF334155);
+
+                        // Patrón de ventanas: algunas iluminadas con cian/ámbar y otras destruidas/oscuras
+                        for wy in 0..((bld_h + 80) / 24) {
+                            let win_y = by + 16 + (wy * 24) as isize;
+                            let is_broken = (i * 7 + wy * 13) % 4 == 0;
+                            let win_col = if is_broken {
+                                0xFF080D18 // Ventana rota oscura
+                            } else if (i + wy) % 3 == 0 {
+                                0xFF00E5FF // Terminal activa IA
+                            } else {
+                                0xFF334155
+                            };
+                            self.draw_rect(buffer, bx + 14, win_y, 8, 10, win_col);
+                            self.draw_rect(buffer, bx + 40, win_y, 8, 10, win_col);
+                            self.draw_rect(buffer, bx + 66, win_y, 8, 10, win_col);
+                        }
+
+                        // Letreros neón cyberpunk parpadeantes en fachadas
+                        if i % 2 == 0 {
+                            let neon_flicker = (t * 14.0 + i as f32 * 5.2).sin() > -0.25;
+                            let (neon_text, neon_col) = match i % 6 {
+                                0 => ("NEO-NY", if neon_flicker { 0xFFFF007F } else { 0xFF4A0028 }),
+                                2 => ("CYBERDYNE", if neon_flicker { 0xFF00F0FF } else { 0xFF003844 }),
+                                4 => ("OFFLINE", if neon_flicker { 0xFFFFD700 } else { 0xFF473300 }),
+                                _ => ("AI CORE", if neon_flicker { 0xFF00FF77 } else { 0xFF003D1A }),
+                            };
+                            let sign_y = by + 45;
+                            self.draw_rect(buffer, bx + 10, sign_y - 2, 68, 14, 0xEE090E17);
+                            self.draw_rect(buffer, bx + 10, sign_y - 2, 68, 1, neon_col);
+                            self.draw_simple_text(buffer, neon_text, bx + 14, sign_y + 2, neon_col, 1);
+                            if neon_flicker {
+                                self.draw_point_light(buffer, bx + 44, sign_y + 5, 24, neon_col, 0.45);
+                            }
                         }
                     }
 
-                    let bld_offset2 = (s_x * 0.55) as usize % 128;
-                    for i in 0..(w / 128 + 2) {
-                        let bx = (i * 128) as isize - bld_offset2 as isize;
-                        let bld_h = 220 + ((i * 31) % 110);
+                    // 4. Parallax Próximo: Rascacielos pesados en primer término
+                    let bld_offset2 = (s_x * 0.58) as usize % 140;
+                    for i in 0..(w / 140 + 2) {
+                        let bx = (i * 140) as isize - bld_offset2 as isize;
+                        let bld_h = 230 + ((i * 37) % 110);
                         let by = h as isize - 42 - bld_h as isize - (y_shift / 2);
-                        self.draw_rect(buffer, bx, by, 94, (bld_h + 150) as usize, 0xFF1E1B4B);
-                        self.draw_rect(buffer, bx, by, 94, 3, 0xFF38BDF8);
-                        for wx in 0..6 {
-                            self.draw_rect(buffer, bx + 10 + (wx * 14) as isize, by + 12, 5, bld_h, 0xFF4C1D95);
+                        self.draw_rect(buffer, bx, by, 105, (bld_h + 160) as usize, 0xFF171336);
+                        self.draw_rect(buffer, bx, by, 105, 3, 0xFF38BDF8);
+
+                        // Celosía y columnas verticales de soporte
+                        for wx in 0..7 {
+                            self.draw_rect(buffer, bx + 10 + (wx * 14) as isize, by + 12, 5, bld_h, 0xFF3B1566);
                         }
                     }
 
-                    // Cuando sube o baja en vertical (estilo Final Mission), vigas laterales de ascensor exterior
-                    if self.stage_phase == StagePhase::AscendUp || self.stage_phase == StagePhase::DescendDown {
-                        let v_scroll = (s_y.abs() * 0.85) as usize % 72;
-                        self.draw_rect(buffer, 0, 0, 34, h, 0xCC1E293B);
-                        self.draw_rect(buffer, w as isize - 34, 0, 34, h, 0xCC1E293B);
-                        for b_i in 0..(h / 72 + 2) {
-                            let by = (b_i * 72) as isize + v_scroll as isize - 72;
-                            self.draw_rect(buffer, 0, by, 42, 12, 0xFFC74C0C);
-                            self.draw_rect(buffer, w as isize - 42, by, 42, 12, 0xFFC74C0C);
-                            self.draw_circle(buffer, 38, by + 6, 3, 0xFF00F0FF);
-                            self.draw_circle(buffer, w as isize - 38, by + 6, 3, 0xFF00F0FF);
-                        }
+                    // 5. Infraestructura aérea superior: Vigas industriales y puente de tránsito
+                    // Proporciona el soporte estructural real para torretas superiores y defensas antiaéreas
+                    let truss_scroll = (s_x * 0.75) as usize % 96;
+                    let truss_y = 28isize;
+                    self.draw_rect(buffer, 0, truss_y, w, 10, 0xFF1E293B);
+                    self.draw_rect(buffer, 0, truss_y, w, 2, 0xFF475569);
+                    self.draw_rect(buffer, 0, truss_y + 8, w, 2, 0xFF475569);
+
+                    for tx in 0..(w / 96 + 2) {
+                        let gx = (tx * 96) as isize - truss_scroll as isize;
+                        // Cruzamientos en X del puente colgante industrial
+                        self.draw_aa_capsule(buffer, gx as f32, truss_y as f32, (gx + 48) as f32, (truss_y + 10) as f32, 1.2, 0xFF334155);
+                        self.draw_aa_capsule(buffer, (gx + 48) as f32, truss_y as f32, (gx + 96) as f32, (truss_y + 10) as f32, 1.2, 0xFF334155);
+                        // Baliza de advertencia industrial
+                        self.draw_circle(buffer, gx + 48, truss_y + 5, 2, 0xFFFF0033);
                     }
 
-                    // Autopista/suelo inferior desplazándose linealmente
-                    let ground_y = (h as isize - 44 - (y_shift / 3)).clamp(h as isize - 70, h as isize + 40);
+                    // 6. Autopista elevada inferior con balizas industriales y tuberías de refrigerante
+                    let ground_y = (h as isize - 46 - (y_shift / 3)).clamp(h as isize - 74, h as isize + 40);
                     if ground_y < h as isize {
-                        let pipe_scroll = (s_x * 0.90) as usize % 64;
-                        self.draw_rect(buffer, 0, ground_y, w, (h as isize - ground_y) as usize, 0xFF1E293B);
+                        let pipe_scroll = (s_x * 0.92) as usize % 72;
+                        // Plataforma de hormigón de la autopista
+                        self.draw_rect(buffer, 0, ground_y, w, (h as isize - ground_y) as usize, 0xFF141E2E);
                         self.draw_rect(buffer, 0, ground_y, w, 4, 0xFF00E5FF);
-                        for f in 0..(w / 64 + 2) {
-                            let fx = (f * 64) as isize - pipe_scroll as isize;
-                            self.draw_rect(buffer, fx, ground_y - 10, 40, 10, 0xFFC74C0C);
+
+                        // Líneas de carril reflectantes en la autopista
+                        let lane_scroll = (s_x * 1.1) as usize % 48;
+                        for lx in 0..(w / 48 + 2) {
+                            let cx = (lx * 48) as isize - lane_scroll as isize;
+                            self.draw_rect(buffer, cx, ground_y + 8, 22, 2, 0xFF38BDF8);
+                        }
+
+                        // Pilares de soporte con franjas de precaución y tuberías industriales
+                        for f in 0..(w / 72 + 2) {
+                            let fx = (f * 72) as isize - pipe_scroll as isize;
+                            // Tubería de refrigerante criogénico
+                            self.draw_rect(buffer, fx, ground_y - 12, 44, 12, 0xFF1E293B);
+                            self.draw_rect(buffer, fx + 16, ground_y - 14, 12, 16, 0xFFC74C0C);
+                            // Anillo luminoso de presión
+                            self.draw_circle(buffer, fx + 22, ground_y - 6, 3, 0xFF00F0FF);
+
+                            // Baliza estroboscópica de peligro en la autopista
+                            let beacon_flicker = (t * 8.0 + f as f32 * 2.0).sin() > 0.0;
+                            let b_col = if beacon_flicker { 0xFFFFD700 } else { 0xFF664400 };
+                            self.draw_circle(buffer, fx + 36, ground_y + 2, 2, b_col);
                         }
                     }
                 } else {
@@ -737,8 +916,18 @@ impl Renderer {
                     }
                 }
                 if inside_chamber {
-                    self.draw_rect(buffer, 0, 0, w, 42, 0xFF2E1508);
-                    self.draw_rect(buffer, 0, 40, w, 3, 0xFFFF7700);
+                    buffer.fill(0xFF140702);
+                    let chamber_scroll = (s_x * 0.9) as usize % 72;
+                    self.draw_rect(buffer, 0, 0, w, 44, 0xFF2E1508);
+                    self.draw_rect(buffer, 0, 42, w, 3, 0xFFFF7700);
+                    self.draw_rect(buffer, 0, h as isize - 46, w, 46, 0xFF2E1508);
+                    self.draw_rect(buffer, 0, h as isize - 46, w, 3, 0xFFFF7700);
+                    for i in 0..(w / 72 + 2) {
+                        let cx = (i * 72) as isize - chamber_scroll as isize;
+                        self.draw_rect(buffer, cx, 44, 12, h - 90, 0x443E2723);
+                        let pulse = ((t * 5.0 + i as f32).sin().abs() * 0.6) + 0.3;
+                        self.draw_point_light(buffer, cx + 6, (h / 2) as isize, 34, 0xFFFF5500, pulse);
+                    }
                 }
                 let lava_h = 26 + ((t * 4.0).sin().abs() * 8.0) as usize;
                 self.draw_rect(buffer, 0, h as isize - lava_h as isize, w, lava_h, 0xFFFF4500);
@@ -762,18 +951,29 @@ impl Renderer {
                     self.draw_rect(buffer, cx + 24, cy + 44, 46, 3, 0xFF00E5FF);
                 }
                 if inside_chamber {
+                    buffer.fill(0xFF160502);
+                    let chamber_scroll = (s_x * 0.85) as usize % 80;
                     self.draw_rect(buffer, 0, 0, w, 46, 0xFF431407);
                     self.draw_rect(buffer, 0, 44, w, 3, 0xFFFF3300);
-                    self.draw_rect(buffer, 0, h as isize - 46, w, 46, 0xFF431407);
+                    self.draw_rect(buffer, 0, h as isize - 48, w, 48, 0xFF431407);
+                    self.draw_rect(buffer, 0, h as isize - 48, w, 3, 0xFFFF3300);
+                    for i in 0..(w / 80 + 2) {
+                        let cx = (i * 80) as isize - chamber_scroll as isize;
+                        self.draw_rect(buffer, cx, 46, 12, h - 94, 0x445C1D0E);
+                        self.draw_circle(buffer, cx + 6, 52, 4, 0xFFFF7700);
+                        self.draw_circle(buffer, cx + 6, h as isize - 54, 4, 0xFFFF7700);
+                    }
                 }
             }
             4 => {
                 // NIVEL 4: LUNA EUROPA (JÚPITER) - OCÉANO SUBGLACIAL BIOMECÁNICO
                 buffer.fill(0xFF02131D);
-                // Júpiter colosal y su Gran Mancha Roja visibles a través de la bóveda de hielo
-                let jup_y = (115 - (y_shift / 10)).clamp(40, h as isize - 100);
-                self.draw_aa_circle(buffer, (w as isize - 180) as f32, jup_y as f32, 62.0, 0xFF9A5B32, 0xFFFCD34D, 2.0);
-                self.draw_aa_circle(buffer, (w as isize - 160) as f32, (jup_y + 14) as f32, 16.0, 0xFFDC2626, 0xFFFCA5A5, 1.5);
+                // Júpiter colosal y su Gran Mancha Roja visibles a través de la bóveda de hielo solo en la superficie
+                if self.stage_progress <= 0.45 && !inside_chamber {
+                    let jup_y = (115 - (y_shift / 10)).clamp(40, h as isize - 100);
+                    self.draw_aa_circle(buffer, (w as isize - 180) as f32, jup_y as f32, 62.0, 0xFF9A5B32, 0xFFFCD34D, 2.0);
+                    self.draw_aa_circle(buffer, (w as isize - 160) as f32, (jup_y + 14) as f32, 16.0, 0xFFDC2626, 0xFFFCA5A5, 1.5);
+                }
 
                 let ice_scroll = (s_x * 0.55) as usize % 84;
                 for ic in 0..(w / 84 + 2) {
@@ -786,8 +986,18 @@ impl Renderer {
                     self.draw_rect(buffer, ix + 8, h as isize - floor_h as isize, 14, 4, 0xFF38BDF8);
                 }
                 if inside_chamber {
-                    self.draw_rect(buffer, 0, 0, w, 48, 0xFF064E3B);
-                    self.draw_rect(buffer, 0, h as isize - 48, w, 48, 0xFF064E3B);
+                    buffer.fill(0xFF02161E);
+                    let chamber_scroll = (s_x * 0.9) as usize % 76;
+                    self.draw_rect(buffer, 0, 0, w, 46, 0xFF083344);
+                    self.draw_rect(buffer, 0, 44, w, 3, 0xFF00FFFF);
+                    self.draw_rect(buffer, 0, h as isize - 48, w, 48, 0xFF083344);
+                    self.draw_rect(buffer, 0, h as isize - 48, w, 3, 0xFF00FFFF);
+                    for i in 0..(w / 76 + 2) {
+                        let cx = (i * 76) as isize - chamber_scroll as isize;
+                        self.draw_rect(buffer, cx, 46, 12, h - 94, 0x44064E3B);
+                        self.draw_circle(buffer, cx + 6, 52, 4, 0xFF00FFFF);
+                        self.draw_circle(buffer, cx + 6, h as isize - 54, 4, 0xFF00FFFF);
+                    }
                 }
             }
             5 => {
@@ -804,6 +1014,21 @@ impl Renderer {
                     let ry = h as isize - 75 - (y_shift / 5);
                     self.draw_rect(buffer, rx, ry, 88, 18, 0xFF451A03);
                     self.draw_rect(buffer, rx, ry, 88, 3, 0xFFFFD700);
+                }
+                if inside_chamber {
+                    // Bóveda de tungsteno con bobinas de confinamiento solar
+                    buffer.fill(0xFF1E0B00);
+                    let chamber_scroll = (s_x * 0.9) as usize % 70;
+                    self.draw_rect(buffer, 0, 0, w, 44, 0xFF451A03);
+                    self.draw_rect(buffer, 0, 42, w, 3, 0xFFFFD700);
+                    self.draw_rect(buffer, 0, h as isize - 46, w, 46, 0xFF451A03);
+                    self.draw_rect(buffer, 0, h as isize - 46, w, 3, 0xFFFFD700);
+                    for i in 0..(w / 70 + 2) {
+                        let cx = (i * 70) as isize - chamber_scroll as isize;
+                        self.draw_rect(buffer, cx, 44, 10, h - 88, 0x4478350F);
+                        let pulse = ((t * 6.0 + i as f32).sin().abs() * 0.6) + 0.3;
+                        self.draw_point_light(buffer, cx + 5, (h / 2) as isize, 40, 0xFFFF9900, pulse);
+                    }
                 }
             }
             6 => {
@@ -822,6 +1047,21 @@ impl Renderer {
                     self.draw_rect(buffer, sx, h as isize - 58, 72, 58, 0xFF291D0E);
                     self.draw_rect(buffer, sx, h as isize - 58, 72, 3, 0xFFF59E0B);
                 }
+                if inside_chamber {
+                    // Dársena de atraque orbital en los anillos de Saturno
+                    buffer.fill(0xFF140D04);
+                    let chamber_scroll = (s_x * 0.85) as usize % 80;
+                    self.draw_rect(buffer, 0, 0, w, 44, 0xFF362F19);
+                    self.draw_rect(buffer, 0, 42, w, 3, 0xFFEAB308);
+                    self.draw_rect(buffer, 0, h as isize - 46, w, 46, 0xFF362F19);
+                    self.draw_rect(buffer, 0, h as isize - 46, w, 3, 0xFFEAB308);
+                    for i in 0..(w / 80 + 2) {
+                        let cx = (i * 80) as isize - chamber_scroll as isize;
+                        self.draw_rect(buffer, cx, 44, 12, h - 88, 0x33451A03);
+                        self.draw_circle(buffer, cx + 6, 50, 4, 0xFF39FF14);
+                        self.draw_circle(buffer, cx + 6, h as isize - 52, 4, 0xFF39FF14);
+                    }
+                }
             }
             7 => {
                 // NIVEL 7: ESPACIO INTERPLANETARIO - SUPER-ARMADA NEMESIS DE LA IA
@@ -834,6 +1074,21 @@ impl Renderer {
                     self.draw_rect(buffer, hx + 16, hy + 16, 90, 12, 0xFFFF007F);
                     self.draw_rect(buffer, hx, 0, 110, 36, 0xFF151022);
                     self.draw_rect(buffer, hx + 20, 32, 70, 3, 0xFF00F0FF);
+                }
+                if inside_chamber {
+                    // Hangar interior de mando del Super-Dreadnought
+                    buffer.fill(0xFF0D0618);
+                    let chamber_scroll = (s_x * 0.9) as usize % 90;
+                    self.draw_rect(buffer, 0, 0, w, 46, 0xFF1E172E);
+                    self.draw_rect(buffer, 0, 44, w, 3, 0xFFFF007F);
+                    self.draw_rect(buffer, 0, h as isize - 48, w, 48, 0xFF1E172E);
+                    self.draw_rect(buffer, 0, h as isize - 48, w, 3, 0xFFFF007F);
+                    for i in 0..(w / 90 + 2) {
+                        let cx = (i * 90) as isize - chamber_scroll as isize;
+                        self.draw_rect(buffer, cx, 46, 14, h - 92, 0x442E1045);
+                        self.draw_rect(buffer, cx + 4, 52, 6, 18, 0xFF00F0FF);
+                        self.draw_rect(buffer, cx + 4, h as isize - 70, 6, 18, 0xFF00F0FF);
+                    }
                 }
             }
             _ => {
@@ -852,6 +1107,56 @@ impl Renderer {
                 let vortex_r = 58 + ((t * 4.5).sin().abs() * 18.0) as usize;
                 self.draw_point_light(buffer, (w / 2) as isize, (h / 2) as isize, vortex_r, 0xFFFF0055, 0.75);
                 self.draw_aa_circle(buffer, (w / 2) as f32, (h / 2) as f32, 26.0, 0xFF090014, 0xFF00F0FF, 2.5);
+                if inside_chamber {
+                    // Cámara de singularidad Nyx-Overmind
+                    buffer.fill(0xFF03000A);
+                    let chamber_scroll = (s_x * 1.1) as usize % 48;
+                    for gx in 0..(w / 48 + 2) {
+                        let rx = (gx * 48) as isize - chamber_scroll as isize;
+                        self.draw_rect(buffer, rx, 0, 2, h, 0x88FF0055);
+                    }
+                    self.draw_rect(buffer, 0, 0, w, 36, 0xDD090D16);
+                    self.draw_rect(buffer, 0, 34, w, 3, 0xFF00F0FF);
+                    self.draw_rect(buffer, 0, h as isize - 38, w, 38, 0xDD090D16);
+                    self.draw_rect(buffer, 0, h as isize - 38, w, 3, 0xFF00F0FF);
+                }
+            }
+        }
+
+        // Muros laterales arquitectónicos durante ascenso o descenso vertical para TODOS los 8 niveles
+        let is_vertical = self.stage_phase == StagePhase::AscendUp || self.stage_phase == StagePhase::DescendDown;
+        if is_vertical && !inside_chamber {
+            let speed_tot = self.scroll_vx.abs() + self.scroll_vy.abs() + 0.001;
+            let wall_ratio = (self.scroll_vy.abs() / speed_tot).sqrt().clamp(0.0, 1.0);
+            let wall_w = ((56.0 * wall_ratio) as usize).min(56);
+
+            if wall_w > 0 {
+                let v_scroll = (s_y.abs() * 0.85) as usize % 64;
+                let (w_base, w_trim, w_accent) = match stage {
+                    1 => (0xDD1E293B, 0xFFC74C0C, 0xFF00E5FF), // Acero y vigas urbanas
+                    2 => (0xEE241710, 0xFFFF5500, 0xFFFFD700), // Muros refractarios y magma
+                    3 => (0xEE3B1408, 0xFF9A3412, 0xFFFF3300), // Desfiladero rocoso marciano
+                    4 => (0xDD083344, 0xFF38BDF8, 0xFF00FFFF), // Paredes de hielo y bio-zarcillos
+                    5 => (0xEE422006, 0xFFF59E0B, 0xFFFFEE55), // Disipadores cerámicos solares
+                    6 => (0xEE291D0E, 0xFFEAB308, 0xFF39FF14), // Celosía de elevador de Titán
+                    7 => (0xEE1E172E, 0xFF9333EA, 0xFFFF007F), // Trinchera blindada Dreadnought
+                    _ => (0xEE090D16, 0xFFFF0055, 0xFF00F0FF), // Pilares cuánticos de singularidad
+                };
+
+                // Pared Izquierda (0 .. wall_w) y Derecha (w - wall_w .. w)
+                self.draw_rect(buffer, 0, 0, wall_w, h, w_base);
+                self.draw_rect(buffer, (w - wall_w) as isize, 0, wall_w, h, w_base);
+                self.draw_rect(buffer, (wall_w as isize - 2).max(0), 0, 2, h, w_trim);
+                self.draw_rect(buffer, (w - wall_w) as isize, 0, 2, h, w_trim);
+
+                // Estructuras transversales y balizas repetidas periódicamente
+                for b_i in 0..(h / 64 + 2) {
+                    let by = (b_i * 64) as isize + v_scroll as isize - 64;
+                    self.draw_rect(buffer, 0, by, wall_w, 8, w_trim);
+                    self.draw_rect(buffer, (w - wall_w) as isize, by, wall_w, 8, w_trim);
+                    self.draw_circle(buffer, (wall_w as isize - 6).max(4), by + 4, 3, w_accent);
+                    self.draw_circle(buffer, (w - wall_w) as isize + 6, by + 4, 3, w_accent);
+                }
             }
         }
     }
@@ -1064,7 +1369,7 @@ impl Renderer {
         core_color: u32,
         outer_color: u32,
     ) {
-        let steps = 12;
+        let steps = 14;
         let perp_x = -dir_y;
         let perp_y = dir_x;
 
@@ -1073,9 +1378,9 @@ impl Renderer {
             let seg_x = start_x + dir_x * (t_ratio * length);
             let seg_y = start_y + dir_y * (t_ratio * length);
 
-            let shock = (self.anim_time * 36.0 + i as f32 * 1.5).sin() * 0.25;
-            let w_outer = (max_width * (1.0 - t_ratio) * (1.0 + shock)).max(0.5);
-            let w_core = (w_outer * 0.45).max(0.5);
+            let shock = (self.anim_time * 38.0 + i as f32 * 1.6).sin() * 0.28;
+            let w_outer = (max_width * (1.0 - t_ratio * 0.9) * (1.0 + shock)).max(0.6);
+            let w_core = (w_outer * 0.42).max(0.5);
 
             let p1_out_x = seg_x + perp_x * w_outer;
             let p1_out_y = seg_y + perp_y * w_outer;
@@ -1087,11 +1392,30 @@ impl Renderer {
             let p2_core_x = seg_x - perp_x * w_core;
             let p2_core_y = seg_y - perp_y * w_core;
 
-            self.draw_aa_capsule(buffer, p1_out_x, p1_out_y, p2_out_x, p2_out_y, 1.8, outer_color);
+            self.draw_aa_capsule(buffer, p1_out_x, p1_out_y, p2_out_x, p2_out_y, 1.9, outer_color);
             self.draw_aa_capsule(buffer, p1_core_x, p1_core_y, p2_core_x, p2_core_y, 1.2, core_color);
+
+            // Rombos de choque ("shock diamonds") luminiscentes en postcombustión
+            if i % 3 == 1 && t_ratio < 0.75 {
+                let d_size = w_core * 1.25;
+                self.draw_aa_capsule(buffer, seg_x, seg_y - d_size, seg_x, seg_y + d_size, 0.9, 0xFFFFFFFF);
+            }
         }
 
-        self.draw_volumetric_light(buffer, start_x, start_y, max_width * 3.2, outer_color, 0.7);
+        // Micro-chispas de plasma de alta velocidad eyectadas en la estela del propulsor
+        for s in 0..6 {
+            let spark_t = (self.anim_time * 24.0 + s as f32 * 0.63) % 1.0;
+            let sp_dist = length * (0.60 + spark_t * 0.90);
+            let jitter = (self.anim_time * 36.0 + s as f32 * 2.3).sin() * (max_width * 0.75);
+            let sp_x = start_x + dir_x * sp_dist + perp_x * jitter;
+            let sp_y = start_y + dir_y * sp_dist + perp_y * jitter;
+            let sp_len = (3.5 * (1.0 - spark_t)).max(1.0);
+            let sp_col = if s % 2 == 0 { 0xFFFFFFFF } else { outer_color };
+            self.draw_aa_capsule(buffer, sp_x, sp_y, sp_x + dir_x * sp_len, sp_y + dir_y * sp_len, 0.8, sp_col);
+        }
+
+        self.draw_volumetric_light(buffer, start_x, start_y, max_width * 3.6, outer_color, 0.85);
+        self.draw_volumetric_light(buffer, start_x + dir_x * 4.0, start_y + dir_y * 4.0, max_width * 1.8, 0xFFFFFFFF, 0.95);
     }
 
     /// Retícula holográfica de puntería HUD proyectada en el espacio de juego
@@ -1289,60 +1613,151 @@ impl Renderer {
         }
     }
 
-    /// 3. Torretas Antiaéreas (Tamaño Fijo con Anclaje a Techo, Suelo o Paredes Laterales)
+    /// Base de anclaje físico reforzado para torretas (suelo, techo o paredes)
+    /// Garantiza que nunca aparezcan suspendidas en el vacío: cimientos de hormigón armado,
+    /// zócalos de acero, garras hidráulicas y vigas estructurales con balizas de advertencia.
+    pub fn draw_turret_mounting_base(
+        &self,
+        buffer: &mut [u32],
+        ex: f32,
+        ey: f32,
+        anchor: EnemyAnchor,
+        _anim_time: f32,
+    ) {
+        match anchor {
+            EnemyAnchor::Floor => {
+                let base_y = ey + 14.0;
+                let ground_y = (ey + 55.0).min(self.height as f32);
+                // 1. Cimiento de hormigón armado inferior
+                let foot_w = 46.0;
+                self.draw_rect(buffer, (ex - foot_w * 0.5) as isize, base_y as isize + 10, foot_w as usize, (ground_y - base_y - 8.0).max(12.0) as usize, 0xFF334155);
+                self.draw_rect(buffer, (ex - foot_w * 0.5) as isize, base_y as isize + 10, foot_w as usize, 2, 0xFF64748B);
+
+                // 2. Zócalo de acero y brida mecánica de anclaje con pernos
+                self.draw_aa_capsule(buffer, ex - 22.0, base_y + 10.0, ex + 22.0, base_y + 10.0, 4.0, 0xFF1E293B);
+                self.draw_aa_capsule(buffer, ex - 18.0, base_y + 8.0, ex + 18.0, base_y + 8.0, 2.0, 0xFF94A3B8);
+
+                // 3. Brazos hidráulicos dobles con pistones cromados
+                self.draw_aa_capsule(buffer, ex - 18.0, base_y + 8.0, ex - 8.0, ey + 4.0, 4.0, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, ex - 16.0, base_y + 6.0, ex - 8.0, ey + 4.0, 1.8, 0xFF38BDF8);
+                self.draw_aa_capsule(buffer, ex + 18.0, base_y + 8.0, ex + 8.0, ey + 4.0, 4.0, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, ex + 16.0, base_y + 6.0, ex + 8.0, ey + 4.0, 1.8, 0xFF38BDF8);
+
+                // 4. Rodamiento central giratorio (gimbal base)
+                self.draw_aa_circle(buffer, ex, ey + 7.0, 8.0, 0xFF0F172A, 0xFF475569, 1.8);
+            }
+            EnemyAnchor::Ceiling => {
+                let ceiling_y = 0.0f32;
+                let bracket_y = ey - 14.0;
+                // 1. Viga industrial en I y celosía estructural que desciende desde el techo
+                self.draw_rect(buffer, (ex - 9.0) as isize, ceiling_y as isize, 18, (bracket_y - ceiling_y).max(14.0) as usize, 0xFF1E293B);
+                self.draw_rect(buffer, (ex - 10.0) as isize, ceiling_y as isize, 2, (bracket_y - ceiling_y).max(14.0) as usize, 0xFF475569);
+                self.draw_rect(buffer, (ex + 8.0) as isize, ceiling_y as isize, 2, (bracket_y - ceiling_y).max(14.0) as usize, 0xFF475569);
+
+                // Tirantes diagonales en cruz (X-truss)
+                for gy in (0..(bracket_y as usize)).step_by(18) {
+                    let gy_f = gy as f32;
+                    if gy_f + 16.0 <= bracket_y {
+                        self.draw_aa_capsule(buffer, ex - 8.0, gy_f, ex + 8.0, gy_f + 16.0, 1.2, 0xFF334155);
+                        self.draw_aa_capsule(buffer, ex + 8.0, gy_f, ex - 8.0, gy_f + 16.0, 1.2, 0xFF334155);
+                    }
+                }
+
+                // Franjas de precaución y zócalo de acero superior
+                self.draw_rect(buffer, (ex - 20.0) as isize, bracket_y as isize - 8, 40, 6, 0xFFFFD700);
+                self.draw_rect(buffer, (ex - 14.0) as isize, bracket_y as isize - 8, 6, 6, 0xFF111111);
+                self.draw_rect(buffer, (ex + 6.0) as isize, bracket_y as isize - 8, 6, 6, 0xFF111111);
+
+                // Garras hidráulicas suspendidas que aseguran el domo
+                self.draw_aa_capsule(buffer, ex - 18.0, bracket_y, ex - 7.0, ey - 4.0, 4.0, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, ex - 16.0, bracket_y, ex - 7.0, ey - 4.0, 1.8, 0xFF38BDF8);
+                self.draw_aa_capsule(buffer, ex + 18.0, bracket_y, ex + 7.0, ey - 4.0, 4.0, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, ex + 16.0, bracket_y, ex + 7.0, ey - 4.0, 1.8, 0xFF38BDF8);
+
+                // Baliza de advertencia roja pulsante
+                self.draw_circle(buffer, ex as isize, bracket_y as isize - 10, 3, 0xFFFF0033);
+                self.draw_point_light(buffer, ex as isize, bracket_y as isize - 10, 14, 0xFFFF0033, 0.6);
+            }
+            EnemyAnchor::LeftWall => {
+                let wall_x = 0.0f32;
+                let bracket_x = ex - 14.0;
+                // Soporte cantilever y viga que penetra desde la pared izquierda
+                self.draw_rect(buffer, wall_x as isize, (ey - 9.0) as isize, (bracket_x - wall_x).max(12.0) as usize, 18, 0xFF1E293B);
+                self.draw_rect(buffer, wall_x as isize, (ey - 10.0) as isize, (bracket_x - wall_x).max(12.0) as usize, 2, 0xFF475569);
+                self.draw_rect(buffer, wall_x as isize, (ey + 8.0) as isize, (bracket_x - wall_x).max(12.0) as usize, 2, 0xFF475569);
+
+                // Placa de fijación reforzada y garras hidráulicas
+                self.draw_aa_capsule(buffer, bracket_x, ey - 18.0, bracket_x, ey + 18.0, 4.5, 0xFF334155);
+                self.draw_aa_capsule(buffer, bracket_x, ey - 14.0, ex - 4.0, ey - 6.0, 3.8, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, bracket_x, ey - 14.0, ex - 4.0, ey - 6.0, 1.8, 0xFF38BDF8);
+                self.draw_aa_capsule(buffer, bracket_x, ey + 14.0, ex - 4.0, ey + 6.0, 3.8, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, bracket_x, ey + 14.0, ex - 4.0, ey + 6.0, 1.8, 0xFF38BDF8);
+            }
+            EnemyAnchor::RightWall => {
+                let right_w = self.width as f32;
+                let bracket_x = ex + 14.0;
+                // Soporte cantilever desde el borde derecho
+                self.draw_rect(buffer, bracket_x as isize, (ey - 9.0) as isize, (right_w - bracket_x).max(12.0) as usize, 18, 0xFF1E293B);
+                self.draw_rect(buffer, bracket_x as isize, (ey - 10.0) as isize, (right_w - bracket_x).max(12.0) as usize, 2, 0xFF475569);
+                self.draw_rect(buffer, bracket_x as isize, (ey + 8.0) as isize, (right_w - bracket_x).max(12.0) as usize, 2, 0xFF475569);
+
+                // Placa de fijación y garras hidráulicas
+                self.draw_aa_capsule(buffer, bracket_x, ey - 18.0, bracket_x, ey + 18.0, 4.5, 0xFF334155);
+                self.draw_aa_capsule(buffer, bracket_x, ey - 14.0, ex + 4.0, ey - 6.0, 3.8, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, bracket_x, ey - 14.0, ex + 4.0, ey - 6.0, 1.8, 0xFF38BDF8);
+                self.draw_aa_capsule(buffer, bracket_x, ey + 14.0, ex + 4.0, ey + 6.0, 3.8, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, bracket_x, ey + 14.0, ex + 4.0, ey + 6.0, 1.8, 0xFF38BDF8);
+            }
+            EnemyAnchor::FreeFlying => {
+                // Plataforma antigravedad militarizada con propulsores estabilizadores
+                self.draw_aa_circle(buffer, ex, ey + 12.0, 10.0, 0xFF0F172A, 0xFF38BDF8, 1.8);
+                self.draw_aa_capsule(buffer, ex - 16.0, ey + 14.0, ex + 16.0, ey + 14.0, 3.0, 0xFF1E293B);
+                self.draw_plasma_plume(buffer, ex - 10.0, ey + 14.0, 0.0, 1.0, 10.0, 3.5, 0xFFFFFFFF, 0xFF00E5FF);
+                self.draw_plasma_plume(buffer, ex + 10.0, ey + 14.0, 0.0, 1.0, 10.0, 3.5, 0xFFFFFFFF, 0xFF00E5FF);
+            }
+        }
+    }
+
+    /// 3. Torretas de Esporas Biomecánicas (Vaina pulsante con cañón bio-químico sobre anclaje rígido)
     pub fn draw_spore_pod_turret(
         &self,
         buffer: &mut [u32],
         enemy: &Enemy,
-        _anim_time: f32,
+        anim_time: f32,
     ) {
         let ex = enemy.x;
         let ey = enemy.y;
 
-        match enemy.anchor {
-            EnemyAnchor::LeftWall => {
-                let anchor_x = ex - 14.0;
-                self.draw_aa_capsule(buffer, anchor_x, ey - 18.0, anchor_x, ey + 18.0, 4.0, 0xFF1E293B);
-                self.draw_aa_capsule(buffer, anchor_x, ey - 12.0, ex, ey - 6.0, 3.5, 0xFF0F172A);
-                self.draw_aa_capsule(buffer, anchor_x, ey + 12.0, ex, ey + 6.0, 3.5, 0xFF0F172A);
-            }
-            EnemyAnchor::RightWall => {
-                let anchor_x = ex + 14.0;
-                self.draw_aa_capsule(buffer, anchor_x, ey - 18.0, anchor_x, ey + 18.0, 4.0, 0xFF1E293B);
-                self.draw_aa_capsule(buffer, anchor_x, ey - 12.0, ex, ey - 6.0, 3.5, 0xFF0F172A);
-                self.draw_aa_capsule(buffer, anchor_x, ey + 12.0, ex, ey + 6.0, 3.5, 0xFF0F172A);
-            }
-            EnemyAnchor::Ceiling => {
-                let anchor_y = ey - 18.0;
-                self.draw_aa_capsule(buffer, ex - 18.0, anchor_y, ex + 18.0, anchor_y, 4.0, 0xFF1E293B);
-                self.draw_aa_capsule(buffer, ex - 12.0, anchor_y, ex - 6.0, ey, 3.5, 0xFF0F172A);
-                self.draw_aa_capsule(buffer, ex + 12.0, anchor_y, ex + 6.0, ey, 3.5, 0xFF0F172A);
-            }
-            _ => {
-                let anchor_y = ey + 18.0;
-                self.draw_aa_capsule(buffer, ex - 18.0, anchor_y, ex + 18.0, anchor_y, 4.0, 0xFF1E293B);
-                self.draw_aa_capsule(buffer, ex - 12.0, anchor_y, ex - 6.0, ey, 3.5, 0xFF0F172A);
-                self.draw_aa_capsule(buffer, ex + 12.0, anchor_y, ex + 6.0, ey, 3.5, 0xFF0F172A);
-            }
-        }
+        // 1. Dibuja primero el soporte estructural firmemente anclado
+        self.draw_turret_mounting_base(buffer, ex, ey, enemy.anchor, anim_time);
 
-        let bulb_r = 16.0;
+        // 2. Vaina de esporas pulsante ("respiración" orgánica biomecánica)
+        let breath = (anim_time * 4.5).sin() * 1.5;
+        let bulb_r = 16.0 + breath;
 
         self.draw_aa_circle(buffer, ex, ey, bulb_r, 0xFF2E1065, 0xFF581C87, 2.5);
+        self.draw_aa_circle(buffer, ex, ey, bulb_r - 3.5, 0xFF1A0B2E, 0xFF7E22CE, 1.5);
 
-        let sac_r = 10.4;
+        // 3. Saco biogénico incandescente con núcleo de esporas
+        let sac_r = 10.0 + breath * 0.7;
         let sac_col = 0xFF10B981;
         let inner_col = 0xFF34D399;
         self.draw_aa_circle(buffer, ex, ey, sac_r, inner_col, sac_col, 1.5);
-        self.draw_volumetric_light(buffer, ex, ey, bulb_r + 18.0, sac_col, 0.55);
+        self.draw_volumetric_light(buffer, ex, ey, bulb_r + 20.0, sac_col, 0.65);
 
-        let aim_x = ex + enemy.aim_angle.cos() * (bulb_r + 2.0);
-        let aim_y = ey + enemy.aim_angle.sin() * (bulb_r + 2.0);
-        self.draw_aa_capsule(buffer, ex, ey, aim_x, aim_y, 4.0, 0xFF020617);
-        self.draw_aa_circle(buffer, aim_x, aim_y, 3.0, 0xFFFFFFFF, sac_col, 1.0);
+        // 4. Cañón esporífero articulado que apunta dinámicamente
+        let aim_cos = enemy.aim_angle.cos();
+        let aim_sin = enemy.aim_angle.sin();
+        let barrel_len = bulb_r + 6.0;
+        let aim_x = ex + aim_cos * barrel_len;
+        let aim_y = ey + aim_sin * barrel_len;
+
+        self.draw_aa_capsule(buffer, ex, ey, aim_x, aim_y, 4.5, 0xFF0F172A);
+        self.draw_aa_capsule(buffer, ex + aim_cos * (bulb_r * 0.5), ey + aim_sin * (bulb_r * 0.5), aim_x, aim_y, 2.2, 0xFF34D399);
+        self.draw_aa_circle(buffer, aim_x, aim_y, 3.5, 0xFFFFFFFF, sac_col, 1.2);
     }
 
-    /// 4. Flores Mecánicas Trampa con Pétalos Navaja y Estambre Láser (Tamaño Fijo)
+    /// 4. Flores Mecánicas Trampa con Pétalos Navaja y Estambre Láser (Tamaño Fijo con Tallo Arraigado)
     pub fn draw_flower_trap(
         &self,
         buffer: &mut [u32],
@@ -1356,26 +1771,30 @@ impl Renderer {
         let base_radius = 20.0;
         let open_factor = 0.5;
 
+        // Tallo biomecánico extendido firmemente a la superficie real
         match enemy.anchor {
             EnemyAnchor::LeftWall => {
-                let stem_base_x = ex - 22.0;
+                let stem_base_x = 0.0f32;
+                self.draw_rect(buffer, 0, (ey - 6.0) as isize, (ex - stem_base_x) as usize, 12, 0xFF14532D);
                 self.draw_aa_capsule(buffer, stem_base_x, ey, ex, ey, 5.0, 0xFF14532D);
                 self.draw_aa_capsule(buffer, stem_base_x, ey, ex, ey, 2.0, 0xFF22C55E);
             }
             EnemyAnchor::RightWall => {
-                let stem_base_x = ex + 22.0;
+                let stem_base_x = self.width as f32;
+                self.draw_rect(buffer, ex as isize, (ey - 6.0) as isize, (stem_base_x - ex) as usize, 12, 0xFF14532D);
                 self.draw_aa_capsule(buffer, stem_base_x, ey, ex, ey, 5.0, 0xFF14532D);
                 self.draw_aa_capsule(buffer, stem_base_x, ey, ex, ey, 2.0, 0xFF22C55E);
             }
             EnemyAnchor::Ceiling => {
-                let stem_base_y = ey - 22.0;
-                self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 5.0, 0xFF14532D);
-                self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 2.0, 0xFF22C55E);
+                self.draw_rect(buffer, (ex - 6.0) as isize, 0, 12, ey as usize, 0xFF14532D);
+                self.draw_aa_capsule(buffer, ex, 0.0, ex, ey, 5.0, 0xFF14532D);
+                self.draw_aa_capsule(buffer, ex, 0.0, ex, ey, 2.0, 0xFF22C55E);
             }
             _ => {
-                let stem_base_y = ey + 22.0;
-                self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 5.0, 0xFF14532D);
-                self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 2.0, 0xFF22C55E);
+                let ground_y = (ey + 45.0).min(self.height as f32);
+                self.draw_rect(buffer, (ex - 6.0) as isize, ey as isize, 12, (ground_y - ey) as usize, 0xFF14532D);
+                self.draw_aa_capsule(buffer, ex, ground_y, ex, ey, 5.0, 0xFF14532D);
+                self.draw_aa_capsule(buffer, ex, ground_y, ex, ey, 2.0, 0xFF22C55E);
             }
         }
 
@@ -1448,6 +1867,218 @@ impl Renderer {
         self.draw_volumetric_light(buffer, sensor_x, ey, 26.0, 0xFFFF0033, 0.75);
     }
 
+    /// Dron de Patrulla y Reconocimiento con turbinas VTOL ducted-fan y cono de foco sensor
+    pub fn draw_patrol_drone(
+        &self,
+        buffer: &mut [u32],
+        enemy: &Enemy,
+        anim_time: f32,
+    ) {
+        let ex = enemy.x;
+        let ey = enemy.y;
+        let tilt_y = (enemy.vy * 0.05).clamp(-6.0, 6.0);
+        let hover_y = (anim_time * 5.0).sin() * 2.0;
+        let cy = ey + hover_y;
+
+        // Turbinas ducted-fan laterales en las alas
+        let t_rot = anim_time * 28.0;
+        let fan_blade = (t_rot.sin() * 5.0).abs() + 2.0;
+
+        let left_w_y = cy - 14.0 + tilt_y;
+        let right_w_y = cy + 14.0 + tilt_y;
+
+        // Anillos de contención de turbinas
+        self.draw_aa_circle(buffer, ex, left_w_y, 7.5, 0xFF0F172A, 0xFF38BDF8, 1.8);
+        self.draw_aa_circle(buffer, ex, right_w_y, 7.5, 0xFF0F172A, 0xFF38BDF8, 1.8);
+        self.draw_aa_capsule(buffer, ex - fan_blade, left_w_y, ex + fan_blade, left_w_y, 1.2, 0xFF00E5FF);
+        self.draw_aa_capsule(buffer, ex - fan_blade, right_w_y, ex + fan_blade, right_w_y, 1.2, 0xFF00E5FF);
+
+        // Estructura alar que conecta las turbinas al fuselaje
+        self.draw_aa_capsule(buffer, ex - 6.0, cy, ex, left_w_y, 3.5, 0xFF1E293B);
+        self.draw_aa_capsule(buffer, ex - 6.0, cy, ex, right_w_y, 3.5, 0xFF1E293B);
+
+        // Fuselaje furtivo aerodinámico
+        self.draw_aa_capsule(buffer, ex + 10.0, cy, ex - 14.0, cy, 6.5, 0xFF0F172A);
+        self.draw_aa_capsule(buffer, ex + 6.0, cy, ex - 12.0, cy, 4.5, 0xFF334155);
+        self.draw_aa_capsule(buffer, ex + 4.0, cy - 2.0, ex - 8.0, cy - 2.0, 1.8, 0xFF38BDF8);
+
+        // Cúpula del sensor de barrido frontal
+        let sensor_x = ex - 14.0;
+        self.draw_aa_circle(buffer, sensor_x, cy, 4.0, 0xFFFFCC00, 0xFFFFFFFF, 1.0);
+        self.draw_volumetric_light(buffer, sensor_x, cy, 22.0, 0xFFFFCC00, 0.65);
+
+        // Cono de foco de búsqueda hacia la izquierda
+        let beam_len = 36.0;
+        self.draw_aa_capsule(buffer, sensor_x, cy, sensor_x - beam_len, cy - 10.0, 0.8, 0x44FFD700);
+        self.draw_aa_capsule(buffer, sensor_x, cy, sensor_x - beam_len, cy + 10.0, 0.8, 0x44FFD700);
+
+        // Propulsor de cola con pluma de plasma
+        self.draw_plasma_plume(buffer, ex + 11.0, cy, 1.0, 0.0, 12.0, 4.0, 0xFFFFFFFF, 0xFF00E5FF);
+    }
+
+    /// Avispa Kamikaze Cibernética: Vuelo errático hiperacelerado, alas translúcidas zumbantes y reactor explosivo
+    pub fn draw_kamikaze_wasp(
+        &self,
+        buffer: &mut [u32],
+        enemy: &Enemy,
+        anim_time: f32,
+    ) {
+        let ex = enemy.x;
+        let ey = enemy.y;
+        let wing_flap = (anim_time * 55.0).sin();
+        let wing_span = 12.0 * wing_flap;
+
+        // Alas biónicas translúcidas vibrando a alta frecuencia
+        self.draw_aa_capsule(buffer, ex + 2.0, ey - 2.0, ex - 6.0, ey - 10.0 + wing_span, 1.6, 0x9900E5FF);
+        self.draw_aa_capsule(buffer, ex + 2.0, ey + 2.0, ex - 6.0, ey + 10.0 - wing_span, 1.6, 0x9900E5FF);
+        self.draw_aa_capsule(buffer, ex + 5.0, ey - 1.0, ex - 2.0, ey - 14.0 + wing_span * 0.7, 1.0, 0xFFFFFFFF);
+        self.draw_aa_capsule(buffer, ex + 5.0, ey + 1.0, ex - 2.0, ey + 14.0 - wing_span * 0.7, 1.0, 0xFFFFFFFF);
+
+        // Tórax mecanizado de quitina oscura
+        self.draw_aa_circle(buffer, ex, ey, 6.2, 0xFF2E1065, 0xFF581C87, 1.5);
+
+        // Abdomen reactor supercalentado (bomba kamikaze volátil que parpadea en rojo/naranja)
+        let heat_pulse = (anim_time * 16.0).sin().abs();
+        let heat_col = Self::lerp_color(0xFFFF3300, 0xFFFFCC00, heat_pulse);
+        let abd_x = ex + 10.0;
+        self.draw_aa_circle(buffer, abd_x, ey, 5.5, heat_col, 0xFFFFFFFF, 1.2);
+        self.draw_volumetric_light(buffer, abd_x, ey, 22.0, heat_col, 0.75);
+
+        // Ojos facetados rojos y aguijón electromagnético frontal
+        let head_x = ex - 7.0;
+        self.draw_aa_circle(buffer, head_x, ey, 3.8, 0xFF020617, 0xFFFF0033, 1.2);
+        let stinger_tip_x = head_x - 9.0;
+        self.draw_aa_capsule(buffer, head_x, ey, stinger_tip_x, ey, 1.4, 0xFFFFFFFF);
+        self.draw_aa_circle(buffer, stinger_tip_x, ey, 1.8, 0xFFFFFFFF, 0xFFFF0055, 0.8);
+
+        // Chispas de sobrecarga saliendo del reactor
+        let spark_x = abd_x + (anim_time * 30.0).sin() * 5.0;
+        let spark_y = ey + (anim_time * 25.0).cos() * 5.0;
+        self.draw_aa_circle(buffer, spark_x, spark_y, 1.2, 0xFFFFFFFF, heat_col, 0.5);
+    }
+
+    /// Torreta Láser Pesada de Asedio: Cúpula blindada, cañón gemelo con bobinas aceleradoras y haz guía
+    pub fn draw_laser_turret(
+        &self,
+        buffer: &mut [u32],
+        enemy: &Enemy,
+        anim_time: f32,
+    ) {
+        let ex = enemy.x;
+        let ey = enemy.y;
+
+        // 1. Anclaje sólido a la arquitectura del nivel
+        self.draw_turret_mounting_base(buffer, ex, ey, enemy.anchor, anim_time);
+
+        // 2. Cúpula blindada giratoria con rejillas de refrigeración
+        let dome_r = 15.5;
+        self.draw_aa_circle(buffer, ex, ey, dome_r, 0xFF1E293B, 0xFF475569, 2.2);
+        self.draw_aa_circle(buffer, ex, ey, dome_r - 4.0, 0xFF0F172A, 0xFF334155, 1.5);
+
+        // Franjas de advertencia táctica en la cúpula
+        self.draw_aa_capsule(buffer, ex - 9.0, ey - 3.0, ex + 9.0, ey - 3.0, 1.2, 0xFFFFD700);
+
+        // 3. Sensor óptico frontal (ojo escáner rojo)
+        let eye_dist = 6.0;
+        let eye_x = ex + enemy.aim_angle.cos() * eye_dist;
+        let eye_y = ey + enemy.aim_angle.sin() * eye_dist;
+        self.draw_aa_circle(buffer, eye_x, eye_y, 3.2, 0xFFFF0033, 0xFFFFFFFF, 0.8);
+        self.draw_volumetric_light(buffer, eye_x, eye_y, 14.0, 0xFFFF0033, 0.6);
+
+        // 4. Doble Cañón Láser con bobinas electromagnéticas
+        let cos_a = enemy.aim_angle.cos();
+        let sin_a = enemy.aim_angle.sin();
+        let perp_x = -sin_a * 4.5;
+        let perp_y = cos_a * 4.5;
+        let barrel_len = 22.0;
+
+        let b1_start_x = ex + perp_x;
+        let b1_start_y = ey + perp_y;
+        let b1_end_x = b1_start_x + cos_a * barrel_len;
+        let b1_end_y = b1_start_y + sin_a * barrel_len;
+
+        let b2_start_x = ex - perp_x;
+        let b2_start_y = ey - perp_y;
+        let b2_end_x = b2_start_x + cos_a * barrel_len;
+        let b2_end_y = b2_start_y + sin_a * barrel_len;
+
+        self.draw_aa_capsule(buffer, b1_start_x, b1_start_y, b1_end_x, b1_end_y, 2.6, 0xFF0F172A);
+        self.draw_aa_capsule(buffer, b2_start_x, b2_start_y, b2_end_x, b2_end_y, 2.6, 0xFF0F172A);
+
+        // Bobinas de energía cian pulsante
+        let coil_pulse = (anim_time * 8.0).sin().abs();
+        let coil_col = Self::lerp_color(0xFF0099FF, 0xFF00F0FF, coil_pulse);
+        self.draw_aa_capsule(buffer, b1_start_x + cos_a * 6.0, b1_start_y + sin_a * 6.0, b1_end_x - cos_a * 2.0, b1_end_y - sin_a * 2.0, 1.2, coil_col);
+        self.draw_aa_capsule(buffer, b2_start_x + cos_a * 6.0, b2_start_y + sin_a * 6.0, b2_end_x - cos_a * 2.0, b2_end_y - sin_a * 2.0, 1.2, coil_col);
+
+        // Boquillas emisoras y haz láser de puntería tenue
+        self.draw_aa_circle(buffer, b1_end_x, b1_end_y, 2.2, 0xFFFFFFFF, 0xFF00E5FF, 0.8);
+        self.draw_aa_circle(buffer, b2_end_x, b2_end_y, 2.2, 0xFFFFFFFF, 0xFF00E5FF, 0.8);
+
+        let aim_trace_len = 45.0;
+        let tr_x = ex + cos_a * (barrel_len + aim_trace_len);
+        let tr_y = ey + sin_a * (barrel_len + aim_trace_len);
+        self.draw_aa_capsule(buffer, ex + cos_a * barrel_len, ey + sin_a * barrel_len, tr_x, tr_y, 0.6, 0x5500F0FF);
+    }
+
+    /// Cangrejo Cibernético Blindado: Caminante cuadrúpedo con blindaje reactivo, pinzas trituradoras y cañón
+    pub fn draw_cyber_crab(
+        &self,
+        buffer: &mut [u32],
+        enemy: &Enemy,
+        anim_time: f32,
+    ) {
+        let ex = enemy.x;
+        let ey = enemy.y;
+        let r = enemy.radius;
+        let leg_step = (anim_time * 6.0).sin();
+
+        // 4 Patas hidráulicas articuladas
+        let leg_angles = [
+            (-0.7, -18.0 + leg_step * 4.0),
+            (-0.3, -22.0 - leg_step * 4.0),
+            (0.3, 22.0 + leg_step * 4.0),
+            (0.7, 18.0 - leg_step * 4.0),
+        ];
+
+        for (angle_off, spread_y) in leg_angles {
+            let hip_x = ex + angle_off * (r * 0.5);
+            let hip_y = ey + spread_y * 0.35;
+            let knee_x = hip_x - 12.0;
+            let knee_y = ey + spread_y * 0.8;
+            let foot_x = knee_x - 8.0;
+            let foot_y = ey + spread_y;
+
+            self.draw_aa_capsule(buffer, hip_x, hip_y, knee_x, knee_y, 3.8, 0xFF0F172A);
+            self.draw_aa_capsule(buffer, hip_x, hip_y, knee_x, knee_y, 1.6, 0xFF64748B);
+            self.draw_aa_capsule(buffer, knee_x, knee_y, foot_x, foot_y, 2.8, 0xFF1E293B);
+            self.draw_aa_circle(buffer, foot_x, foot_y, 2.0, 0xFFFF5500, 0xFFFFFFFF, 0.6);
+        }
+
+        // Caparazón acorazado hexagonal con placas balísticas
+        self.draw_aa_circle(buffer, ex, ey, r * 0.82, 0xFF1E293B, 0xFFC2410C, 2.8);
+        self.draw_aa_circle(buffer, ex, ey, r * 0.62, 0xFF0F172A, 0xFFEA580C, 1.8);
+
+        // Franjas de advertencia industrial en el lomo
+        self.draw_aa_capsule(buffer, ex - 8.0, ey - 4.0, ex + 8.0, ey - 4.0, 1.8, 0xFFFFD700);
+        self.draw_aa_capsule(buffer, ex - 8.0, ey + 4.0, ex + 8.0, ey + 4.0, 1.8, 0xFFFFD700);
+
+        // Pinzas de choque dobles al frente
+        let claw_cycle = (anim_time * 5.0).sin().abs() * 6.0;
+        let c_top_y = ey - 10.0 - claw_cycle;
+        let c_bot_y = ey + 10.0 + claw_cycle;
+
+        self.draw_aa_capsule(buffer, ex - r * 0.5, ey - 6.0, ex - r * 0.8 - 6.0, c_top_y, 3.5, 0xFF334155);
+        self.draw_aa_capsule(buffer, ex - r * 0.8 - 6.0, c_top_y, ex - r - 8.0, ey - 4.0, 2.4, 0xFFEA580C);
+
+        self.draw_aa_capsule(buffer, ex - r * 0.5, ey + 6.0, ex - r * 0.8 - 6.0, c_bot_y, 3.5, 0xFF334155);
+        self.draw_aa_capsule(buffer, ex - r * 0.8 - 6.0, c_bot_y, ex - r - 8.0, ey + 4.0, 2.4, 0xFFEA580C);
+
+        // Visor de combate rojo
+        self.draw_aa_circle(buffer, ex - r * 0.65, ey, 4.2, 0xFFFF0033, 0xFFFFFFFF, 1.0);
+        self.draw_volumetric_light(buffer, ex - r * 0.65, ey, 20.0, 0xFFFF0033, 0.7);
+    }
+
     /// 6. Leviatán Mecánico Biomecánico de Asalto (Mecha Leviathan)
     pub fn draw_biomech_leviathan(
         &self,
@@ -1494,37 +2125,58 @@ impl Renderer {
         let ex = enemy.x;
         let ey = enemy.y;
         let r = enemy.radius;
+        let pulse = (anim_time * 5.0).sin().abs();
 
-        // Aura de energía dorada pulsante
-        let pulse = (anim_time * 6.0).sin().abs();
+        // 1. Halo áureo volumétrico multicapa pulsante
         let glow_col = 0xFFFFD700;
-        self.draw_volumetric_light(buffer, ex, ey, r * 2.2, glow_col, 0.45 + pulse * 0.25);
+        self.draw_volumetric_light(buffer, ex, ey, r * 2.6, glow_col, 0.55 + pulse * 0.35);
+        self.draw_volumetric_light(buffer, ex, ey, r * 1.4, 0xFFFFFBEB, 0.8);
 
-        // Chasis blindado dorado y cobrizo
-        self.draw_aa_circle(buffer, ex, ey, r, 0xFFB8860B, 0xFFFFD700, 2.5);
-        self.draw_aa_circle(buffer, ex, ey, r - 4.0, 0xFF451A03, 0xFFD97706, 1.8);
-
-        // Propulsores traseros dobles con plumas de plasma cian/blanco
-        let prop_x = ex + r * 0.7;
-        let prop_y1 = ey - 8.0;
-        let prop_y2 = ey + 8.0;
-        self.draw_aa_capsule(buffer, prop_x, prop_y1, prop_x + 6.0, prop_y1, 3.0, 0xFF1E293B);
-        self.draw_aa_capsule(buffer, prop_x, prop_y2, prop_x + 6.0, prop_y2, 3.0, 0xFF1E293B);
-        self.draw_plasma_plume(buffer, prop_x + 6.0, prop_y1, 1.0, 0.0, 14.0 + pulse * 6.0, 4.0, 0xFFFFFFFF, 0xFF00E5FF);
-        self.draw_plasma_plume(buffer, prop_x + 6.0, prop_y2, 1.0, 0.0, 14.0 + pulse * 6.0, 4.0, 0xFFFFFFFF, 0xFF00E5FF);
-
-        // Cápsula contenedora de suministros en el centro que rota
-        let rot = anim_time * 4.0;
-        for i in 0..4 {
-            let a = rot + (i as f32) * (std::f32::consts::PI * 0.5);
-            let cx = ex + a.cos() * 7.0;
-            let cy = ey + a.sin() * 7.0;
-            self.draw_aa_circle(buffer, cx, cy, 2.5, 0xFFFFFFFF, 0xFFFFD700, 0.8);
+        // Anillos orbitales de energía dorada con partículas
+        let ring_spin = anim_time * 3.2;
+        for i in 0..6 {
+            let a = ring_spin + (i as f32) * (std::f32::consts::PI / 3.0);
+            let rx = ex + a.cos() * (r + 5.0 + pulse * 2.0);
+            let ry = ey + a.sin() * (r * 0.75 + pulse * 1.5);
+            self.draw_aa_circle(buffer, rx, ry, 1.8, 0xFFFFFFFF, 0xFFFFD700, 0.6);
         }
 
-        // Núcleo de energía central brillante
-        self.draw_aa_circle(buffer, ex, ey, 6.0, 0xFFFFFFFF, 0xFFFFE082, 1.5);
-        self.draw_point_light(buffer, ex as isize, ey as isize, 20, 0xFFFFFFFF, 0.7);
+        // 2. Turbinas antigravedad laterales (nacelles de levitación repulsora)
+        let nacelle_y1 = ey - (r + 2.0);
+        let nacelle_y2 = ey + (r + 2.0);
+        self.draw_aa_capsule(buffer, ex - 10.0, nacelle_y1, ex + 8.0, nacelle_y1, 4.2, 0xFF1E293B);
+        self.draw_aa_capsule(buffer, ex - 8.0, nacelle_y1, ex + 6.0, nacelle_y1, 2.2, 0xFFFFD700);
+        self.draw_aa_capsule(buffer, ex - 10.0, nacelle_y2, ex + 8.0, nacelle_y2, 4.2, 0xFF1E293B);
+        self.draw_aa_capsule(buffer, ex - 8.0, nacelle_y2, ex + 6.0, nacelle_y2, 2.2, 0xFFFFD700);
+
+        // Ondas de distorsión antigravedad bajo y sobre las turbinas
+        self.draw_volumetric_light(buffer, ex, nacelle_y1, 14.0, 0xFF00E5FF, 0.5);
+        self.draw_volumetric_light(buffer, ex, nacelle_y2, 14.0, 0xFF00E5FF, 0.5);
+
+        // 3. Chasis blindado de la cápsula orbital en oro pulido y titanio
+        self.draw_aa_capsule(buffer, ex + 10.0, ey, ex - 8.0, ey, r * 0.88, 0xFFB45309);
+        self.draw_aa_capsule(buffer, ex + 8.0, ey, ex - 6.0, ey, r * 0.78, 0xFFFFD700);
+        self.draw_aa_capsule(buffer, ex + 6.0, ey - 3.0, ex - 4.0, ey - 3.0, 2.2, 0xFFFFFBEB);
+
+        // 4. Domo transparente reforzado que exhibe la cápsula de poder interior
+        let dome_r = 9.0;
+        self.draw_aa_circle(buffer, ex - 1.0, ey, dome_r, 0x5500F0FF, 0xFFFFFFFF, 1.2);
+
+        // Cristal de poder rotatorio tridimensional en el interior
+        let crystal_rot = anim_time * 4.5;
+        for c in 0..4 {
+            let ca = crystal_rot + (c as f32) * (std::f32::consts::PI * 0.5);
+            let cx = ex - 1.0 + ca.cos() * 5.2;
+            let cy = ey + ca.sin() * 5.2;
+            self.draw_aa_capsule(buffer, ex - 1.0, ey, cx, cy, 1.4, 0xFFFFFFFF);
+            self.draw_aa_circle(buffer, cx, cy, 1.8, 0xFFFFFFFF, 0xFFFFD700, 0.5);
+        }
+        self.draw_aa_circle(buffer, ex - 1.0, ey, 4.0, 0xFFFFFFFF, 0xFFFDE047, 1.0);
+
+        // 5. Micro-propulsores de estabilización iónica en popa
+        let thruster_x = ex + r * 0.75;
+        self.draw_plasma_plume(buffer, thruster_x, ey - 5.0, 1.0, 0.0, 15.0 + pulse * 6.0, 3.8, 0xFFFFFFFF, 0xFF00E5FF);
+        self.draw_plasma_plume(buffer, thruster_x, ey + 5.0, 1.0, 0.0, 15.0 + pulse * 6.0, 3.8, 0xFFFFFFFF, 0xFF00E5FF);
     }
 
     /// Renderiza cápsulas flotantes de power-ups con borde neón, letras y halo
@@ -1541,7 +2193,7 @@ impl Renderer {
             ItemType::WeaponVulcan => ("P", 0xFFFFD700, 0xFFFDE047),
             ItemType::Bomb => ("B", 0xFFBF00FF, 0xFFE879F9),
             ItemType::Shield => ("H", 0xFF00FFCC, 0xFF67E8F9),
-            ItemType::ExtraLife => ("1", 0xFFFFCC00, 0xFFFBBF24),
+            ItemType::ExtraLife => ("1UP", 0xFFFFCC00, 0xFFFBBF24),
         };
 
         // Halo volumétrico pulsante
@@ -1561,10 +2213,16 @@ impl Renderer {
             self.draw_aa_circle(buffer, sx, sy, 2.0, 0xFFFFFFFF, core_col, 0.8);
         }
 
-        // Letra grabada en el centro ('L', 'S', 'M', 'P', 'B', 'H')
-        let text_x = (ix - 5.0) as isize;
-        let text_y = (iy - 6.0) as isize;
-        self.draw_simple_text(buffer, letter, text_x, text_y, 0xFFFFFFFF, 2);
+        // Letra grabada en el centro ('L', 'S', 'M', 'P', 'B', 'H', '1UP')
+        if letter.len() > 1 {
+            let text_x = (ix - 9.0) as isize;
+            let text_y = (iy - 3.0) as isize;
+            self.draw_simple_text(buffer, letter, text_x, text_y, 0xFFFFFFFF, 1);
+        } else {
+            let text_x = (ix - 5.0) as isize;
+            let text_y = (iy - 6.0) as isize;
+            self.draw_simple_text(buffer, letter, text_x, text_y, 0xFFFFFFFF, 2);
+        }
     }
 
     /// Renderiza naves, sintéticos y bio-plantas enemigas con despacho al arquetipo adecuado
@@ -1595,18 +2253,18 @@ impl Renderer {
             EnemyType::BioMechLeviathan => {
                 self.draw_biomech_leviathan(buffer, e, self.anim_time);
             }
-            // Mapeos retrocompatibles
+            // Mapeos con arquetipos visuales enriquecidos
             EnemyType::PatrolDrone => {
-                self.draw_predatory_drone(buffer, e, self.anim_time);
+                self.draw_patrol_drone(buffer, e, self.anim_time);
             }
             EnemyType::KamikazeWasp => {
-                self.draw_predatory_drone(buffer, e, self.anim_time);
+                self.draw_kamikaze_wasp(buffer, e, self.anim_time);
             }
             EnemyType::LaserTurret => {
-                self.draw_spore_pod_turret(buffer, e, self.anim_time);
+                self.draw_laser_turret(buffer, e, self.anim_time);
             }
             EnemyType::CyberCrab => {
-                self.draw_biomech_leviathan(buffer, e, self.anim_time);
+                self.draw_cyber_crab(buffer, e, self.anim_time);
             }
             EnemyType::AsteroidLeech => {
                 self.draw_cyber_vine(buffer, e.x, e.y, e.radius * 2.5, e.aim_angle, self.anim_time, 0xFF2E1065, 0xFF9333EA);
@@ -1635,68 +2293,270 @@ impl Renderer {
         let hover_y = (t * 6.0).sin() * 2.2;
         let cy = py + hover_y;
 
-        let (armor_base, armor_highlight, visor_glow, plume_outer, plume_core) = match player.id {
-            0 => (0xFF0F2B48, 0xFFE0E7FF, 0xFF00F0FF, 0xFF0099FF, 0xFFE0FFFF), // Arnold (P1): Cobalto / Platino / Cian
-            1 => (0xFF590D1C, 0xFFFFD700, 0xFFFFB703, 0xFFFF3300, 0xFFFFFBEB), // Sigourney (P2): Carmesí / Oro / Ámbar
-            2 => (0xFF0B3D20, 0xFF86EFAC, 0xFF00FF77, 0xFF059669, 0xFFD1FAE5), // Jax (P3): Esmeralda / Plasma Verde
-            _ => (0xFF451A03, 0xFFFDE68A, 0xFFFFD700, 0xFFD97706, 0xFFFEF3C7), // Orion (P4): Ámbar / Oro Solar
+        // Recoil kickback dinámico al disparar
+        let recoil_x = player.recoil_anim * 6.0;
+        let recoil_torso = player.recoil_anim * 1.5;
+
+        let (armor_base, armor_trim, armor_dark, visor_glow, plume_outer, plume_core) = match player.id {
+            0 => (0xFF1E3A8A, 0xFFE2E8F0, 0xFF0A192F, 0xFF00F0FF, 0xFF0099FF, 0xFFE0FFFF), // Arnold (P1): Titán Cobalto / Platino / Cian
+            1 => (0xFF9F1239, 0xFFFFD700, 0xFF4C0519, 0xFFFFB703, 0xFFFF3300, 0xFFFFFBEB), // Sigourney (P2): Aerodinámica Carmesí / Filigrana Oro / Ámbar
+            2 => (0xFF065F46, 0xFF34D399, 0xFF022C22, 0xFF00FF77, 0xFF059669, 0xFFD1FAE5), // Jax (P3): Exoesqueleto Esmeralda / Carbono / Plasma Verde
+            _ => (0xFFB45309, 0xFFFDE68A, 0xFF451A03, 0xFFFFD700, 0xFFD97706, 0xFFFEF3C7), // Orion (P4): Operativo Solar Ámbar / Oro Solar
         };
 
-        let recoil_x = player.recoil_anim * 5.0;
-
-        // 1. Propulsor Jetpack y Pluma de Plasma de Doble Capa
-        let jet_x = px - dir * 16.0;
+        // =========================================================================
+        // 1. PROPULSORES JETPACK Y PLUMAS DE PLASMA PERSONALIZADAS
+        // =========================================================================
+        let jet_x = px - dir * (17.0 - recoil_torso);
         let jet_y = cy - 2.0 - (tilt_y * 0.5);
-        let plume_len = if player.jetpack_active { 28.0 } else { 14.0 };
-        self.draw_plasma_plume(buffer, jet_x, jet_y, -dir, 0.0, plume_len, 6.5, plume_core, plume_outer);
-        self.draw_aa_capsule(buffer, jet_x + dir * 6.0, jet_y - 7.0 + tilt_y, jet_x, jet_y + 9.0 + tilt_y, 4.5, 0xFF1E293B);
-        self.draw_aa_capsule(buffer, jet_x + dir * 4.0, jet_y - 6.0 + tilt_y, jet_x, jet_y - 6.0 + tilt_y, 2.5, armor_highlight);
+        let plume_len = if player.jetpack_active { 32.0 } else { 16.0 };
 
-        // 2. Piernas articuladas y botas estabilizadoras
-        let leg_sway = if player.jetpack_active { (t * 15.0).sin() * 3.5 } else { 0.0 };
-        self.draw_aa_capsule(buffer, px - dir * 6.0, cy + 8.0 + tilt_y, px - dir * 8.0 + leg_sway, cy + 22.0 + tilt_y, 3.8, 0xFF0F172A);
-        self.draw_aa_capsule(buffer, px + dir * 2.0, cy + 8.0 + tilt_y, px + dir * 4.0 - leg_sway, cy + 24.0 + tilt_y, 4.2, armor_base);
-        self.draw_aa_capsule(buffer, px + dir * 2.0 - leg_sway, cy + 24.0 + tilt_y, px + dir * 8.0 - leg_sway, cy + 24.0 + tilt_y, 2.0, armor_highlight);
-
-        // 3. Coraza torácica y reactor arc central
-        self.draw_aa_capsule(buffer, px - dir * 5.0, cy - 6.0 + tilt_y, px + dir * 5.0, cy + 6.0 + tilt_y, 7.5, 0xFF020617);
-        self.draw_aa_capsule(buffer, px - dir * 4.0, cy - 7.0 + tilt_y, px + dir * 4.0, cy + 5.0 + tilt_y, 6.2, armor_base);
-        self.draw_aa_capsule(buffer, px - dir * 3.0, cy - 8.0 + tilt_y, px + dir * 4.0, cy - 4.0 + tilt_y, 1.8, armor_highlight);
-        self.draw_aa_circle(buffer, px + dir * 2.0, cy - 1.0 + tilt_y, 2.8, 0xFFFFFFFF, visor_glow, 0.8);
-        self.draw_volumetric_light(buffer, px + dir * 2.0, cy - 1.0 + tilt_y, 16.0, visor_glow, 0.55);
-
-        // 4. Casco aerodinámico y visor HUD panorámico
-        let head_x = px + dir * 2.0;
-        let head_y = cy - 15.0 + tilt_y;
-        self.draw_aa_circle(buffer, head_x, head_y, 6.8, armor_base, 0xFF020617, 1.2);
-        self.draw_aa_capsule(buffer, head_x - dir * 2.0, head_y - 5.0, head_x + dir * 2.0, head_y - 5.0, 1.4, armor_highlight);
-
-        let visor_x = head_x + dir * 3.0;
-        let visor_y = head_y;
-        self.draw_aa_capsule(buffer, visor_x, visor_y - 1.5, visor_x + dir * 3.5, visor_y, 2.5, visor_glow);
-        self.draw_aa_capsule(buffer, visor_x + dir * 1.0, visor_y - 1.5, visor_x + dir * 3.5, visor_y - 0.5, 1.2, 0xFFFFFFFF);
-        self.draw_volumetric_light(buffer, visor_x + dir * 8.0, visor_y, 24.0, visor_glow, 0.6);
-
-        // 5. Fusil de plasma pesado con amortiguación de retroceso
-        let gun_x = px + dir * (12.0 - recoil_x);
-        let gun_y = cy - 2.0 + tilt_y;
-        self.draw_aa_capsule(buffer, gun_x, gun_y, gun_x + dir * 16.0, gun_y, 4.0, 0xFF1E293B);
-        self.draw_aa_capsule(buffer, gun_x + dir * 12.0, gun_y - 2.0, gun_x + dir * 22.0, gun_y - 2.0, 1.6, 0xFF94A3B8);
-        self.draw_aa_capsule(buffer, gun_x + dir * 12.0, gun_y + 2.0, gun_x + dir * 22.0, gun_y + 2.0, 1.6, 0xFF94A3B8);
-
-        if player.fire_timer > 0.04 || player.recoil_anim > 0.5 {
-            let flash_x = gun_x + dir * 25.0;
-            self.draw_aa_circle(buffer, flash_x, gun_y, 5.0, 0xFFFFFFFF, visor_glow, 1.5);
-            self.draw_volumetric_light(buffer, flash_x, gun_y, 28.0, visor_glow, 0.85);
+        match player.id {
+            0 => {
+                // Arnold: Turbopack industrial pesado de doble tobera cuadrada
+                self.draw_aa_capsule(buffer, jet_x + dir * 6.0, jet_y - 8.0 + tilt_y, jet_x, jet_y + 11.0 + tilt_y, 5.2, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, jet_x + dir * 5.0, jet_y - 7.0 + tilt_y, jet_x, jet_y - 7.0 + tilt_y, 3.2, armor_trim);
+                self.draw_aa_capsule(buffer, jet_x + dir * 5.0, jet_y + 9.0 + tilt_y, jet_x, jet_y + 9.0 + tilt_y, 3.2, armor_trim);
+                // Plumas dobles de plasma de alta potencia
+                self.draw_plasma_plume(buffer, jet_x - dir * 2.0, jet_y - 4.0, -dir, 0.0, plume_len, 6.8, plume_core, plume_outer);
+                self.draw_plasma_plume(buffer, jet_x - dir * 2.0, jet_y + 6.0, -dir, 0.0, plume_len * 0.9, 5.8, plume_core, plume_outer);
+            }
+            1 => {
+                // Sigourney: Jetpack aerodinámico con ala en flecha delta y filigrana dorada
+                let wing_tip_x = jet_x - dir * 10.0;
+                let wing_tip_y = jet_y - 12.0 + tilt_y;
+                self.draw_aa_capsule(buffer, jet_x + dir * 5.0, jet_y + 6.0 + tilt_y, wing_tip_x, wing_tip_y, 2.8, armor_base);
+                self.draw_aa_capsule(buffer, jet_x + dir * 4.0, jet_y - 2.0 + tilt_y, wing_tip_x, wing_tip_y, 1.4, armor_trim);
+                self.draw_aa_capsule(buffer, jet_x + dir * 5.0, jet_y - 6.0 + tilt_y, jet_x, jet_y + 8.0 + tilt_y, 4.0, 0xFF1E293B);
+                self.draw_plasma_plume(buffer, jet_x - dir * 2.0, jet_y, -dir, 0.0, plume_len * 1.15, 6.0, plume_core, plume_outer);
+            }
+            2 => {
+                // Jax: Vaina de cohete de asalto reforzada con struts de carbono
+                self.draw_aa_capsule(buffer, jet_x + dir * 7.0, jet_y - 7.0 + tilt_y, jet_x, jet_y + 10.0 + tilt_y, 4.8, 0xFF022C22);
+                self.draw_aa_capsule(buffer, jet_x + dir * 3.0, jet_y - 9.0 + tilt_y, jet_x - dir * 2.0, jet_y + 11.0 + tilt_y, 1.6, 0xFF34D399);
+                self.draw_plasma_plume(buffer, jet_x - dir * 2.0, jet_y + 1.0, -dir, 0.0, plume_len, 7.0, plume_core, plume_outer);
+            }
+            _ => {
+                // Orion: Propulsor iónico avanzado con anillos magnéticos toroidales
+                self.draw_aa_circle(buffer, jet_x, jet_y - 3.0 + tilt_y, 5.5, 0xFF0F172A, 0xFFFFD700, 1.8);
+                self.draw_aa_circle(buffer, jet_x, jet_y + 7.0 + tilt_y, 5.5, 0xFF0F172A, 0xFFFFD700, 1.8);
+                self.draw_aa_capsule(buffer, jet_x + dir * 6.0, jet_y - 6.0 + tilt_y, jet_x, jet_y + 9.0 + tilt_y, 4.2, 0xFF451A03);
+                self.draw_plasma_plume(buffer, jet_x - dir * 2.0, jet_y + 2.0, -dir, 0.0, plume_len * 1.1, 6.2, plume_core, plume_outer);
+                self.draw_volumetric_light(buffer, jet_x, jet_y + 2.0, 20.0, 0xFFFFD700, 0.65);
+            }
         }
 
-        // 6. Retícula HUD holográfica en pantalla
-        let reticle_dist = 65.0;
+        // =========================================================================
+        // 2. PIERNAS ARTICULADAS Y BOTAS ESTABILIZADORAS
+        // =========================================================================
+        let leg_sway = if player.jetpack_active { (t * 15.0).sin() * 3.5 } else { 0.0 };
+        let hip_x = px - dir * (2.0 - recoil_torso * 0.5);
+        let hip_y = cy + 8.0 + tilt_y;
+
+        // Pierna trasera
+        self.draw_aa_capsule(buffer, hip_x - dir * 4.0, hip_y, hip_x - dir * 6.0 + leg_sway, cy + 22.0 + tilt_y, 3.8, armor_dark);
+        // Pierna delantera
+        self.draw_aa_capsule(buffer, hip_x + dir * 3.0, hip_y, hip_x + dir * 5.0 - leg_sway, cy + 24.0 + tilt_y, 4.4, armor_base);
+        self.draw_aa_capsule(buffer, hip_x + dir * 3.0 - leg_sway, cy + 24.0 + tilt_y, hip_x + dir * 9.0 - leg_sway, cy + 24.0 + tilt_y, 2.2, armor_trim);
+
+        // =========================================================================
+        // 3. CORAZA TORÁCICA Y REACTOR CENTRAL ESPECÍFICO
+        // =========================================================================
+        let torso_x = px + dir * (recoil_torso);
+        self.draw_aa_capsule(buffer, torso_x - dir * 5.0, cy - 6.0 + tilt_y, torso_x + dir * 5.0, cy + 6.0 + tilt_y, 8.0, armor_dark);
+        self.draw_aa_capsule(buffer, torso_x - dir * 4.0, cy - 7.0 + tilt_y, torso_x + dir * 4.0, cy + 5.0 + tilt_y, 6.6, armor_base);
+
+        match player.id {
+            0 => {
+                // Arnold: Coraza blindada de titanio con placas angulares y Reactor Arc Cian
+                self.draw_aa_capsule(buffer, torso_x - dir * 4.0, cy - 8.0 + tilt_y, torso_x + dir * 5.0, cy - 4.0 + tilt_y, 2.2, armor_trim);
+                self.draw_aa_capsule(buffer, torso_x - dir * 3.0, cy + 1.0 + tilt_y, torso_x + dir * 5.0, cy + 3.0 + tilt_y, 1.8, 0xFF38BDF8);
+                self.draw_aa_circle(buffer, torso_x + dir * 2.0, cy - 1.0 + tilt_y, 3.4, 0xFFFFFFFF, visor_glow, 1.2);
+                self.draw_volumetric_light(buffer, torso_x + dir * 2.0, cy - 1.0 + tilt_y, 20.0, visor_glow, 0.7);
+            }
+            1 => {
+                // Sigourney: Cuirass nanoclad escarlata con filigrana dorada y cristal ámbar
+                self.draw_aa_capsule(buffer, torso_x - dir * 3.0, cy - 8.0 + tilt_y, torso_x + dir * 4.0, cy - 4.0 + tilt_y, 1.6, 0xFFFFD700);
+                self.draw_aa_capsule(buffer, torso_x - dir * 2.0, cy - 2.0 + tilt_y, torso_x + dir * 4.0, cy + 4.0 + tilt_y, 1.4, 0xFFFFD700);
+                self.draw_aa_circle(buffer, torso_x + dir * 2.0, cy - 1.0 + tilt_y, 2.8, 0xFFFFFBEB, visor_glow, 1.0);
+                self.draw_volumetric_light(buffer, torso_x + dir * 2.0, cy - 1.0 + tilt_y, 18.0, visor_glow, 0.6);
+            }
+            2 => {
+                // Jax: Placa pectoral balística reforzada con carbon-fiber y barra telemétrica verde
+                self.draw_aa_capsule(buffer, torso_x - dir * 3.0, cy - 7.0 + tilt_y, torso_x + dir * 4.0, cy - 5.0 + tilt_y, 2.4, 0xFF022C22);
+                self.draw_aa_capsule(buffer, torso_x - dir * 2.0, cy - 1.0 + tilt_y, torso_x + dir * 3.0, cy - 1.0 + tilt_y, 1.4, 0xFF00FF77);
+                self.draw_aa_capsule(buffer, torso_x - dir * 2.0, cy + 2.0 + tilt_y, torso_x + dir * 4.0, cy + 2.0 + tilt_y, 1.4, 0xFF34D399);
+                self.draw_volumetric_light(buffer, torso_x + dir * 2.0, cy - 1.0 + tilt_y, 16.0, visor_glow, 0.55);
+            }
+            _ => {
+                // Orion: Célula solar hexagonal con condensador iónico dorado
+                self.draw_aa_capsule(buffer, torso_x - dir * 3.0, cy - 8.0 + tilt_y, torso_x + dir * 4.0, cy - 4.0 + tilt_y, 1.8, 0xFFFDE68A);
+                self.draw_aa_circle(buffer, torso_x + dir * 2.0, cy - 1.0 + tilt_y, 3.2, 0xFFFFFFFF, 0xFFFFD700, 1.2);
+                self.draw_volumetric_light(buffer, torso_x + dir * 2.0, cy - 1.0 + tilt_y, 22.0, 0xFFFFD700, 0.7);
+            }
+        }
+
+        // =========================================================================
+        // 4. HOMBRERAS / PAULDRONS PERSONALIZADAS
+        // =========================================================================
+        let shoulder_x = torso_x - dir * 2.0;
+        let shoulder_y = cy - 8.0 + tilt_y;
+
+        match player.id {
+            0 => {
+                // Arnold: Hombreras masivas de blindaje pesado con remaches
+                self.draw_aa_capsule(buffer, shoulder_x - dir * 5.0, shoulder_y - 5.0, shoulder_x + dir * 4.0, shoulder_y - 2.0, 4.5, 0xFF0F2B48);
+                self.draw_aa_capsule(buffer, shoulder_x - dir * 4.0, shoulder_y - 6.0, shoulder_x + dir * 3.0, shoulder_y - 3.0, 2.5, 0xFF38BDF8);
+                self.draw_aa_circle(buffer, shoulder_x + dir * 3.0, shoulder_y - 3.0, 1.6, 0xFFFFFFFF, 0xFFE2E8F0, 0.5);
+            }
+            1 => {
+                // Sigourney: Aleta aerodinámica estilizada con borde dorado
+                self.draw_aa_capsule(buffer, shoulder_x - dir * 6.0, shoulder_y - 3.0, shoulder_x + dir * 3.0, shoulder_y - 5.0, 3.2, armor_base);
+                self.draw_aa_capsule(buffer, shoulder_x - dir * 5.0, shoulder_y - 4.0, shoulder_x + dir * 3.0, shoulder_y - 6.0, 1.4, 0xFFFFD700);
+            }
+            2 => {
+                // Jax: Hombrera de asalto balística angular con pistón hidráulico
+                self.draw_aa_capsule(buffer, shoulder_x - dir * 4.0, shoulder_y - 4.0, shoulder_x + dir * 3.0, shoulder_y - 3.0, 4.0, 0xFF0B3D20);
+                self.draw_aa_capsule(buffer, shoulder_x - dir * 2.0, shoulder_y - 2.0, shoulder_x - dir * 2.0, shoulder_y + 4.0, 1.6, 0xFF1E293B);
+                self.draw_aa_capsule(buffer, shoulder_x - dir * 3.0, shoulder_y - 5.0, shoulder_x + dir * 2.0, shoulder_y - 4.0, 1.5, 0xFF86EFAC);
+            }
+            _ => {
+                // Orion: Hombrera compuesta con módulo fotovoltaico hexagonal
+                self.draw_aa_capsule(buffer, shoulder_x - dir * 4.0, shoulder_y - 4.0, shoulder_x + dir * 3.0, shoulder_y - 3.0, 3.6, 0xFF78350F);
+                self.draw_aa_circle(buffer, shoulder_x, shoulder_y - 3.0, 2.2, 0xFFFFD700, 0xFFFDE68A, 0.6);
+            }
+        }
+
+        // =========================================================================
+        // 5. CASCO AERODINÁMICO Y VISOR HUD TÁCTICO
+        // =========================================================================
+        let head_x = px + dir * (2.0 - recoil_torso * 0.3);
+        let head_y = cy - 15.0 + tilt_y;
+
+        self.draw_aa_circle(buffer, head_x, head_y, 7.2, armor_base, armor_dark, 1.4);
+        self.draw_aa_capsule(buffer, head_x - dir * 3.0, head_y - 5.0, head_x + dir * 2.0, head_y - 5.0, 1.6, armor_trim);
+
+        let visor_x = head_x + dir * 3.5;
+        let visor_y = head_y;
+
+        match player.id {
+            0 => {
+                // Arnold: Visor cian horizontal brillante con cresta de refuerzo frontal
+                self.draw_aa_capsule(buffer, visor_x - dir * 0.5, visor_y - 1.5, visor_x + dir * 4.2, visor_y, 2.8, visor_glow);
+                self.draw_aa_capsule(buffer, visor_x + dir * 0.5, visor_y - 1.5, visor_x + dir * 4.2, visor_y - 0.5, 1.4, 0xFFFFFFFF);
+                // Filtro respirador inferior de titanio
+                self.draw_aa_capsule(buffer, head_x + dir * 2.0, head_y + 4.0, head_x + dir * 5.0, head_y + 4.0, 1.5, 0xFF64748B);
+            }
+            1 => {
+                // Sigourney: Visor ámbar afilado con borde angular y filigrana superior
+                self.draw_aa_capsule(buffer, visor_x, visor_y - 2.0, visor_x + dir * 4.0, visor_y - 0.5, 2.4, visor_glow);
+                self.draw_aa_capsule(buffer, visor_x + dir * 1.0, visor_y - 2.0, visor_x + dir * 4.0, visor_y - 1.0, 1.2, 0xFFFFFBEB);
+                self.draw_aa_capsule(buffer, head_x - dir * 1.0, head_y - 6.0, head_x + dir * 3.0, head_y - 6.0, 1.2, 0xFFFFD700);
+            }
+            2 => {
+                // Jax: Visor táctico split / doble apertura esmeralda
+                self.draw_aa_circle(buffer, visor_x + dir * 1.5, visor_y - 1.5, 2.2, 0xFFFFFFFF, visor_glow, 0.8);
+                self.draw_aa_circle(buffer, visor_x + dir * 3.5, visor_y + 0.5, 2.0, 0xFFFFFFFF, visor_glow, 0.8);
+            }
+            _ => {
+                // Orion: Visor panorámico térmico solar con barrido degradado oro-naranja
+                self.draw_aa_capsule(buffer, visor_x - dir * 0.5, visor_y - 2.0, visor_x + dir * 4.0, visor_y + 0.5, 3.0, 0xFFFF4500);
+                self.draw_aa_capsule(buffer, visor_x + dir * 0.5, visor_y - 1.5, visor_x + dir * 3.8, visor_y - 0.5, 1.6, 0xFFFFD700);
+                self.draw_aa_capsule(buffer, visor_x + dir * 1.5, visor_y - 1.5, visor_x + dir * 3.8, visor_y - 0.8, 0.8, 0xFFFFFFFF);
+            }
+        }
+        self.draw_volumetric_light(buffer, visor_x + dir * 8.0, visor_y, 26.0, visor_glow, 0.65);
+
+        // =========================================================================
+        // 6. ARMAMENTO Y DESTELLOS DE DISPARO (MUZZLE FLASH)
+        // =========================================================================
+        let gun_base_x = px + dir * (12.0 - recoil_x);
+        let gun_y = cy - 2.0 + tilt_y;
+
+        match player.id {
+            0 => {
+                // Arnold: Cañón Vulcan Pesado con cilindro rotatorio y tambor de munición
+                // 1. Tambor de munición debajo del chasis
+                self.draw_aa_circle(buffer, gun_base_x + dir * 5.0, gun_y + 6.0, 5.0, 0xFF0F172A, 0xFF475569, 1.8);
+                self.draw_aa_capsule(buffer, gun_base_x, gun_y + 2.0, gun_base_x + dir * 12.0, gun_y + 2.0, 3.5, 0xFF1E293B);
+
+                // 2. Chasis del receptor pesado
+                self.draw_aa_capsule(buffer, gun_base_x, gun_y - 2.0, gun_base_x + dir * 14.0, gun_y - 2.0, 4.2, 0xFF0F172A);
+
+                // 3. Cilindro rotatorio multi-tubo (gira con anim_timer)
+                let spin = (t * 38.0).sin();
+                let b_off = spin * 2.2;
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 14.0, gun_y - 3.5 + b_off, gun_base_x + dir * 24.0, gun_y - 3.5 + b_off, 1.8, 0xFF94A3B8);
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 14.0, gun_y + b_off, gun_base_x + dir * 25.0, gun_y + b_off, 1.8, 0xFFCBD5E1);
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 14.0, gun_y + 3.5 + b_off, gun_base_x + dir * 24.0, gun_y + 3.5 + b_off, 1.8, 0xFF94A3B8);
+
+                // Boquilla enjaulada del cañón rotatorio
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 23.0, gun_y - 4.5, gun_base_x + dir * 25.0, gun_y + 4.5, 2.0, 0xFF334155);
+            }
+            1 => {
+                // Sigourney: Fusil láser de alta precisión con mira óptica holográfica y rieles
+                // 1. Mira telescópica sobre el riel superior
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 4.0, gun_y - 6.0, gun_base_x + dir * 14.0, gun_y - 6.0, 2.0, 0xFF0F172A);
+                self.draw_aa_circle(buffer, gun_base_x + dir * 14.0, gun_y - 6.0, 2.2, 0xFFFFFFFF, 0xFFFFB703, 0.8);
+
+                // 2. Cuerpo estilizado y esbelto
+                self.draw_aa_capsule(buffer, gun_base_x, gun_y, gun_base_x + dir * 16.0, gun_y, 3.5, 0xFF4C0519);
+
+                // 3. Rieles lineales superior e inferior con canal de energía ámbar en el medio
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 12.0, gun_y - 2.5, gun_base_x + dir * 27.0, gun_y - 2.5, 1.4, 0xFFE2E8F0);
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 12.0, gun_y + 2.5, gun_base_x + dir * 27.0, gun_y + 2.5, 1.4, 0xFFE2E8F0);
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 14.0, gun_y, gun_base_x + dir * 26.0, gun_y, 1.0, 0xFFFFB703);
+            }
+            2 => {
+                // Jax: Carabina de asalto / cañón de plasma con empuñadura táctica y rieles
+                self.draw_aa_capsule(buffer, gun_base_x, gun_y, gun_base_x + dir * 18.0, gun_y, 4.4, 0xFF022C22);
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 4.0, gun_y - 3.0, gun_base_x + dir * 16.0, gun_y - 3.0, 2.0, 0xFF34D399);
+                // Empuñadura vertical delantera
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 12.0, gun_y + 3.0, gun_base_x + dir * 12.0, gun_y + 8.0, 1.8, 0xFF1E293B);
+                // Cañón con ranuras de ventilación y compensador de gases
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 16.0, gun_y - 1.5, gun_base_x + dir * 23.0, gun_y - 1.5, 2.0, 0xFF64748B);
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 16.0, gun_y + 1.5, gun_base_x + dir * 23.0, gun_y + 1.5, 2.0, 0xFF64748B);
+            }
+            _ => {
+                // Orion: Cañón iónico de pulsos con anillos helicoidales aceleradores
+                self.draw_aa_capsule(buffer, gun_base_x, gun_y, gun_base_x + dir * 16.0, gun_y, 4.0, 0xFF451A03);
+                // Anillos magnéticos concéntricos dorados
+                self.draw_aa_circle(buffer, gun_base_x + dir * 16.0, gun_y, 4.2, 0xFF0F172A, 0xFFFFD700, 1.5);
+                self.draw_aa_circle(buffer, gun_base_x + dir * 20.0, gun_y, 3.8, 0xFF0F172A, 0xFFFFD700, 1.5);
+                self.draw_aa_capsule(buffer, gun_base_x + dir * 14.0, gun_y, gun_base_x + dir * 25.0, gun_y, 1.8, 0xFFFDE68A);
+            }
+        }
+
+        // Destello de disparo dinámico multicapa (Muzzle Flash)
+        if player.fire_timer > 0.03 || player.recoil_anim > 0.4 {
+            let muzzle_x = gun_base_x + dir * 27.0;
+            // 1. Núcleo blanco ultra-caliente
+            self.draw_aa_circle(buffer, muzzle_x, gun_y, 5.5, 0xFFFFFFFF, visor_glow, 1.6);
+
+            // 2. Rayos starburst en cruz y diagonales
+            let ray_len = 10.0;
+            self.draw_aa_capsule(buffer, muzzle_x - ray_len, gun_y, muzzle_x + ray_len, gun_y, 1.4, visor_glow);
+            self.draw_aa_capsule(buffer, muzzle_x, gun_y - ray_len, muzzle_x, gun_y + ray_len, 1.4, visor_glow);
+            self.draw_aa_capsule(buffer, muzzle_x - ray_len * 0.7, gun_y - ray_len * 0.7, muzzle_x + ray_len * 0.7, gun_y + ray_len * 0.7, 0.9, 0xFFFFFFFF);
+            self.draw_aa_capsule(buffer, muzzle_x - ray_len * 0.7, gun_y + ray_len * 0.7, muzzle_x + ray_len * 0.7, gun_y - ray_len * 0.7, 0.9, 0xFFFFFFFF);
+
+            // 3. Eyección de gases laterales en el compensador
+            self.draw_aa_capsule(buffer, muzzle_x - dir * 4.0, gun_y, muzzle_x - dir * 4.0, gun_y - 7.0, 1.2, visor_glow);
+            self.draw_aa_capsule(buffer, muzzle_x - dir * 4.0, gun_y, muzzle_x - dir * 4.0, gun_y + 7.0, 1.2, visor_glow);
+
+            // 4. Luz volumétrica expansiva
+            self.draw_volumetric_light(buffer, muzzle_x, gun_y, 34.0, visor_glow, 0.9);
+            self.draw_volumetric_light(buffer, muzzle_x, gun_y, 16.0, 0xFFFFFFFF, 1.0);
+        }
+
+        // =========================================================================
+        // 7. RETÍCULA HUD HOLOGRÁFICA Y SATÉLITES ORBITALES
+        // =========================================================================
+        let reticle_dist = 68.0;
         let reticle_x = px + dir * reticle_dist;
         let reticle_y = cy + tilt_y;
         self.draw_holographic_reticle(buffer, reticle_x, reticle_y, 14.0, visor_glow, false);
 
-        // 7. Satélites Orbitales Bivalvos con Escudos Rotacionales
         for sat in player.satellites.iter() {
             self.draw_modern_satellite(buffer, sat, px, py, visor_glow, t);
         }
@@ -2055,54 +2915,38 @@ impl Renderer {
     /// Banner cinemático de transición de sección estilo Final Mission
     pub fn render_section_transition(&self, buffer: &mut [u32], timer: f32, text: &str) {
         let w = self.width as isize;
-        let h = self.height as isize;
-        let t = self.anim_time;
 
-        // 1. Rayas de advertencia de peligro en bordes superior e inferior
-        let stripe_h = 18isize;
-        let stripe_offset = (t * 120.0) as isize % 32;
-
-        for x in ((-32)..w).step_by(32) {
-            let sx = x + stripe_offset;
-            self.draw_rect(buffer, sx, 0, 16, stripe_h as usize, 0xFFFFCC00);
-            self.draw_rect(buffer, sx + 16, 0, 16, stripe_h as usize, 0xFF111111);
-            self.draw_rect(buffer, sx, h - stripe_h, 16, stripe_h as usize, 0xFFFFCC00);
-            self.draw_rect(buffer, sx + 16, h - stripe_h, 16, stripe_h as usize, 0xFF111111);
-        }
-
-        // 2. Banner central holográfico parpadeante
-        let banner_w = 640.min(w as usize - 40);
-        let banner_h = 70;
+        // Banner compacto no intrusivo ubicado justo debajo del HUD (y=48)
+        // No cubre el centro de la pantalla, dejando visibilidad total para los jefes y combate
+        let banner_w = 420.min(w as usize - 40);
+        let banner_h = 24;
         let bx = (w - banner_w as isize) / 2;
-        let by = (h - banner_h as isize) / 2;
+        let by = 48;
 
         let pulse = (timer * 6.0).sin().abs();
         let border_col = if pulse > 0.5 { 0xFFFF3300 } else { 0xFFFFCC00 };
 
-        self.draw_rect(buffer, bx, by, banner_w, banner_h, 0xDD0D1117);
-        self.draw_rect(buffer, bx, by, banner_w, 3, border_col);
-        self.draw_rect(buffer, bx, by + banner_h as isize - 3, banner_w, 3, border_col);
-        self.draw_rect(buffer, bx, by, 3, banner_h, border_col);
-        self.draw_rect(buffer, bx + banner_w as isize - 3, by, 3, banner_h, border_col);
+        self.draw_rect(buffer, bx, by, banner_w, banner_h, 0xEE090D16);
+        self.draw_rect(buffer, bx, by, banner_w, 1, border_col);
+        self.draw_rect(buffer, bx, by + banner_h as isize - 1, banner_w, 1, border_col);
+        self.draw_rect(buffer, bx, by, 1, banner_h, border_col);
+        self.draw_rect(buffer, bx + banner_w as isize - 1, by, 1, banner_h, border_col);
 
-        self.draw_point_light(buffer, bx + 24, by + banner_h as isize / 2, 60, border_col, 0.7);
-        self.draw_point_light(buffer, bx + banner_w as isize - 24, by + banner_h as isize / 2, 60, border_col, 0.7);
+        // Indicadores luminosos en extremos
+        self.draw_circle(buffer, bx + 12, by + 12, 3, border_col);
+        self.draw_circle(buffer, bx + banner_w as isize - 12, by + 12, 3, border_col);
 
-        self.draw_circle(buffer, bx + 24, by + banner_h as isize / 2, 10, border_col);
-        self.draw_circle(buffer, bx + 24, by + banner_h as isize / 2, 4, 0xFFFFFFFF);
-        self.draw_circle(buffer, bx + banner_w as isize - 24, by + banner_h as isize / 2, 10, border_col);
-        self.draw_circle(buffer, bx + banner_w as isize - 24, by + banner_h as isize / 2, 4, 0xFFFFFFFF);
-
-        let title_x = bx + 48;
-        self.draw_simple_text(buffer, "CHAMBER BREACH DETECTED", title_x, by + 12, 0xFFE2E8F0, 1);
-        self.draw_simple_text(buffer, text, title_x, by + 32, border_col, 2);
+        // Texto compacto centrado
+        let text_w = (text.len() as isize * 8).min(banner_w as isize - 36);
+        let tx = bx + (banner_w as isize - text_w) / 2;
+        self.draw_simple_text(buffer, text, tx, by + 8, border_col, 1);
     }
 
-    /// Escena cinemática de introducción de fase estilo Final Mission
+    /// Escena cinemática de briefing táctico y despliegue planetario (Estilo Final Mission & Sci-Fi Arcade)
     pub fn render_stage_intro_scene(
         &self,
         buffer: &mut [u32],
-        _stage_num: u8,
+        stage_num: u8,
         stage_name: &str,
         stage_subtitle: &str,
         timer: f32,
@@ -2111,58 +2955,292 @@ impl Renderer {
         let w = self.width as isize;
         let h = self.height as isize;
 
-        buffer.fill(0xFF070B14);
+        // 1. Fondo táctico espacial profundo con estrellas tenues
+        buffer.fill(0xFF060A14);
 
-        for y in (30..h).step_by(40) {
-            self.draw_rect(buffer, 0, y, w as usize, 1, 0xFF141E33);
+        for s in self.stars.iter() {
+            let px = s.x as usize;
+            let py = s.y as usize;
+            if px < self.width && py < self.height {
+                let dim_val = ((s.brightness as u32 * 3) / 5).min(255);
+                let dim_col = 0xFF000000 | (dim_val << 16) | (dim_val << 8) | dim_val;
+                buffer[py * self.width + px] = dim_col;
+            }
         }
-        for x in (30..w).step_by(50) {
-            self.draw_rect(buffer, x, 0, 1, h as usize, 0xFF141E33);
+
+        // Rejilla de coordenadas tácticas semitransparente
+        for y in (30..h).step_by(50) {
+            self.draw_rect(buffer, 0, y, w as usize, 1, 0x1A142238);
+        }
+        for x in (30..w).step_by(60) {
+            self.draw_rect(buffer, x, 0, 1, h as usize, 0x1A142238);
         }
 
-        let radar_cx = w - 160;
-        let radar_cy = h / 2;
-        self.draw_circle(buffer, radar_cx, radar_cy, 80, 0xFF0E223D);
-        self.draw_circle(buffer, radar_cx, radar_cy, 60, 0xFF153359);
-        self.draw_circle(buffer, radar_cx, radar_cy, 40, 0xFF1D477C);
-        let sweep_angle = timer * 4.0;
-        let sx = radar_cx + (sweep_angle.cos() * 75.0) as isize;
-        let sy = radar_cy + (sweep_angle.sin() * 75.0) as isize;
-        self.draw_rect(buffer, radar_cx, radar_cy, (sx - radar_cx).abs() as usize + 1, 2, 0xFF00FFCC);
-        self.draw_point_light(buffer, sx, sy, 30, 0xFF00FFCC, 0.6);
+        // 2. Barra Superior de Estado y Enlace Orbital (Cinematic Black-Ops Header)
+        let top_h = 32usize;
+        self.draw_rect(buffer, 0, 0, w as usize, top_h, 0xEE0A0F1A);
+        self.draw_rect(buffer, 0, top_h as isize - 1, w as usize, 1, 0xFF00E5FF);
 
-        let card_x = 60;
-        let card_y = 60;
-        let card_w = (w - 260).max(400) as usize;
-        let card_h = (h - 120) as usize;
+        // Indicador de grabación militar parpadeante (REC)
+        let rec_blink = (timer * 3.5).sin() > -0.2;
+        let rec_col = if rec_blink { 0xFFFF0033 } else { 0xFF4A0012 };
+        self.draw_circle(buffer, 28, 16, 4, rec_col);
+        self.draw_point_light(buffer, 28, 16, 12, rec_col, 0.7);
+        self.draw_simple_text(buffer, "REC [●] SATELLITE FEED // 24-BIT ENCRYPTED // COSMIC DEFENSE CMD", 40, 11, 0xFF00E5FF, 1);
 
-        self.draw_rect(buffer, card_x, card_y, card_w, card_h, 0xDD0D131F);
-        self.draw_rect(buffer, card_x, card_y, card_w, 3, 0xFF00E5FF);
-        self.draw_rect(buffer, card_x, card_y + card_h as isize - 3, card_w, 3, 0xFF00E5FF);
+        let uplink_pulse = (timer * 6.0).sin().abs() > 0.3;
+        let beacon_col = if uplink_pulse { 0xFF00FF77 } else { 0xFF008844 };
+        self.draw_circle(buffer, w - 240, 16, 4, beacon_col);
+        self.draw_point_light(buffer, w - 240, 16, 10, beacon_col, 0.6);
+        self.draw_simple_text(buffer, "ORBITAL UPLINK: LOCKED", w - 228, 11, 0xFF00FF77, 1);
 
-        self.draw_simple_text(buffer, "AI REBELLION TACTICAL BRIEFING", card_x + 20, card_y + 20, 0xFF00E5FF, 2);
-        self.draw_simple_text(buffer, stage_name, card_x + 20, card_y + 55, 0xFFFFD700, 3);
-        self.draw_simple_text(buffer, stage_subtitle, card_x + 20, card_y + 95, 0xFFA0AEC0, 1);
+        // 3. Panel de Datos de Misión (Dossier Táctico Izquierdo)
+        let card_x = 24isize;
+        let card_y = 44isize;
+        let scanner_w = 260isize;
+        let card_w = (w - card_x - scanner_w - 36).max(380);
+        let card_h = h - card_y - 66;
 
-        self.draw_rect(buffer, card_x + 20, card_y + 115, card_w - 40, 2, 0xFF2A3A52);
+        self.draw_rect(buffer, card_x, card_y, card_w as usize, card_h as usize, 0xEE0B1222);
+        self.draw_rect(buffer, card_x, card_y, card_w as usize, 2, 0xFF00E5FF);
+        self.draw_rect(buffer, card_x, card_y + card_h - 2, card_w as usize, 2, 0xFF00E5FF);
+        self.draw_rect(buffer, card_x, card_y, 2, card_h as usize, 0xFF00E5FF);
+        self.draw_rect(buffer, card_x + card_w - 2, card_y, 2, card_h as usize, 0xFF00E5FF);
 
-        self.draw_simple_text(buffer, "PRIMARY MISSION DIRECTIVE:", card_x + 20, card_y + 130, 0xFFFF4500, 2);
-        self.draw_simple_text(buffer, "INFILTRATE ROGUE AI SECTOR AND DESTROY MAINFRAME", card_x + 20, card_y + 160, 0xFFE2E8F0, 1);
-        self.draw_simple_text(buffer, "AUTONOMOUS THREATS DETECTED: HIGH DENSITY", card_x + 20, card_y + 180, 0xFFFF3344, 1);
+        // Esquinas biseladas de la consola
+        self.draw_rect(buffer, card_x, card_y, 8, 8, 0xFFFFD700);
+        self.draw_rect(buffer, card_x + card_w - 8, card_y, 8, 8, 0xFFFFD700);
+        self.draw_rect(buffer, card_x, card_y + card_h - 8, 8, 8, 0xFFFFD700);
+        self.draw_rect(buffer, card_x + card_w - 8, card_y + card_h - 8, 8, 8, 0xFFFFD700);
 
-        let progress = (timer / 2.5).clamp(0.0, 1.0);
-        let bar_w = ((card_w - 40) as f32 * progress) as usize;
-        self.draw_rect(buffer, card_x + 20, card_y + 215, card_w - 40, 12, 0xFF1A2233);
-        self.draw_rect(buffer, card_x + 20, card_y + 215, bar_w, 12, 0xFF00FF77);
-        self.draw_simple_text(buffer, "COMMANDO DEPLOYMENT: READY", card_x + 20, card_y + 240, 0xFF00FF77, 2);
+        // Cabecera del Nivel
+        let st_tag = format!("MISSION OBJECTIVE // SECTOR 0{}", stage_num);
+        self.draw_simple_text(buffer, &st_tag, card_x + 18, card_y + 14, 0xFF38BDF8, 1);
+        self.draw_simple_text(buffer, stage_name, card_x + 18, card_y + 28, 0xFFFFD700, 2);
+        self.draw_simple_text(buffer, stage_subtitle, card_x + 18, card_y + 48, 0xFFCBD5E1, 1);
 
-        let p_anim_x = (-40.0 + (progress * 200.0)).min(160.0);
-        for p in players.iter() {
+        self.draw_rect(buffer, card_x + 18, card_y + 62, card_w as usize - 36, 1, 0xFF1E293B);
+        self.draw_rect(buffer, card_x + 18, card_y + 62, 72, 2, 0xFF00E5FF);
+
+        // Telemetría e información coherente para cada uno de los 8 niveles
+        let (sector_code, target_name, threat_type, mission_desc, env_hazard) = match stage_num {
+            1 => (
+                "SECTOR: EARTH-01 // MANHATTAN RUINS AIRSPACE",
+                "PRIMARY TARGET: TITAN-01 [COLOSSAL WARCRAWLER]",
+                "THREAT CLASS: TIER-1 HEAVY ARMORED MECH",
+                "DIRECTIVE: BREACH BROKEN SKYLINE & DESTROY ENGINE CORE",
+                "ENVIRONMENT: ACID RAIN // ELECTROMAGNETIC STORM",
+            ),
+            2 => (
+                "SECTOR: EARTH-02 // CORE DRONE FORGE",
+                "PRIMARY TARGET: SMELTING REACTOR MATRIX",
+                "THREAT CLASS: TIER-2 AUTOMATED COMBAT CRUCIBLE",
+                "DIRECTIVE: DESCEND INTO FOUNDRY & PURGE PRODUCTION",
+                "ENVIRONMENT: 1200 C MOLTEN SLAG // HIGH HEAT",
+            ),
+            3 => (
+                "SECTOR: MARS-03 // OLYMPUS CYBER-FOUNDRY",
+                "PRIMARY TARGET: HEAVY MINING EXCAVATOR",
+                "THREAT CLASS: TIER-3 INDUSTRIAL SUPER-MACHINE",
+                "DIRECTIVE: ASCEND DESERT CANYON & BREACH RIG CHIMNEY",
+                "ENVIRONMENT: IRON OXIDE WINDS // THIN ATMOSPHERE",
+            ),
+            4 => (
+                "SECTOR: EUROPA-04 // SUB-GLACIAL NETWORK",
+                "PRIMARY TARGET: ABADOX BIO-CYBERNETIC NODE",
+                "THREAT CLASS: TIER-4 PARASITIC SYNTHETIC LIVING CORE",
+                "DIRECTIVE: DIVE TO HYDROTHERMAL TRENCH & EXTERMINATE",
+                "ENVIRONMENT: CRYO SALINE OCEAN // 400 ATM PRESSURE",
+            ),
+            5 => (
+                "SECTOR: MERCURY-05 // HEPHAESTUS BASTION",
+                "PRIMARY TARGET: DYSON CORONA ABSORPTION ARRAY",
+                "THREAT CLASS: TIER-5 SOLAR RADIATION CONDUIT",
+                "DIRECTIVE: SLINGSHOT THROUGH SOLAR TOWER & OVERLOAD",
+                "ENVIRONMENT: EXTREME SOLAR PROMINENCE // 4500 C",
+            ),
+            6 => (
+                "SECTOR: TITAN-06 // METHANE REFINERY SPIRE",
+                "PRIMARY TARGET: SATURN ORBITAL DOCKING CITADEL",
+                "THREAT CLASS: TIER-6 MEGATALL SPACE ELEVATOR",
+                "DIRECTIVE: CLIMB ELEVATOR TRUSSES & DETONATE RIG",
+                "ENVIRONMENT: LIQUID METHANE OCEANS // DENSE SMOG",
+            ),
+            7 => (
+                "SECTOR: DEEP SPACE-07 // NEMESIS FLEET",
+                "PRIMARY TARGET: SUPREME FLAGSHIP DREADNOUGHT",
+                "THREAT CLASS: TIER-7 AI ARMADA COMMAND CITADEL",
+                "DIRECTIVE: DODGE FLAK SCREENS & INFILTRATE HANGAR",
+                "ENVIRONMENT: HARD VACUUM // DENSE ASTEROID BELT",
+            ),
+            _ => (
+                "SECTOR: UNKNOWN-08 // QUANTUM SINGULARITY",
+                "PRIMARY TARGET: NYX-OVERMIND MASTER ARTIFICIAL INTEL",
+                "THREAT CLASS: OMEGA-LEVEL QUANTUM CONSCIOUSNESS",
+                "DIRECTIVE: PENETRATE EVENT HORIZON & ZERO CORE LOGIC",
+                "ENVIRONMENT: REALITY DISTORTION // GRAVITATIONAL SINGULARITY",
+            ),
+        };
+
+        // Filas informativas de la misión
+        self.draw_rect(buffer, card_x + 18, card_y + 74, 4, 8, 0xFF00F0FF);
+        self.draw_simple_text(buffer, sector_code, card_x + 28, card_y + 74, 0xFF00F0FF, 1);
+
+        self.draw_rect(buffer, card_x + 18, card_y + 92, 4, 8, 0xFFFF4500);
+        self.draw_simple_text(buffer, target_name, card_x + 28, card_y + 92, 0xFFFF4500, 1);
+
+        self.draw_rect(buffer, card_x + 18, card_y + 110, 4, 8, 0xFFFFB703);
+        self.draw_simple_text(buffer, threat_type, card_x + 28, card_y + 110, 0xFFFFB703, 1);
+
+        self.draw_rect(buffer, card_x + 18, card_y + 128, 4, 8, 0xFF00FF77);
+        self.draw_simple_text(buffer, mission_desc, card_x + 28, card_y + 128, 0xFF00FF77, 1);
+
+        self.draw_rect(buffer, card_x + 18, card_y + 146, 4, 8, 0xFF94A3B8);
+        self.draw_simple_text(buffer, env_hazard, card_x + 28, card_y + 146, 0xFF94A3B8, 1);
+
+        // Bahía de lanzamiento del escuadrón (Commandos en posición de despegue con plataforma gantry)
+        let bay_y = card_y + 168;
+        self.draw_rect(buffer, card_x + 18, bay_y, card_w as usize - 36, 1, 0xFF1E293B);
+        self.draw_simple_text(buffer, "SQUADRON DEPLOYMENT STATUS // GANTRY BAY:", card_x + 18, bay_y + 6, 0xFF38BDF8, 1);
+
+        let commando_y = (bay_y + 44) as f32;
+
+        // Plataforma gantry de acero con franjas de precaución amarillas y negras
+        let gantry_y = commando_y as isize + 26;
+        let gantry_w = card_w - 36;
+        self.draw_rect(buffer, card_x + 18, gantry_y, gantry_w as usize, 8, 0xFF1E293B);
+        self.draw_rect(buffer, card_x + 18, gantry_y, gantry_w as usize, 2, 0xFFFFD700);
+        for s in 0..(gantry_w / 16) {
+            let sx = card_x + 18 + s * 16;
+            self.draw_rect(buffer, sx, gantry_y + 2, 8, 6, 0xFFFFD700);
+            self.draw_rect(buffer, sx + 8, gantry_y + 2, 8, 6, 0xFF111111);
+        }
+
+        for (i, p) in players.iter().enumerate() {
+            let px = (card_x + 58 + (i as isize * 110)) as f32;
             let mut clone_p = p.clone();
-            clone_p.x = p_anim_x;
+            clone_p.x = px;
+            clone_p.y = commando_y;
             clone_p.jetpack_active = true;
+            clone_p.facing_right = true;
+            clone_p.anim_timer = timer + (i as f32 * 0.5);
             self.draw_modern_commando(buffer, &clone_p);
+
+            // Bloqueo magnético de botas en la cubierta gantry
+            self.draw_aa_capsule(buffer, px - 8.0, commando_y + 25.0, px + 8.0, commando_y + 25.0, 1.8, 0xFF38BDF8);
+
+            let (name, role, col) = match p.id {
+                0 => ("P1: ARNOLD", "TITAN VULCAN", 0xFF00F0FF),
+                1 => ("P2: SIGOURNEY", "VALKYRIE LASER", 0xFFFFB703),
+                2 => ("P3: JAX", "ASSAULT EXO", 0xFF00FF77),
+                _ => ("P4: ORION", "SOLAR OPERATIVE", 0xFFFFD700),
+            };
+            self.draw_simple_text(buffer, name, (px - 26.0) as isize, (commando_y + 36.0) as isize, col, 1);
+            self.draw_simple_text(buffer, role, (px - 26.0) as isize, (commando_y + 47.0) as isize, 0xFF94A3B8, 1);
         }
+
+        // 4. Holo-Escáner Táctico de Sector (El Radar completamente rediseñado y coherente)
+        let scanner_x = card_x + card_w + 14;
+        let scanner_y = card_y;
+        let scanner_actual_w = (w - scanner_x - 24).max(220);
+        let scanner_h = card_h;
+
+        self.draw_rect(buffer, scanner_x, scanner_y, scanner_actual_w as usize, scanner_h as usize, 0xEE0B1222);
+        self.draw_rect(buffer, scanner_x, scanner_y, scanner_actual_w as usize, 2, 0xFF00E5FF);
+        self.draw_rect(buffer, scanner_x, scanner_y + scanner_h - 2, scanner_actual_w as usize, 2, 0xFF00E5FF);
+        self.draw_rect(buffer, scanner_x, scanner_y, 2, scanner_h as usize, 0xFF00E5FF);
+        self.draw_rect(buffer, scanner_x + scanner_actual_w - 2, scanner_y, 2, scanner_h as usize, 0xFF00E5FF);
+
+        self.draw_simple_text(buffer, "TACTICAL RADAR", scanner_x + 14, scanner_y + 14, 0xFF00E5FF, 1);
+        self.draw_simple_text(buffer, "SCANNER RANGE: 250 KM", scanner_x + 14, scanner_y + 28, 0xFF38BDF8, 1);
+
+        // Centro y radio del radar
+        let radar_cx = scanner_x + (scanner_actual_w / 2);
+        let radar_cy = scanner_y + 130;
+        let radar_r = 74.0f32;
+
+        // Fondo y anillos circulares concéntricos SDF anti-aliased (holográficos)
+        self.draw_aa_circle(buffer, radar_cx as f32, radar_cy as f32, radar_r, 0x1A00E5FF, 0xFF00E5FF, 1.8);
+        self.draw_aa_circle(buffer, radar_cx as f32, radar_cy as f32, radar_r * 0.66, 0x00000000, 0x6600E5FF, 1.0);
+        self.draw_aa_circle(buffer, radar_cx as f32, radar_cy as f32, radar_r * 0.33, 0x00000000, 0x6600E5FF, 1.0);
+
+        // Marcas cardinales en el anillo exterior (0°, 90°, 180°, 270°)
+        self.draw_aa_capsule(buffer, radar_cx as f32, radar_cy as f32 - radar_r - 3.0, radar_cx as f32, radar_cy as f32 - radar_r + 3.0, 1.0, 0xFFFFD700);
+        self.draw_aa_capsule(buffer, radar_cx as f32, radar_cy as f32 + radar_r - 3.0, radar_cx as f32, radar_cy as f32 + radar_r + 3.0, 1.0, 0xFFFFD700);
+        self.draw_aa_capsule(buffer, radar_cx as f32 - radar_r - 3.0, radar_cy as f32, radar_cx as f32 - radar_r + 3.0, radar_cy as f32, 1.0, 0xFFFFD700);
+        self.draw_aa_capsule(buffer, radar_cx as f32 + radar_r - 3.0, radar_cy as f32, radar_cx as f32 + radar_r + 3.0, radar_cy as f32, 1.0, 0xFFFFD700);
+
+        // Retícula en cruz ortogonal
+        self.draw_aa_capsule(buffer, radar_cx as f32 - radar_r, radar_cy as f32, radar_cx as f32 + radar_r, radar_cy as f32, 0.7, 0x8800E5FF);
+        self.draw_aa_capsule(buffer, radar_cx as f32, radar_cy as f32 - radar_r, radar_cx as f32, radar_cy as f32 + radar_r, 0.7, 0x8800E5FF);
+
+        // Haz de barrido giratorio vectorial
+        let sweep_angle = timer * 3.4;
+        let sx = radar_cx as f32 + sweep_angle.cos() * (radar_r - 2.0);
+        let sy = radar_cy as f32 + sweep_angle.sin() * (radar_r - 2.0);
+        self.draw_aa_capsule(buffer, radar_cx as f32, radar_cy as f32, sx, sy, 1.5, 0xFF00FFCC);
+        self.draw_point_light(buffer, sx as isize, sy as isize, 20, 0xFF00FFCC, 0.6);
+
+        // Estela de barrido atenuada (trail)
+        for tr in 1..=3 {
+            let trail_a = sweep_angle - (tr as f32) * 0.14;
+            let tx = radar_cx as f32 + trail_a.cos() * (radar_r - 4.0);
+            let ty = radar_cy as f32 + trail_a.sin() * (radar_r - 4.0);
+            self.draw_aa_capsule(buffer, radar_cx as f32, radar_cy as f32, tx, ty, 0.9, 0x4400FFCC);
+        }
+
+        // Contactos tácticos de radar (Señales de IA enemiga)
+        // 1. Jefe de fase (Alerta roja pulsante)
+        let boss_bx = radar_cx as f32 + 36.0;
+        let boss_by = radar_cy as f32 - 32.0;
+        let pulse_r = 4.0 + (timer * 8.0).sin().abs() * 2.0;
+        self.draw_aa_circle(buffer, boss_bx, boss_by, pulse_r, 0xFFFF0033, 0xFFFFFFFF, 1.0);
+        self.draw_volumetric_light(buffer, boss_bx, boss_by, 16.0, 0xFFFF0033, 0.65);
+        self.draw_simple_text(buffer, "BOSS", (boss_bx - 12.0) as isize, (boss_by - 12.0) as isize, 0xFFFF3344, 1);
+
+        // 2. Enjambres hostiles detectados (Puntos ámbar que se iluminan al pasar el barrido)
+        let hostile_blips = [(-32.0, -18.0), (-16.0, 36.0), (42.0, 24.0), (12.0, -42.0)];
+        for (bx_rel, by_rel) in hostile_blips {
+            let h_blip_x = radar_cx as f32 + bx_rel;
+            let h_blip_y = radar_cy as f32 + by_rel;
+            let blip_angle = by_rel.atan2(bx_rel);
+            let angle_diff = (sweep_angle - blip_angle).sin().abs();
+            let is_illuminated = angle_diff < 0.35;
+            let b_col = if is_illuminated { 0xFFFFD700 } else { 0x66FF9900 };
+            self.draw_aa_circle(buffer, h_blip_x, h_blip_y, if is_illuminated { 3.0 } else { 2.0 }, b_col, 0xFFFFFFFF, 0.6);
+        }
+
+        // 3. Posición de inserción del escuadrón (Punto cian en el centro)
+        self.draw_aa_circle(buffer, radar_cx as f32, radar_cy as f32, 3.5, 0xFF00FF77, 0xFFFFFFFF, 0.8);
+
+        // Telemetría inferior del escáner con banner de alerta táctica
+        let telem_y = radar_cy + 84;
+        self.draw_rect(buffer, scanner_x + 14, telem_y, scanner_actual_w as usize - 28, 1, 0xFF1E293B);
+
+        let alert_blink = (timer * 5.0).sin() > 0.0;
+        let alert_col = if alert_blink { 0xFFFF0033 } else { 0xFF990022 };
+        self.draw_rect(buffer, scanner_x + 14, telem_y + 6, scanner_actual_w as usize - 28, 16, 0xEE1E0B14);
+        self.draw_rect(buffer, scanner_x + 14, telem_y + 6, scanner_actual_w as usize - 28, 1, alert_col);
+        self.draw_simple_text(buffer, "! ALERT: BOSS SIGNATURE LOCKED !", scanner_x + 18, telem_y + 10, alert_col, 1);
+
+        self.draw_simple_text(buffer, "HOSTILES: SWARM DETECTED", scanner_x + 16, telem_y + 26, 0xFFFFD700, 1);
+        self.draw_simple_text(buffer, "SATELLITES: ARMED & LOCKED", scanner_x + 16, telem_y + 38, 0xFF00FF77, 1);
+
+        // 5. Barra Inferior de Lanzamiento y Aviso de Toque Inmediato
+        let bot_y = h - 54;
+        let bot_w = (w - 48) as usize;
+        self.draw_rect(buffer, 24, bot_y, bot_w, 42, 0xEE0B1222);
+        self.draw_rect(buffer, 24, bot_y, bot_w, 2, 0xFF00FF77);
+
+        // Barra de progreso de carga de despliegue
+        let progress = (timer / 2.5).clamp(0.0, 1.0);
+        let bar_fill = ((bot_w as f32 - 8.0) * progress) as usize;
+        self.draw_rect(buffer, 28, bot_y + 34, bar_fill, 4, 0xFF00FF77);
+
+        // Texto pulsante de inicio inmediato
+        let pulse_val = ((timer * 6.0).sin().abs() * 255.0) as u32;
+        let prompt_col = 0xFF000000 | (pulse_val << 16) | (0xFF << 8) | (pulse_val >> 1);
+        self.draw_simple_text(buffer, "▶▶ DESPLIEGUE EN CURSO: TOCA LA PANTALLA O DISPARA PARA INICIAR ▶▶", (w / 2 - 275).max(36), bot_y + 14, prompt_col, 1);
     }
 
     /// Escena cinemática de victoria de fase (Stage Clear) estilo Final Mission

@@ -127,15 +127,16 @@ impl LevelManager {
     }
 
     /// Progresión lógica de armamento y suministros estilo arcade clásico Final Mission:
-    /// Vulcan ('P') -> Laser ('L') -> Escudo ('H') -> Spread ('S') -> Homing ('M') -> Bomba EMP ('B') -> Escudo ('H')
+    /// 'P' (Vulcan) -> 'L' (Laser) -> 'H' (Escudo) -> 'S' (Spread) -> 'M' (Homing) -> 'B' (Bomba EMP) -> '1UP' (Vida extra) -> 'H' (Escudo)
     pub fn next_stage_item(&mut self) -> ItemType {
-        let item = match self.stage_carrier_count % 7 {
-            0 => ItemType::WeaponVulcan, // 'P' - Aumento de poder de fuego / Vulcan Lv2 inmediato
-            1 => ItemType::WeaponLaser,  // 'L' - Rayo láser penetrante para filas blindadas
-            2 => ItemType::Shield,       // 'H' - Nano-médico (+40 HP) antes de zonas críticas
-            3 => ItemType::WeaponSpread, // 'S' - Escopeta en abanico (ideal para pozos verticales)
-            4 => ItemType::WeaponHoming, // 'M' - Misiles teledirigidos para cazas ágiles
+        let item = match self.stage_carrier_count % 8 {
+            0 => ItemType::WeaponVulcan, // 'P' - Aumento de poder de fuego / Vulcan
+            1 => ItemType::WeaponLaser,  // 'L' - Rayo láser penetrante de alta potencia
+            2 => ItemType::Shield,       // 'H' - Nano-médico (+40 HP)
+            3 => ItemType::WeaponSpread, // 'S' - Escopeta de plasma en abanico
+            4 => ItemType::WeaponHoming, // 'M' - Misiles teledirigidos swarm
             5 => ItemType::Bomb,         // 'B' - Recarga de Bomba Inteligente EMP (+1)
+            6 => ItemType::ExtraLife,    // '1UP' - Vida extra de supervivencia
             _ => ItemType::Shield,       // 'H' - Recuperación de emergencia pre-Jefe
         };
         self.stage_carrier_count += 1;
@@ -214,13 +215,12 @@ impl LevelManager {
             self.handle_phase_transition(screen_w, screen_h, enemies);
         }
 
-        // Entrar en cámara interior (último tramo antes del jefe) activa la transición de cámara interior;
-        // mientras tanto, el ascenso/descenso vertical durante el nivel es 100% lineal y continuo.
+        // Entrar en cámara interior (último tramo antes del jefe) activa la alerta cinemática de brecha
         let now_in_chamber = self.stage_progress >= 0.78 && !self.boss_spawned;
         self.inside_chamber = now_in_chamber;
 
         if now_in_chamber && !was_in_chamber {
-            self.transition_timer = 2.2;
+            self.transition_timer = 1.2;
             self.transition_text = match self.current_stage {
                 1 => ">>> ENTERING INNER FORTRESS CHAMBER: TITAN-01 LAIR >>>",
                 2 => ">>> ENTERING CENTRAL SMELTING REACTOR CHAMBER >>>",
@@ -237,8 +237,8 @@ impl LevelManager {
             self.transition_timer = (self.transition_timer - dt).max(0.0);
         }
 
-        // 2. Transición lineal suave de la trayectoria de cámara (estilo Final Mission)
-        let blend_rate = 2.4;
+        // 2. Transición lineal suave y fluida de la trayectoria de cámara (estilo Final Mission)
+        let blend_rate = 2.8;
         self.scroll_vx += (self.target_vx - self.scroll_vx) * (blend_rate * dt).min(1.0);
         self.scroll_vy += (self.target_vy - self.scroll_vy) * (blend_rate * dt).min(1.0);
 
@@ -268,8 +268,8 @@ impl LevelManager {
         if self.stage_progress >= 1.0 && !self.boss_spawned {
             self.boss_spawned = true;
             self.current_phase = StagePhase::BossEncounter;
-            self.transition_timer = 2.5;
-            self.transition_text = ">>> CRITICAL WARNING: SUPREME AI BOSS DETECTED >>>";
+            self.transition_timer = 0.0;
+            self.transition_text = "";
             self.target_vx = 0.0;
             self.target_vy = 0.0;
             self.obstacles.clear();
@@ -294,9 +294,38 @@ impl LevelManager {
     }
 
     /// Gestiona la transición limpia entre orientaciones de nivel:
-    /// Evita que las torretas ancladas a superficies que ya no existen queden flotando en el aire
-    /// y adapta la posición y velocidad de los enemigos voladores a los nuevos límites espaciales.
+    /// Banners cinemáticos compactos y de corta duración (transition_timer = 1.2s),
+    /// sin banners sobre el jefe para no obstruir la visión del combate.
     pub fn handle_phase_transition(&mut self, screen_w: f32, screen_h: f32, enemies: &mut Vec<Enemy>) {
+        if self.current_phase == StagePhase::BossEncounter {
+            self.transition_timer = 0.0;
+            self.transition_text = "";
+        } else {
+            self.transition_timer = 1.2;
+            self.transition_text = match self.current_phase {
+                StagePhase::AscendUp => match self.current_stage {
+                    1 => ">> WARNING: VERTICAL ASCENT VECTOR // SKYSCRAPER SHAFTS >>",
+                    3 => ">> WARNING: VERTICAL ASCENT VECTOR // EXCAVATOR CHIMNEY >>",
+                    5 => ">> WARNING: VERTICAL ASCENT VECTOR // DYSON SOLAR SPIRE >>",
+                    6 => ">> WARNING: VERTICAL ASCENT VECTOR // TITAN SPACE ELEVATOR >>",
+                    _ => ">> WARNING: VERTICAL ASCENT VECTOR ENGAGED >>",
+                },
+                StagePhase::DescendDown => match self.current_stage {
+                    1 => ">> WARNING: VERTICAL DESCENT VECTOR // SUB-FOUNDRY SHAFT >>",
+                    2 => ">> WARNING: VERTICAL DESCENT VECTOR // SMELTING VATS >>",
+                    4 => ">> WARNING: VERTICAL DESCENT VECTOR // SUB-GLACIAL TRENCH >>",
+                    7 => ">> WARNING: VERTICAL DESCENT VECTOR // DREADNOUGHT TRENCH >>",
+                    8 => ">> WARNING: GRAVITATIONAL ANOMALY // EVENT HORIZON DIVE >>",
+                    _ => ">> WARNING: VERTICAL DESCENT VECTOR ENGAGED >>",
+                },
+                StagePhase::HorizontalRight => match self.current_stage {
+                    1 => ">> HORIZONTAL CRUISE // ROOFTOP RADAR & SKY-HIGHWAY >>",
+                    _ => ">> RESUMING HORIZONTAL FLIGHT CORRIDOR // SENSORS ONLINE >>",
+                },
+                StagePhase::BossEncounter => "",
+            };
+        }
+
         match self.current_phase {
             StagePhase::AscendUp | StagePhase::DescendDown => {
                 // Entrando a pozo vertical:
@@ -305,7 +334,7 @@ impl LevelManager {
                     if e.anchor == EnemyAnchor::Ceiling || e.anchor == EnemyAnchor::Floor {
                         e.active = false;
                     } else if e.anchor == EnemyAnchor::FreeFlying {
-                        e.x = e.x.clamp(56.0 + e.radius, screen_w - 56.0 - e.radius);
+                        e.x = e.x.clamp(60.0 + e.radius, screen_w - 60.0 - e.radius);
                         e.vx = 0.0;
                         if self.current_phase == StagePhase::AscendUp {
                             e.vy = 120.0;
@@ -314,13 +343,13 @@ impl LevelManager {
                         }
                     }
                 }
-                // 2. Retirar obstáculos horizontales de techo y suelo para despejar el pozo vertical
+                // 2. Retirar obstáculos horizontales que no encajan en el pozo vertical
                 self.obstacles.retain(|o| {
-                    o.destructible && o.x >= 60.0 && o.x <= screen_w - 60.0
+                    o.destructible && o.x >= 65.0 && o.x <= screen_w - 65.0
                 });
             }
             StagePhase::HorizontalRight => {
-                // Saliendo a corredor horizontal (azoteas / autopista aérea):
+                // Saliendo a corredor horizontal (azoteas / autopista aérea / túnel interior):
                 // 1. Desactivar torretas de pared lateral para que no queden flotando en el aire
                 for e in enemies.iter_mut() {
                     if e.anchor == EnemyAnchor::LeftWall || e.anchor == EnemyAnchor::RightWall {
@@ -355,8 +384,7 @@ impl LevelManager {
 
         match self.current_stage {
             1 => {
-                // Megaciudad de Nueva York (Estilo Final Mission NES):
-                // Calle derruida -> Ascenso por rascacielos -> Techos/Rooftops -> Descenso a fosa -> Sky-Highway
+                // Stage 1: Calle baja -> Ascenso por rascacielos -> Techos -> Descenso a fosa -> Cámara Titan-01
                 if p < 0.28 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed;
@@ -365,11 +393,11 @@ impl LevelManager {
                     self.current_phase = StagePhase::AscendUp;
                     self.target_vx = 0.0;
                     self.target_vy = -speed;
-                } else if p < 0.72 {
+                } else if p < 0.68 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed * 1.05;
                     self.target_vy = 0.0;
-                } else if p < 0.88 {
+                } else if p < 0.78 {
                     self.current_phase = StagePhase::DescendDown;
                     self.target_vx = 0.0;
                     self.target_vy = speed;
@@ -380,12 +408,12 @@ impl LevelManager {
                 }
             }
             2 => {
-                // Drone Forge: Entrada horizontal -> Descenso a fundiciones subterráneas -> Línea de ensamblaje
-                if p < 0.40 {
+                // Stage 2: Complejo exterior -> Descenso a fundiciones subterráneas -> Cámara del reactor
+                if p < 0.38 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed;
                     self.target_vy = 0.0;
-                } else if p < 0.75 {
+                } else if p < 0.78 {
                     self.current_phase = StagePhase::DescendDown;
                     self.target_vx = 0.0;
                     self.target_vy = speed;
@@ -396,12 +424,12 @@ impl LevelManager {
                 }
             }
             3 => {
-                // Mars Cyber-Foundry: Vuelo rasante por cañones de óxido de hierro -> Ascenso de cordillera hacia la excavadora
-                if p < 0.60 {
+                // Stage 3: Cañones de óxido -> Ascenso por chimenea de excavadora -> Cámara interior
+                if p < 0.45 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed;
                     self.target_vy = 0.0;
-                } else if p < 0.85 {
+                } else if p < 0.78 {
                     self.current_phase = StagePhase::AscendUp;
                     self.target_vx = 0.0;
                     self.target_vy = -speed;
@@ -412,12 +440,12 @@ impl LevelManager {
                 }
             }
             4 => {
-                // Europa: Cavernas de hielo bajo cero -> Inmersión en fosa hidrotermal profunda -> Reactor sub-glacial
+                // Stage 4: Superficie de hielo -> Inmersión en fosa hidrotermal -> Cámara Abadox
                 if p < 0.45 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed;
                     self.target_vy = 0.0;
-                } else if p < 0.80 {
+                } else if p < 0.78 {
                     self.current_phase = StagePhase::DescendDown;
                     self.target_vx = 0.0;
                     self.target_vy = speed;
@@ -428,12 +456,12 @@ impl LevelManager {
                 }
             }
             5 => {
-                // Hephaestus: Carrera supersónica bajo radiación solar -> Slingshot orbital ascendente -> Bastión solar
-                if p < 0.55 {
+                // Stage 5: Carrera orbital -> Slingshot ascendente por torre Dyson -> Bastión solar
+                if p < 0.48 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed;
                     self.target_vy = 0.0;
-                } else if p < 0.80 {
+                } else if p < 0.78 {
                     self.current_phase = StagePhase::AscendUp;
                     self.target_vx = 0.0;
                     self.target_vy = -speed;
@@ -444,8 +472,8 @@ impl LevelManager {
                 }
             }
             6 => {
-                // Titan: Costas de metano líquido -> Ascenso monumental por el elevador espacial hacia los anillos de Saturno
-                if p < 0.35 {
+                // Stage 6: Costas de metano -> Ascenso monumental por elevador espacial -> Dársena orbital
+                if p < 0.40 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed;
                     self.target_vy = 0.0;
@@ -460,8 +488,8 @@ impl LevelManager {
                 }
             }
             7 => {
-                // Nemesis Fleet: Cinturón de asteroides denso -> Trinchera defensiva del super-dreadnought -> Hangar interior
-                if p < 0.48 {
+                // Stage 7: Cinturón de asteroides -> Trinchera del Dreadnought -> Hangar de mando
+                if p < 0.45 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed;
                     self.target_vy = 0.0;
@@ -476,16 +504,16 @@ impl LevelManager {
                 }
             }
             _ => {
-                // Singularity Core: Vector de distorsión de realidad -> Fosa gravitacional -> Ascenso al horizonte de sucesos
+                // Stage 8: Vector cuántico -> Fosa gravitacional -> Ascenso singularidad -> Núcleo Overmind
                 if p < 0.35 {
                     self.current_phase = StagePhase::HorizontalRight;
                     self.target_vx = speed;
                     self.target_vy = 0.0;
-                } else if p < 0.60 {
+                } else if p < 0.58 {
                     self.current_phase = StagePhase::DescendDown;
                     self.target_vx = 0.0;
                     self.target_vy = speed;
-                } else if p < 0.82 {
+                } else if p < 0.78 {
                     self.current_phase = StagePhase::AscendUp;
                     self.target_vx = 0.0;
                     self.target_vy = -speed;
@@ -518,9 +546,17 @@ impl LevelManager {
     /// según la fase activa (corredor horizontal vs pozo vertical)
     pub fn get_player_bounds(&self, screen_w: f32, screen_h: f32) -> (f32, f32, f32, f32) {
         match self.current_phase {
-            StagePhase::HorizontalRight => (36.0, screen_w - 36.0, 52.0, screen_h - 48.0),
-            StagePhase::AscendUp => (56.0, screen_w - 56.0, 36.0, screen_h - 36.0),
-            StagePhase::DescendDown => (56.0, screen_w - 56.0, 36.0, screen_h - 36.0),
+            StagePhase::HorizontalRight => {
+                if self.inside_chamber {
+                    (36.0, screen_w - 36.0, 52.0, screen_h - 52.0)
+                } else {
+                    (36.0, screen_w - 36.0, 40.0, screen_h - 52.0)
+                }
+            }
+            StagePhase::AscendUp | StagePhase::DescendDown => {
+                // Pozos verticales: delimitados por las paredes laterales de 56px
+                (60.0, screen_w - 60.0, 32.0, screen_h - 32.0)
+            }
             StagePhase::BossEncounter => (36.0, screen_w - 36.0, 44.0, screen_h - 44.0),
         }
     }
@@ -542,52 +578,58 @@ impl LevelManager {
         match self.current_phase {
             StagePhase::HorizontalRight => {
                 if self.stage_progress < 0.28 {
-                    // === SECCIÓN 1: Lower ruined street & pipe platforms (Vuelo horizontal inicial) ===
+                    // === SECCIÓN 1: Lower ruined street & broken skylines (Vuelo horizontal inicial, cielo abierto) ===
+                    // Coherencia física: Las defensas terrestres van exclusivamente en la autopista/suelo inferior (screen_h - 82.0)
+                    // Las amenazas aéreas en el cielo son cazas, drones patrulla y avispas kamikaze.
                     let step = w_idx % 8;
                     match step {
                         0 => {
-                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.45, EnemyType::PatrolDrone));
-                            enemies.push(Enemy::new(spawn_x_right + 65.0, screen_h * 0.65, EnemyType::PatrolDrone));
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.40, EnemyType::PatrolDrone));
+                            enemies.push(Enemy::new(spawn_x_right + 65.0, screen_h * 0.60, EnemyType::PatrolDrone));
                         }
                         1 => {
                             for i in 0..4 {
-                                let y = screen_h * 0.46 + (i as f32 * 50.0);
+                                let y = screen_h * 0.25 + (i as f32 * 45.0);
                                 enemies.push(Enemy::new(spawn_x_right + (i as f32 * 45.0), y, EnemyType::KamikazeWasp));
                             }
                         }
                         2 => {
-                            // Carrier #1 (t ~ 5-7s): Dron transportador dorado con Vulcan Lv2 ('P')
-                            // O Carrier #2 (Laser 'L') / Carrier #3 (Shield 'H') en oleadas 10 y 18
+                            // Carrier #1: Dron transportador dorado con Vulcan Lv2 ('P') accesible en vuelo medio
                             let item = self.next_stage_item();
                             enemies.push(Enemy::new_carrier(spawn_x_right, screen_h * 0.45, item));
-                            enemies.push(Enemy::new(spawn_x_right + 80.0, screen_h * 0.65, EnemyType::PatrolDrone));
+                            enemies.push(Enemy::new(spawn_x_right + 80.0, screen_h * 0.62, EnemyType::PatrolDrone));
                         }
                         3 => {
-                            enemies.push(Enemy::new(spawn_x_right, 68.0, EnemyType::LaserTurret));
-                            enemies.push(Enemy::new(spawn_x_right + 60.0, screen_h - 68.0, EnemyType::LaserTurret));
+                            // Batería antiaérea asentada firmemente sobre el asfalto de la autopista derruida
+                            enemies.push(Enemy::new_anchored(spawn_x_right, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 65.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
+                            enemies.push(Enemy::new(spawn_x_right + 30.0, screen_h * 0.35, EnemyType::KamikazeWasp));
                         }
                         4 => {
                             for i in 0..3 {
-                                let y = screen_h * 0.35 + (i as f32 * 60.0);
+                                let y = screen_h * 0.32 + (i as f32 * 60.0);
                                 enemies.push(Enemy::new(spawn_x_right + (i as f32 * 40.0), y, EnemyType::PatrolDrone));
                             }
                         }
                         5 => {
-                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.55, EnemyType::PatrolDrone));
-                            enemies.push(Enemy::new(spawn_x_right + 50.0, screen_h - 68.0, EnemyType::LaserTurret));
+                            // Torreta antiaérea en parapeto de hormigón inferior + cazas aéreos de apoyo
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 50.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.30, EnemyType::PatrolDrone));
+                            enemies.push(Enemy::new(spawn_x_right + 80.0, screen_h * 0.52, EnemyType::PatrolDrone));
                         }
                         6 => {
                             enemies.push(Enemy::new(spawn_x_right, screen_h * 0.40, EnemyType::StealthStriker));
                             enemies.push(Enemy::new(spawn_x_right + 70.0, screen_h * 0.65, EnemyType::PatrolDrone));
                         }
                         _ => {
-                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.60, EnemyType::PatrolDrone));
-                            enemies.push(Enemy::new(spawn_x_right + 60.0, 68.0, EnemyType::LaserTurret));
-                            enemies.push(Enemy::new(spawn_x_right + 90.0, screen_h * 0.38, EnemyType::PatrolDrone));
+                            // Torreta antiaérea en suelo + escolta aérea en abanico
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 60.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.28, EnemyType::KamikazeWasp));
+                            enemies.push(Enemy::new(spawn_x_right + 90.0, screen_h * 0.50, EnemyType::PatrolDrone));
                         }
                     }
                 } else if self.stage_progress < 0.72 {
-                    // === SECCIÓN 3: Rooftops & Skyscraper Summits (Techos altos y antenas) ===
+                    // === SECCIÓN 3: Rooftops & Skyscraper Summits (Techos de rascacielos y antenas, cielo abierto) ===
                     let step = w_idx % 6;
                     match step {
                         0 => {
@@ -598,15 +640,17 @@ impl LevelManager {
                             // Carrier #5: Dron contenedor dorado sobre los techos (Homing 'M')
                             let item = self.next_stage_item();
                             enemies.push(Enemy::new_carrier(spawn_x_right, screen_h * 0.42, item));
-                            enemies.push(Enemy::new(spawn_x_right + 80.0, 75.0, EnemyType::LaserTurret));
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 70.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
+                            enemies.push(Enemy::new(spawn_x_right + 40.0, screen_h * 0.26, EnemyType::PatrolDrone));
                         }
                         2 => {
-                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.55, EnemyType::CyberCrab));
-                            enemies.push(Enemy::new(spawn_x_right + 60.0, screen_h - 75.0, EnemyType::LaserTurret));
+                            // Cañonera aérea pesada CyberCrab + torreta antiaérea en azotea inferior
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.50, EnemyType::CyberCrab));
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 60.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
                         }
                         3 => {
                             for i in 0..3 {
-                                let y = screen_h * 0.25 + (i as f32 * 70.0);
+                                let y = screen_h * 0.22 + (i as f32 * 55.0);
                                 enemies.push(Enemy::new(spawn_x_right + (i as f32 * 50.0), y, EnemyType::KamikazeWasp));
                             }
                         }
@@ -615,12 +659,13 @@ impl LevelManager {
                             enemies.push(Enemy::new(spawn_x_right + 60.0, screen_h * 0.65, EnemyType::PatrolDrone));
                         }
                         _ => {
-                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.45, EnemyType::StealthStriker));
-                            enemies.push(Enemy::new(spawn_x_right + 70.0, screen_h - 75.0, EnemyType::LaserTurret));
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.42, EnemyType::StealthStriker));
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 70.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
                         }
                     }
                 } else {
-                    // === SECCIÓN 5: Elevated sky-highway sprint toward TITAN-01 Warcrawler ===
+                    // === SECCIÓN 5: Interior de la Fortaleza TITAN-01 (Cámara reforzada con techo y suelo blindados) ===
+                    // Aquí, al ser túnel/cámara interior (inside_chamber), sí existen mamparas superiores de techo y suelo.
                     let step = w_idx % 4;
                     match step {
                         0 => {
@@ -634,9 +679,10 @@ impl LevelManager {
                             enemies.push(Enemy::new(spawn_x_right + 85.0, screen_h * 0.65, EnemyType::StealthStriker));
                         }
                         2 => {
+                            // Fuego cruzado letal: Torreta en techo blindado + Torreta en suelo de acero + Cañonera central
                             enemies.push(Enemy::new(spawn_x_right, screen_h * 0.50, EnemyType::CyberCrab));
-                            enemies.push(Enemy::new(spawn_x_right + 60.0, screen_h - 75.0, EnemyType::LaserTurret));
-                            enemies.push(Enemy::new(spawn_x_right + 90.0, 65.0, EnemyType::LaserTurret));
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 60.0, 78.0, EnemyType::LaserTurret, EnemyAnchor::Ceiling));
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 60.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
                         }
                         _ => {
                             // Carrier #7: Suministro crítico pre-Boss (Shield 'H' - Nano-Med)
@@ -650,9 +696,10 @@ impl LevelManager {
             }
             StagePhase::AscendUp => {
                 // === SECCIÓN 2: Vertical ASCENT (scrolling UP) through Skyscraper Shaft ===
+                // Todas las torretas se montan exclusivamente en paredes laterales izquierda (52px) y derecha (screen_w - 52px)
                 let spawn_y_top = -35.0;
-                let left_wall_x = 42.0;
-                let right_wall_x = screen_w - 42.0;
+                let left_wall_x = 52.0;
+                let right_wall_x = screen_w - 52.0;
                 let step = w_idx % 6;
 
                 match step {
@@ -713,9 +760,10 @@ impl LevelManager {
             }
             StagePhase::DescendDown => {
                 // === SECCIÓN 4: Vertical DESCENT (scrolling DOWN) into Subterranean Foundry ===
+                // Todas las torretas se montan en paredes laterales izquierda (52px) y derecha (screen_w - 52px)
                 let spawn_y_bottom = screen_h + 35.0;
-                let left_wall_x = 42.0;
-                let right_wall_x = screen_w - 42.0;
+                let left_wall_x = 52.0;
+                let right_wall_x = screen_w - 52.0;
                 let step = w_idx % 6;
 
                 match step {
@@ -801,8 +849,15 @@ impl LevelManager {
                         enemies.push(Enemy::new(spawn_x_right + 70.0, screen_h * 0.65, EnemyType::PatrolDrone));
                     }
                     3 => {
-                        enemies.push(Enemy::new(spawn_x_right, 68.0, EnemyType::LaserTurret));
-                        enemies.push(Enemy::new(spawn_x_right + 70.0, screen_h - 68.0, EnemyType::LaserTurret));
+                        if self.inside_chamber {
+                            // Túnel/cámara interior: Torretas en techo reforzado y suelo blindado
+                            enemies.push(Enemy::new_anchored(spawn_x_right, 78.0, EnemyType::LaserTurret, EnemyAnchor::Ceiling));
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 70.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
+                        } else {
+                            // Cielo abierto planetario: Amenaza aérea + Batería terrestre en suelo
+                            enemies.push(Enemy::new(spawn_x_right, screen_h * 0.30, EnemyType::PatrolDrone));
+                            enemies.push(Enemy::new_anchored(spawn_x_right + 70.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
+                        }
                     }
                     4 => {
                         enemies.push(Enemy::new(spawn_x_right, screen_h * 0.50, EnemyType::CyberCrab));
@@ -810,55 +865,131 @@ impl LevelManager {
                     }
                     _ => {
                         enemies.push(Enemy::new(spawn_x_right, screen_h * 0.40, EnemyType::PatrolDrone));
-                        enemies.push(Enemy::new(spawn_x_right + 50.0, screen_h - 68.0, EnemyType::LaserTurret));
+                        enemies.push(Enemy::new_anchored(spawn_x_right + 50.0, screen_h - 82.0, EnemyType::LaserTurret, EnemyAnchor::Floor));
                     }
                 }
             }
             StagePhase::AscendUp => {
                 let spawn_y_top = -35.0;
-                let step = w_idx % 4;
-                if step == 2 {
-                    let item = self.next_stage_item();
-                    let mut carrier = Enemy::new_carrier(screen_w * 0.50, spawn_y_top - 30.0, item);
-                    carrier.vx = 0.0;
-                    carrier.vy = 75.0;
-                    enemies.push(carrier);
-                } else {
-                    let mut e1 = Enemy::new(screen_w * 0.35, spawn_y_top, EnemyType::PatrolDrone);
-                    e1.vx = 0.0;
-                    e1.vy = 150.0;
-                    let mut e2 = Enemy::new(screen_w * 0.65, spawn_y_top - 40.0, EnemyType::AsteroidLeech);
-                    e2.vx = 0.0;
-                    e2.vy = 150.0;
-                    enemies.push(e1);
-                    enemies.push(e2);
+                let step = w_idx % 6;
+                match step {
+                    0 => {
+                        let mut e1 = Enemy::new(screen_w * 0.35, spawn_y_top, EnemyType::PatrolDrone);
+                        e1.vx = 0.0;
+                        e1.vy = 150.0;
+                        let mut e2 = Enemy::new(screen_w * 0.65, spawn_y_top - 40.0, EnemyType::AsteroidLeech);
+                        e2.vx = 0.0;
+                        e2.vy = 150.0;
+                        enemies.push(e1);
+                        enemies.push(e2);
+                    }
+                    1 => {
+                        let mut t_left = Enemy::new_anchored(52.0, spawn_y_top, EnemyType::LaserTurret, EnemyAnchor::LeftWall);
+                        t_left.aim_angle = 0.0;
+                        let mut t_right = Enemy::new_anchored(screen_w - 52.0, spawn_y_top - 50.0, EnemyType::LaserTurret, EnemyAnchor::RightWall);
+                        t_right.aim_angle = std::f32::consts::PI;
+                        enemies.push(t_left);
+                        enemies.push(t_right);
+                    }
+                    2 => {
+                        let item = self.next_stage_item();
+                        let mut carrier = Enemy::new_carrier(screen_w * 0.50, spawn_y_top - 30.0, item);
+                        carrier.vx = 0.0;
+                        carrier.vy = 75.0;
+                        enemies.push(carrier);
+                    }
+                    3 => {
+                        for i in 0..3 {
+                            let x = screen_w * 0.32 + (i as f32 * 60.0);
+                            let mut wasp = Enemy::new(x, spawn_y_top - (i as f32 * 40.0), EnemyType::KamikazeWasp);
+                            wasp.vx = 0.0;
+                            wasp.vy = 170.0;
+                            enemies.push(wasp);
+                        }
+                    }
+                    4 => {
+                        let mut t_right = Enemy::new_anchored(screen_w - 52.0, spawn_y_top, EnemyType::LaserTurret, EnemyAnchor::RightWall);
+                        t_right.aim_angle = std::f32::consts::PI;
+                        let mut crab = Enemy::new(screen_w * 0.40, spawn_y_top - 30.0, EnemyType::CyberCrab);
+                        crab.vx = 0.0;
+                        crab.vy = 120.0;
+                        enemies.push(t_right);
+                        enemies.push(crab);
+                    }
+                    _ => {
+                        let mut t_left = Enemy::new_anchored(52.0, spawn_y_top, EnemyType::LaserTurret, EnemyAnchor::LeftWall);
+                        t_left.aim_angle = 0.0;
+                        let mut striker = Enemy::new(screen_w * 0.60, spawn_y_top - 30.0, EnemyType::StealthStriker);
+                        striker.vx = 0.0;
+                        striker.vy = 150.0;
+                        enemies.push(t_left);
+                        enemies.push(striker);
+                    }
                 }
             }
             StagePhase::DescendDown => {
                 let spawn_y_bottom = screen_h + 35.0;
-                let step = w_idx % 4;
-                if step == 2 {
-                    let item = self.next_stage_item();
-                    let mut carrier = Enemy::new_carrier(screen_w * 0.50, spawn_y_bottom + 30.0, item);
-                    carrier.vx = 0.0;
-                    carrier.vy = -75.0;
-                    enemies.push(carrier);
-                } else {
-                    let mut e1 = Enemy::new(screen_w * 0.40, spawn_y_bottom, EnemyType::KamikazeWasp);
-                    e1.vx = 0.0;
-                    e1.vy = -160.0;
-                    let mut e2 = Enemy::new(screen_w * 0.60, spawn_y_bottom + 40.0, EnemyType::CyberCrab);
-                    e2.vx = 0.0;
-                    e2.vy = -110.0;
-                    enemies.push(e1);
-                    enemies.push(e2);
+                let step = w_idx % 6;
+                match step {
+                    0 => {
+                        let mut e1 = Enemy::new(screen_w * 0.40, spawn_y_bottom, EnemyType::KamikazeWasp);
+                        e1.vx = 0.0;
+                        e1.vy = -160.0;
+                        let mut e2 = Enemy::new(screen_w * 0.60, spawn_y_bottom + 40.0, EnemyType::CyberCrab);
+                        e2.vx = 0.0;
+                        e2.vy = -110.0;
+                        enemies.push(e1);
+                        enemies.push(e2);
+                    }
+                    1 => {
+                        let mut t_left = Enemy::new_anchored(52.0, spawn_y_bottom, EnemyType::LaserTurret, EnemyAnchor::LeftWall);
+                        t_left.aim_angle = 0.0;
+                        let mut t_right = Enemy::new_anchored(screen_w - 52.0, spawn_y_bottom + 50.0, EnemyType::LaserTurret, EnemyAnchor::RightWall);
+                        t_right.aim_angle = std::f32::consts::PI;
+                        enemies.push(t_left);
+                        enemies.push(t_right);
+                    }
+                    2 => {
+                        let item = self.next_stage_item();
+                        let mut carrier = Enemy::new_carrier(screen_w * 0.50, spawn_y_bottom + 30.0, item);
+                        carrier.vx = 0.0;
+                        carrier.vy = -75.0;
+                        enemies.push(carrier);
+                    }
+                    3 => {
+                        let mut leech = Enemy::new(screen_w * 0.50, spawn_y_bottom, EnemyType::AsteroidLeech);
+                        leech.vx = 0.0;
+                        leech.vy = -140.0;
+                        enemies.push(leech);
+                    }
+                    4 => {
+                        let mut t_left = Enemy::new_anchored(52.0, spawn_y_bottom, EnemyType::LaserTurret, EnemyAnchor::LeftWall);
+                        t_left.aim_angle = 0.0;
+                        let mut striker = Enemy::new(screen_w * 0.55, spawn_y_bottom + 40.0, EnemyType::StealthStriker);
+                        striker.vx = 0.0;
+                        striker.vy = -160.0;
+                        enemies.push(t_left);
+                        enemies.push(striker);
+                    }
+                    _ => {
+                        let mut t_right = Enemy::new_anchored(screen_w - 52.0, spawn_y_bottom, EnemyType::LaserTurret, EnemyAnchor::RightWall);
+                        t_right.aim_angle = std::f32::consts::PI;
+                        let mut wasp = Enemy::new(screen_w * 0.38, spawn_y_bottom + 30.0, EnemyType::KamikazeWasp);
+                        wasp.vx = 0.0;
+                        wasp.vy = -170.0;
+                        enemies.push(t_right);
+                        enemies.push(wasp);
+                    }
                 }
             }
             StagePhase::BossEncounter => {}
         }
     }
 
-    /// Genera objetos físicos y estructuras del escenario con las que el jugador colisiona estilo Final Mission
+    /// Genera objetos físicos y estructuras del escenario con coherencia física:
+    /// - En cielo abierto: apoyados en la autopista/suelo o vigas transversales Warren suspendidas
+    /// - En cámaras interiores: prensas hidráulicas, mamparas de techo blindado y crisoles
+    /// - En pozos verticales: vigas cantilever ancladas a las paredes laterales o pasarelas centrales
     fn spawn_stage_obstacle(&mut self, screen_w: f32, screen_h: f32, enemies: &[Enemy]) {
         let style = match self.current_stage {
             1 => ObstacleStyle::SteelGirder,
@@ -885,88 +1016,154 @@ impl LevelManager {
                     return;
                 }
 
-                match pattern {
-                    0 => {
-                        // Viga / Columna superior colgante
-                        self.obstacles.push(StageObstacle {
-                            x: sx,
-                            y: 88.0,
-                            width: 58.0,
-                            height: 92.0,
-                            style,
-                            destructible: false,
-                            health: 999.0,
-                            max_health: 999.0,
-                            active: true,
-                        });
+                if !self.inside_chamber {
+                    // === ZONA EXTERIOR / CIELO ABIERTO ===
+                    // Físicamente coherente: estructuras apoyadas en el suelo/autopista o vigas puente suspendidas
+                    match pattern {
+                        0 => {
+                            // Puente / Viga Warren transversal suspendida (ObstacleStyle::SteelGirder)
+                            // A media altura, dejando amplio paso de vuelo arriba y abajo
+                            self.obstacles.push(StageObstacle {
+                                x: sx,
+                                y: screen_h * 0.38,
+                                width: 92.0,
+                                height: 32.0,
+                                style,
+                                destructible: false,
+                                health: 999.0,
+                                max_health: 999.0,
+                                active: true,
+                            });
+                        }
+                        1 => {
+                            // Bunker terrestre / Pilar de autopista derruida elevado desde el suelo
+                            self.obstacles.push(StageObstacle {
+                                x: sx,
+                                y: screen_h - 58.0,
+                                width: 68.0,
+                                height: 56.0,
+                                style,
+                                destructible: false,
+                                health: 999.0,
+                                max_health: 999.0,
+                                active: true,
+                            });
+                        }
+                        2 => {
+                            // Plataforma flotante / Barcaza tecnológica de suministros (destruible con disparos)
+                            let py = if (self.distance_traveled as usize / 360) % 2 == 0 {
+                                screen_h * 0.42
+                            } else {
+                                screen_h * 0.60
+                            };
+                            self.obstacles.push(StageObstacle {
+                                x: sx,
+                                y: py,
+                                width: 88.0,
+                                height: 32.0,
+                                style,
+                                destructible: true,
+                                health: 180.0,
+                                max_health: 180.0,
+                                active: true,
+                            });
+                        }
+                        _ => {
+                            // Parapeto de hormigón reforzado en tierra con torre de comunicaciones
+                            self.obstacles.push(StageObstacle {
+                                x: sx,
+                                y: screen_h - 68.0,
+                                width: 60.0,
+                                height: 72.0,
+                                style,
+                                destructible: false,
+                                health: 999.0,
+                                max_health: 999.0,
+                                active: true,
+                            });
+                        }
                     }
-                    1 => {
-                        // Estructura inferior / Pilar elevado desde el suelo
-                        self.obstacles.push(StageObstacle {
-                            x: sx,
-                            y: screen_h - 92.0,
-                            width: 64.0,
-                            height: 96.0,
-                            style,
-                            destructible: false,
-                            health: 999.0,
-                            max_health: 999.0,
-                            active: true,
-                        });
-                    }
-                    2 => {
-                        // Plataforma / Nodo blindado flotante central (destruible con disparos concentrados)
-                        let py = if (self.distance_traveled as usize / 360) % 2 == 0 {
-                            screen_h * 0.36
-                        } else {
-                            screen_h * 0.64
-                        };
-                        self.obstacles.push(StageObstacle {
-                            x: sx,
-                            y: py,
-                            width: 84.0,
-                            height: 36.0,
-                            style,
-                            destructible: true,
-                            health: 180.0,
-                            max_health: 180.0,
-                            active: true,
-                        });
-                    }
-                    _ => {
-                        // Compuerta / Corredor doble superior e inferior con amplio paso central
-                        self.obstacles.push(StageObstacle {
-                            x: sx,
-                            y: 74.0,
-                            width: 52.0,
-                            height: 68.0,
-                            style,
-                            destructible: false,
-                            health: 999.0,
-                            max_health: 999.0,
-                            active: true,
-                        });
-                        self.obstacles.push(StageObstacle {
-                            x: sx,
-                            y: screen_h - 78.0,
-                            width: 52.0,
-                            height: 68.0,
-                            style,
-                            destructible: false,
-                            health: 999.0,
-                            max_health: 999.0,
-                            active: true,
-                        });
+                } else {
+                    // === CÁMARA INTERIOR / TÚNEL REFORZADO ===
+                    // Techos y suelos de acero blindado con compuertas y prensas industriales
+                    match pattern {
+                        0 => {
+                            // Prensa hidráulica / Mampara superior descendente desde el techo blindado
+                            self.obstacles.push(StageObstacle {
+                                x: sx,
+                                y: 52.0,
+                                width: 56.0,
+                                height: 50.0,
+                                style,
+                                destructible: false,
+                                health: 999.0,
+                                max_health: 999.0,
+                                active: true,
+                            });
+                        }
+                        1 => {
+                            // Crisol / Prensas de fundición o bunker inferior
+                            self.obstacles.push(StageObstacle {
+                                x: sx,
+                                y: screen_h - 56.0,
+                                width: 60.0,
+                                height: 52.0,
+                                style,
+                                destructible: false,
+                                health: 999.0,
+                                max_health: 999.0,
+                                active: true,
+                            });
+                        }
+                        2 => {
+                            // Nodo de blindaje o generador de campo cuántico central (destruible)
+                            self.obstacles.push(StageObstacle {
+                                x: sx,
+                                y: screen_h * 0.50,
+                                width: 84.0,
+                                height: 36.0,
+                                style,
+                                destructible: true,
+                                health: 180.0,
+                                max_health: 180.0,
+                                active: true,
+                            });
+                        }
+                        _ => {
+                            // Compuerta de esclusa presurizada (estrechamiento superior e inferior)
+                            self.obstacles.push(StageObstacle {
+                                x: sx,
+                                y: 50.0,
+                                width: 48.0,
+                                height: 46.0,
+                                style,
+                                destructible: false,
+                                health: 999.0,
+                                max_health: 999.0,
+                                active: true,
+                            });
+                            self.obstacles.push(StageObstacle {
+                                x: sx,
+                                y: screen_h - 52.0,
+                                width: 48.0,
+                                height: 46.0,
+                                style,
+                                destructible: false,
+                                health: 999.0,
+                                max_health: 999.0,
+                                active: true,
+                            });
+                        }
                     }
                 }
             }
             StagePhase::AscendUp => {
-                // El jugador asciende: las vigas horizontales entran por arriba y bajan linealmente
+                // El jugador asciende: las vigas entran por arriba y bajan
                 let sy = -50.0;
                 let (ox, ow, destructible) = match pattern % 3 {
-                    0 => (80.0, 96.0, false), // Viga anclada a pared izquierda
-                    1 => (screen_w - 80.0, 96.0, false), // Viga anclada a pared derecha
-                    _ => (screen_w * 0.5, 96.0, true), // Plataforma central destructible
+                    0 => (80.0, 96.0, false),            // Viga cantilever anclada a pared izquierda
+                    1 => (screen_w - 80.0, 96.0, false), // Viga cantilever anclada a pared derecha
+                    _ => (screen_w * 0.5, 100.0, true),  // Pasarela central de mantenimiento destructible
                 };
 
                 let overlaps_turret = enemies.iter().any(|e| {
@@ -980,7 +1177,7 @@ impl LevelManager {
                     x: ox,
                     y: sy,
                     width: ow,
-                    height: 32.0,
+                    height: 30.0,
                     style,
                     destructible,
                     health: 160.0,
@@ -989,12 +1186,12 @@ impl LevelManager {
                 });
             }
             StagePhase::DescendDown => {
-                // El jugador desciende: las vigas entran por abajo y suben linealmente
+                // El jugador desciende: las vigas entran por abajo y suben
                 let sy = screen_h + 50.0;
                 let (ox, ow, destructible) = match pattern % 3 {
-                    0 => (80.0, 96.0, false), // Viga anclada a pared izquierda
-                    1 => (screen_w - 80.0, 96.0, false), // Viga anclada a pared derecha
-                    _ => (screen_w * 0.5, 96.0, true), // Plataforma central destructible
+                    0 => (80.0, 96.0, false),            // Viga cantilever anclada a pared izquierda
+                    1 => (screen_w - 80.0, 96.0, false), // Viga cantilever anclada a pared derecha
+                    _ => (screen_w * 0.5, 100.0, true),  // Pasarela central de mantenimiento destructible
                 };
 
                 let overlaps_turret = enemies.iter().any(|e| {
@@ -1008,7 +1205,7 @@ impl LevelManager {
                     x: ox,
                     y: sy,
                     width: ow,
-                    height: 32.0,
+                    height: 30.0,
                     style,
                     destructible,
                     health: 160.0,

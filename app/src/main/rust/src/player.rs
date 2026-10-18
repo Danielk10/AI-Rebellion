@@ -34,9 +34,10 @@ impl Satellite {
         }
     }
 
-    pub fn update(&mut self, dt: f32, lock_requested: bool, target_angle: Option<f32>) {
+    pub fn update(&mut self, dt: f32, lock_requested: bool, target_angle: Option<f32>, forward_angle: f32) {
         self.is_locked = lock_requested;
         if self.is_locked {
+            // Modo bloqueado (tactical lock): mantiene su posición fija y orienta el cañón al ángulo fijado
             if let Some(target) = target_angle {
                 // Camino angular más corto (evita saltos bruscos en +/- PI)
                 let mut diff = (target - self.aim_angle) % (std::f32::consts::PI * 2.0);
@@ -45,14 +46,16 @@ impl Satellite {
                 } else if diff < -std::f32::consts::PI {
                     diff += std::f32::consts::PI * 2.0;
                 }
-                self.aim_angle += diff * (14.0 * dt).min(1.0);
+                self.aim_angle += diff * (16.0 * dt).min(1.0);
             }
         } else {
-            self.angle += 3.8 * dt; // Rotación continua estilo Final Mission
+            // Modo libre (unlocked): rotación continua orbital alrededor del jugador (Final Mission style)
+            self.angle += 3.8 * dt;
             if self.angle > std::f32::consts::PI * 2.0 {
                 self.angle -= std::f32::consts::PI * 2.0;
             }
-            self.aim_angle = self.angle;
+            // En modo sin bloqueo, orientar siempre hacia el frente de vuelo del jugador
+            self.aim_angle = forward_angle;
         }
         if self.fire_cooldown > 0.0 {
             self.fire_cooldown -= dt;
@@ -154,8 +157,9 @@ impl Player {
         self.vy *= (1.0 - dt * 4.0).max(0.0);
 
         // Actualizar satélites tácticos bivalvos
+        let forward_angle = if self.facing_right { 0.0 } else { std::f32::consts::PI };
         for sat in self.satellites.iter_mut() {
-            sat.update(dt, sat_lock, target_angle);
+            sat.update(dt, sat_lock, target_angle, forward_angle);
         }
     }
 
@@ -168,7 +172,7 @@ impl Player {
             WeaponType::Vulcan => 0.11,
             WeaponType::Laser => 0.20,
             WeaponType::Spread => 0.17,
-            WeaponType::Homing => 0.26,
+            WeaponType::Homing => 0.35,
         };
 
         // Gatilla el retroceso físico del arma instantáneamente
@@ -179,56 +183,112 @@ impl Player {
         let gun_x = self.x + dir * 28.0;
         let gun_y = self.y - 2.0;
 
-        // Disparo principal del fusil de asalto pesado anti-IA
+        // Disparo principal del fusil de asalto pesado anti-IA (Inspirado en Final Mission)
         match self.weapon {
             WeaponType::Vulcan => {
-                bullets.push(Bullet::new(gun_x, gun_y, dir * 950.0, 0.0, 6.0, 26.0, owner, BulletType::NormalVulcan, 0xFF00FFFF));
-                if self.weapon_power >= 2 {
-                    bullets.push(Bullet::new(gun_x, gun_y - 10.0, dir * 920.0, -90.0, 5.0, 22.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
-                    bullets.push(Bullet::new(gun_x, gun_y + 10.0, dir * 920.0, 90.0, 5.0, 22.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
-                }
-                if self.weapon_power >= 3 {
-                    bullets.push(Bullet::new(gun_x, gun_y - 18.0, dir * 900.0, -180.0, 5.0, 20.0, owner, BulletType::NormalVulcan, 0xFF38BDF8));
-                    bullets.push(Bullet::new(gun_x, gun_y + 18.0, dir * 900.0, 180.0, 5.0, 20.0, owner, BulletType::NormalVulcan, 0xFF38BDF8));
+                // Fusil de asalto pesado: en Nivel 1 dispara limpio y directo hacia adelante (dir * 960.0, 0.0)
+                bullets.push(Bullet::new(gun_x, gun_y, dir * 960.0, 0.0, 6.0, 28.0, owner, BulletType::NormalVulcan, 0xFF00FFFF));
+                match self.weapon_power {
+                    1 => {
+                        // Nivel 1: disparo único frontal directo sin proyectiles dispersos
+                    }
+                    2 => {
+                        // Nivel 2: 3 proyectiles en abanico controlado y cerrado
+                        bullets.push(Bullet::new(gun_x, gun_y - 8.0, dir * 940.0, -110.0, 5.5, 24.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
+                        bullets.push(Bullet::new(gun_x, gun_y + 8.0, dir * 940.0, 110.0, 5.5, 24.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
+                    }
+                    _ => {
+                        // Nivel 3: 5 proyectiles en abanico controlado sin dispersión vertical descontrolada
+                        bullets.push(Bullet::new(gun_x, gun_y - 7.0, dir * 940.0, -100.0, 5.5, 24.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
+                        bullets.push(Bullet::new(gun_x, gun_y + 7.0, dir * 940.0, 100.0, 5.5, 24.0, owner, BulletType::NormalVulcan, 0xFF00E5FF));
+                        bullets.push(Bullet::new(gun_x, gun_y - 14.0, dir * 910.0, -200.0, 5.0, 22.0, owner, BulletType::NormalVulcan, 0xFF38BDF8));
+                        bullets.push(Bullet::new(gun_x, gun_y + 14.0, dir * 910.0, 200.0, 5.0, 22.0, owner, BulletType::NormalVulcan, 0xFF38BDF8));
+                    }
                 }
             }
             WeaponType::Laser => {
-                let (beam_r, beam_dmg) = match self.weapon_power {
-                    1 => (11.0, 70.0),
-                    2 => (14.0, 95.0),
-                    _ => (18.0, 125.0),
+                // Rayo perforante denso y destructivo que atraviesa enemigos y estructuras destructibles
+                let (beam_r, beam_dmg, beam_pierce) = match self.weapon_power {
+                    1 => (12.0, 85.0, 4),
+                    2 => (16.0, 130.0, 6),
+                    _ => (20.0, 180.0, 9),
                 };
-                bullets.push(Bullet::new(gun_x, gun_y, dir * 1500.0, 0.0, beam_r, beam_dmg, owner, BulletType::LaserBeam, 0xFFFF4500));
+                let mut core_beam = Bullet::new(gun_x, gun_y, dir * 1650.0, 0.0, beam_r, beam_dmg, owner, BulletType::LaserBeam, 0xFFFF4500);
+                core_beam.pierce_count = beam_pierce;
+                bullets.push(core_beam);
+
+                if self.weapon_power >= 2 {
+                    let mut beam_top = Bullet::new(gun_x, gun_y - 7.0, dir * 1650.0, 0.0, 8.0, 40.0, owner, BulletType::LaserBeam, 0xFFFF6B35);
+                    beam_top.pierce_count = beam_pierce.saturating_sub(1);
+                    bullets.push(beam_top);
+
+                    let mut beam_bot = Bullet::new(gun_x, gun_y + 7.0, dir * 1650.0, 0.0, 8.0, 40.0, owner, BulletType::LaserBeam, 0xFFFF6B35);
+                    beam_bot.pierce_count = beam_pierce.saturating_sub(1);
+                    bullets.push(beam_bot);
+                }
+
+                if self.weapon_power >= 3 {
+                    let mut beam_far_top = Bullet::new(gun_x, gun_y - 14.0, dir * 1650.0, 0.0, 7.0, 35.0, owner, BulletType::LaserBeam, 0xFFFF8C00);
+                    beam_far_top.pierce_count = beam_pierce.saturating_sub(2);
+                    bullets.push(beam_far_top);
+
+                    let mut beam_far_bot = Bullet::new(gun_x, gun_y + 14.0, dir * 1650.0, 0.0, 7.0, 35.0, owner, BulletType::LaserBeam, 0xFFFF8C00);
+                    beam_far_bot.pierce_count = beam_pierce.saturating_sub(2);
+                    bullets.push(beam_far_bot);
+                }
             }
             WeaponType::Spread => {
-                let count = match self.weapon_power {
-                    1 => 3,
-                    2 => 5,
-                    _ => 7,
+                // Escopeta de plasma con arco limpio angular frontal (estilo Wave/Spread de Final Mission)
+                let angles: &[f32] = match self.weapon_power {
+                    1 => &[-18.0, 0.0, 18.0],
+                    2 => &[-30.0, -15.0, 0.0, 15.0, 30.0],
+                    _ => &[-40.0, -26.0, -13.0, 0.0, 13.0, 26.0, 40.0],
                 };
-                let spread_step = 140.0;
-                let start_vy = -((count - 1) as f32 * spread_step * 0.5);
-                for i in 0..count {
-                    let vy = start_vy + (i as f32 * spread_step);
-                    bullets.push(Bullet::new(gun_x, gun_y, dir * 850.0, vy, 7.0, 30.0, owner, BulletType::SpreadWave, 0xFF7CFC00));
+                let speed = 880.0;
+                let (r, dmg) = match self.weapon_power {
+                    1 => (7.0, 32.0),
+                    2 => (7.5, 34.0),
+                    _ => (8.0, 36.0),
+                };
+                for &deg in angles.iter() {
+                    let rad = deg.to_radians();
+                    let vx = dir * speed * rad.cos();
+                    let vy = speed * rad.sin();
+                    bullets.push(Bullet::new(gun_x, gun_y, vx, vy, r, dmg, owner, BulletType::SpreadWave, 0xFF7CFC00));
                 }
             }
             WeaponType::Homing => {
-                bullets.push(Bullet::new(gun_x, gun_y - 12.0, dir * 550.0, -180.0, 6.0, 42.0, owner, BulletType::HomingMissile, 0xFFFF1493));
-                bullets.push(Bullet::new(gun_x, gun_y + 12.0, dir * 550.0, 180.0, 6.0, 42.0, owner, BulletType::HomingMissile, 0xFFFF1493));
-                if self.weapon_power >= 2 {
-                    bullets.push(Bullet::new(gun_x - 12.0, gun_y - 22.0, dir * 520.0, -320.0, 6.0, 38.0, owner, BulletType::HomingMissile, 0xFFFF69B4));
-                    bullets.push(Bullet::new(gun_x - 12.0, gun_y + 22.0, dir * 520.0, 320.0, 6.0, 38.0, owner, BulletType::HomingMissile, 0xFFFF69B4));
+                // Misiles tácticos teledirigidos precisos y contundentes (sin enjambre caótico)
+                match self.weapon_power {
+                    1 => {
+                        // Nivel 1: exactamente 2 misiles teledirigidos (superior e inferior en gun_y +/- 12.0), limpios, directos, daño 65.0
+                        bullets.push(Bullet::new(gun_x, gun_y - 12.0, dir * 600.0, -100.0, 6.0, 65.0, owner, BulletType::HomingMissile, 0xFFFF1493));
+                        bullets.push(Bullet::new(gun_x, gun_y + 12.0, dir * 600.0, 100.0, 6.0, 65.0, owner, BulletType::HomingMissile, 0xFFFF1493));
+                    }
+                    2 => {
+                        // Nivel 2: 2 misiles más pesados y rápidos, daño 95.0
+                        bullets.push(Bullet::new(gun_x, gun_y - 12.0, dir * 680.0, -90.0, 7.0, 95.0, owner, BulletType::HomingMissile, 0xFFFF3366));
+                        bullets.push(Bullet::new(gun_x, gun_y + 12.0, dir * 680.0, 90.0, 7.0, 95.0, owner, BulletType::HomingMissile, 0xFFFF3366));
+                    }
+                    _ => {
+                        // Nivel 3: máximo 4 misiles (2 pares escalonados limpios), daño 120.0
+                        bullets.push(Bullet::new(gun_x, gun_y - 12.0, dir * 720.0, -80.0, 7.5, 120.0, owner, BulletType::HomingMissile, 0xFFFF0055));
+                        bullets.push(Bullet::new(gun_x, gun_y + 12.0, dir * 720.0, 80.0, 7.5, 120.0, owner, BulletType::HomingMissile, 0xFFFF0055));
+                        bullets.push(Bullet::new(gun_x - 10.0, gun_y - 20.0, dir * 680.0, -180.0, 7.0, 120.0, owner, BulletType::HomingMissile, 0xFFFF3377));
+                        bullets.push(Bullet::new(gun_x - 10.0, gun_y + 20.0, dir * 680.0, 180.0, 7.0, 120.0, owner, BulletType::HomingMissile, 0xFFFF3377));
+                    }
                 }
             }
         }
 
-        // Disparo táctico de los Satélites Orbitales en 360°
+        // Disparo táctico de los Satélites Orbitales (Mecánica Final Mission)
         for sat in self.satellites.iter_mut() {
             if sat.fire_cooldown <= 0.0 {
                 sat.fire_cooldown = 0.15;
                 let sx = self.x + sat.angle.cos() * sat.distance;
                 let sy = self.y + sat.angle.sin() * sat.distance;
+                // En modo libre (unlocked), los satélites barren con su radio orbital vertical (Final Mission)
+                // En modo bloqueado (locked), disparan en el ángulo táctico fijado (360°).
                 let (vx, vy) = if sat.is_locked {
                     (sat.aim_angle.cos() * 900.0, sat.aim_angle.sin() * 900.0)
                 } else {

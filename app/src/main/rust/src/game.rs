@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use crate::audio::{AudioEngine, SoundEffect};
 use crate::level::{LevelManager, StagePhase};
 use crate::boss::Boss;
-use crate::bullet::{Bullet, BulletOwner};
+use crate::bullet::{Bullet, BulletOwner, BulletType};
 use crate::enemy::{Enemy, EnemyAnchor, EnemyType, Item, ItemType};
 use crate::multiplayer::MultiplayerManager;
 use crate::player::{Player, WeaponType};
@@ -326,7 +326,16 @@ impl Game {
                     return;
                 }
             }
-            GameState::StageIntro | GameState::StageClear => {}
+            GameState::StageIntro => {
+                // La pantalla de briefing no se quita con un solo toque accidental; requiere que transcurra el briefing
+                if self.state_timer >= 2.5 {
+                    self.state = GameState::InGame;
+                    self.state_timer = 0.0;
+                    self.play_sfx(SoundEffect::SatelliteLock);
+                }
+                return;
+            }
+            GameState::StageClear => {}
         }
 
         let local_id = self.multiplayer.local_player_id as usize;
@@ -433,7 +442,7 @@ impl Game {
                 // La navegación de menús se gestiona por eventos táctiles en on_touch_down
             }
             GameState::StageIntro => {
-                if self.state_timer > 2.5 {
+                if self.state_timer > 3.0 {
                     self.state = GameState::InGame;
                     self.state_timer = 0.0;
                 }
@@ -444,12 +453,16 @@ impl Game {
                 if trigger_boss {
                     self.state = GameState::BossBattle;
                     self.boss = Some(Boss::new_for_stage(self.level_manager.current_stage, w_f, h_f));
+                    self.level_manager.transition_timer = 0.0; // Despejar de inmediato para no tapar la pantalla del jefe
+                    self.level_manager.transition_text = "";
                     self.play_sfx(SoundEffect::BossAlarm);
                 }
 
                 self.update_gameplay(dt, w_f, h_f);
             }
             GameState::BossBattle => {
+                self.level_manager.transition_timer = 0.0;
+                self.level_manager.transition_text = "";
                 let local_id = self.multiplayer.local_player_id as usize;
                 let p_x = self.players.get(local_id).map(|p| p.x).unwrap_or(w_f * 0.5);
                 let p_y = self.players.get(local_id).map(|p| p.y).unwrap_or(h_f * 0.5);
@@ -587,12 +600,56 @@ impl Game {
             .map(|p| (p.x, p.y, p.facing_right))
             .unwrap_or((160.0, h_f * 0.5, true));
 
+        let p_x = self.players.get(local_id).map(|p| p.x).unwrap_or(lead_x);
+        let p_y = self.players.get(local_id).map(|p| p.y).unwrap_or(lead_y);
+
+        // Búsqueda táctica de objetivo prioritario para Satélites y Misiles Teledirigidos (Mecánica Final Mission):
+        // Prioridad 1: Torretas antiaéreas en el suelo (Floor), techo (Ceiling) o paredes (LeftWall/RightWall)
+        // Prioridad 2: Drones y enemigos comunes activos en pantalla
+        // Prioridad 3: Boss activo
+        let mut best_target: Option<(f32, f32)> = None;
+        let mut min_weight_dist = f32::MAX;
+
+        for e in self.enemies.iter() {
+            if !e.active || e.x < -40.0 || e.x > w_f + 80.0 || e.y < -40.0 || e.y > h_f + 40.0 {
+                continue;
+            }
+            let dx = e.x - p_x;
+            let dy = e.y - p_y;
+            let dist = (dx * dx + dy * dy).sqrt();
+
+            // Ponderación de amenaza antiaérea:
+            // Las torretas fijas ancladas a superficies reciben ponderación preferente (dist * 0.45)
+            // para que los satélites las adquieran y destruyan con prioridad absoluta
+            let weight = if e.is_anchored() {
+                dist * 0.45
+            } else {
+                dist
+            };
+
+            if weight < min_weight_dist {
+                min_weight_dist = weight;
+                best_target = Some((e.x, e.y));
+            }
+        }
+
+        if best_target.is_none() {
+            if let Some(boss) = self.boss.as_ref() {
+                if boss.active && !boss.defeated {
+                    best_target = Some((boss.x, boss.y));
+                }
+            }
+        }
+
+        let auto_aim_angle = best_target.map(|(tx, ty)| (ty - p_y).atan2(tx - p_x));
+        let effective_sat_angle = if sat_lock { sat_angle.or(auto_aim_angle) } else { None };
+
         for (idx, p) in self.players.iter_mut().enumerate() {
             if !p.active {
                 continue;
             }
             if idx == local_id {
-                p.update(dt, sat_lock, sat_angle);
+                p.update(dt, sat_lock, effective_sat_angle);
 
                 if is_firing {
                     let bullets_before = self.bullets.len();
@@ -616,7 +673,7 @@ impl Game {
                 p.y += (form_y - p.y) * (3.5 * dt).min(1.0);
                 p.facing_right = lead_facing;
                 p.jetpack_active = true;
-                p.update(dt, sat_lock, sat_angle.map(|a| a + offset_idx * 0.8));
+                p.update(dt, sat_lock, effective_sat_angle.map(|a| a + offset_idx * 0.4));
                 if is_firing {
                     p.fire(&mut self.bullets);
                 }
@@ -627,11 +684,50 @@ impl Game {
             self.trigger_bomb(bx, by);
         }
 
-        // 4. Actualizar proyectiles
-        let p_x = self.players.get(local_id).map(|p| p.x).unwrap_or(lead_x);
-        let p_y = self.players.get(local_id).map(|p| p.y).unwrap_or(lead_y);
+        // 4. Actualizar proyectiles (los misiles del jugador buscan activamente el enemigo más cercano)
+        let p_facing_dir = self.players.get(local_id).map(|p| if p.facing_right { 1.0 } else { -1.0 }).unwrap_or(1.0);
         for b in self.bullets.iter_mut() {
-            b.update(dt, p_x, p_y);
+            match b.owner {
+                BulletOwner::Player(_) | BulletOwner::Satellite(_) => {
+                    if b.b_type == BulletType::HomingMissile {
+                        let mut nearest_target: Option<(f32, f32)> = None;
+                        let mut min_dist_sq = f32::MAX;
+
+                        for e in self.enemies.iter() {
+                            if !e.active || e.x < -20.0 || e.x > w_f + 60.0 || e.y < -20.0 || e.y > h_f + 20.0 {
+                                continue;
+                            }
+                            let dx = e.x - b.x;
+                            let dy = e.y - b.y;
+                            let d2 = dx * dx + dy * dy;
+                            let weight_d2 = if e.is_anchored() { d2 * 0.35 } else { d2 };
+                            if weight_d2 < min_dist_sq {
+                                min_dist_sq = weight_d2;
+                                nearest_target = Some((e.x, e.y));
+                            }
+                        }
+
+                        if let Some(boss) = self.boss.as_ref() {
+                            if boss.active && !boss.defeated {
+                                let dx = boss.x - b.x;
+                                let dy = boss.y - b.y;
+                                let d2 = dx * dx + dy * dy;
+                                if d2 < min_dist_sq {
+                                    nearest_target = Some((boss.x, boss.y));
+                                }
+                            }
+                        }
+
+                        let (tx, ty) = nearest_target.unwrap_or((b.x + p_facing_dir * 800.0, b.y));
+                        b.update(dt, tx, ty);
+                    } else {
+                        b.update(dt, b.x + p_facing_dir * 500.0, b.y);
+                    }
+                }
+                BulletOwner::Enemy | BulletOwner::Boss => {
+                    b.update(dt, p_x, p_y);
+                }
+            }
         }
         self.bullets.retain(|b| b.active);
 
@@ -658,12 +754,12 @@ impl Game {
                 e.x -= scroll_vx * dt;
                 e.y -= scroll_vy * dt;
 
-                // Bloquear su coordenada contra la superficie anclada para evitar despegues o derivas
+                // Bloquear su coordenada contra la superficie anclada para que sobresalgan limpiamente
                 match e.anchor {
-                    EnemyAnchor::Ceiling => { e.y = 68.0; }
-                    EnemyAnchor::Floor => { e.y = h_f - 68.0; }
-                    EnemyAnchor::LeftWall => { e.x = 42.0; }
-                    EnemyAnchor::RightWall => { e.x = w_f - 42.0; }
+                    EnemyAnchor::Ceiling => { e.y = 78.0; }
+                    EnemyAnchor::Floor => { e.y = h_f - 82.0; }
+                    EnemyAnchor::LeftWall => { e.x = 52.0; }
+                    EnemyAnchor::RightWall => { e.x = w_f - 52.0; }
                     EnemyAnchor::FreeFlying => {}
                 }
             } else {
@@ -678,9 +774,9 @@ impl Game {
             e.active && e.x >= -110.0 && e.x <= w_f + 110.0 && e.y >= -110.0 && e.y <= h_f + 110.0
         });
 
-        // 6. Actualizar cápsulas de items en pantalla
+        // 6. Actualizar cápsulas de items en pantalla estilo Final Mission y como antes
         for item in self.items.iter_mut() {
-            item.update(dt, w_f, h_f);
+            item.update(dt);
         }
         self.items.retain(|item| item.active);
 
@@ -688,36 +784,12 @@ impl Game {
         self.check_collisions(w_f, h_f);
     }
 
-    fn create_carrier_drop(ex: f32, ey: f32, drop: Option<ItemType>, phase: StagePhase, screen_w: f32, screen_h: f32) -> Item {
+    fn create_carrier_drop(ex: f32, ey: f32, drop: Option<ItemType>) -> Item {
         let item_type = drop.unwrap_or(ItemType::WeaponVulcan);
-        let mut item = Item::new(ex, ey, item_type);
-
-        // Posicionamiento predecible y accesible garantizado en pantalla:
-        // Asegurar que no aparezca fuera de la vista o pegado a los bordes
-        item.x = item.x.clamp(60.0, screen_w - 60.0);
-        item.y = item.y.clamp(60.0, screen_h - 60.0);
-
-        // Ajustar vector de desplazamiento según la fase actual de la cámara
-        match phase {
-            StagePhase::AscendUp => {
-                item.vx = 0.0;
-                item.vy = 45.0; // Desciende suavemente hacia el jugador por el eje vertical
-            }
-            StagePhase::DescendDown => {
-                item.vx = 0.0;
-                item.vy = -45.0; // Asciende suavemente hacia el jugador por el eje vertical
-            }
-            _ => {
-                item.vx = -35.0; // Flota suavemente hacia la izquierda para fácil intercepción
-                item.vy = 0.0;
-            }
-        }
-        item
+        Item::new(ex, ey, item_type)
     }
 
     fn trigger_bomb(&mut self, bx: f32, by: f32) {
-        let (w_f, h_f) = (self.width as f32, self.height as f32);
-        let phase = self.level_manager.current_phase;
         self.renderer.add_explosion(bx, by, 60, 0xFF00FFFF);
         self.play_sfx(SoundEffect::BombExplosion);
         self.play_sfx(SoundEffect::EmpShockwave);
@@ -734,7 +806,7 @@ impl Game {
                 e.active = false;
                 self.total_score += 150;
                 if e.enemy_type == EnemyType::ItemCarrier {
-                    self.items.push(Self::create_carrier_drop(e.x, e.y, e.item_drop, phase, w_f, h_f));
+                    self.items.push(Self::create_carrier_drop(e.x, e.y, e.item_drop));
                 }
             }
         }
@@ -757,7 +829,6 @@ impl Game {
 
     fn check_collisions(&mut self, w_f: f32, h_f: f32) {
         let audio = self.audio_engine.clone();
-        let phase = self.level_manager.current_phase;
 
         // A. Colisión física Jugador vs Obstáculos / Escenario (Estilo Final Mission)
         let (min_x, max_x, min_y, max_y) = self.level_manager.get_player_bounds(w_f, h_f);
@@ -803,70 +874,31 @@ impl Game {
                         self.touch_controls.delta_y_tactil = self.touch_controls.primary_y - p.y;
                     }
 
-                    // Daño por impacto / aplastamiento contra estructuras del escenario
-                    if p.invulnerable_timer <= 0.0 {
-                        let died = p.take_damage(12.0);
-                        p.invulnerable_timer = 0.65;
-                        Self::trigger_sfx(&audio, SoundEffect::MetalClang);
-                        self.renderer.add_explosion(p.x, p.y, 8, 0xFFFFAA00);
-                        if died && p.lives <= 0 {
-                            p.active = false;
-                        }
-                    }
+                    // Estilo Final Mission NES: Los obstáculos bloquean físicamente el avance del jugador sin daño ni parpadeo
                 }
             }
         }
 
-        // B. Colisión: Proyectiles vs Obstáculos del Escenario, Enemigos, Boss y Jugadores
+        // B. Colisión: Proyectiles vs Enemigos, Boss, Obstáculos del Escenario y Jugadores
         for b in self.bullets.iter_mut() {
-            if !b.active {
-                continue;
-            }
-
-            // Proyectiles chocan contra obstáculos físicos del escenario
-            for obs in self.level_manager.obstacles.iter_mut() {
-                if !obs.active {
-                    continue;
-                }
-                let half_w = obs.width * 0.5 + b.radius;
-                let half_h = obs.height * 0.5 + b.radius;
-                if (b.x - obs.x).abs() < half_w && (b.y - obs.y).abs() < half_h {
-                    b.active = false;
-                    self.renderer.add_explosion(b.x, b.y, 4, 0xFF00E5FF);
-
-                    if obs.destructible {
-                        if matches!(b.owner, BulletOwner::Player(_) | BulletOwner::Satellite(_)) {
-                            obs.health -= b.damage;
-                            if obs.health <= 0.0 {
-                                obs.active = false;
-                                self.total_score += 300;
-                                self.renderer.add_explosion(obs.x, obs.y, 18, 0xFFFF6600);
-                                Self::trigger_sfx(&audio, SoundEffect::Explosion);
-                            } else {
-                                Self::trigger_sfx(&audio, SoundEffect::MetalClang);
-                            }
-                        }
-                    } else {
-                        Self::trigger_sfx(&audio, SoundEffect::Ricochet);
-                    }
-                    break;
-                }
-            }
-
             if !b.active {
                 continue;
             }
 
             match b.owner {
                 BulletOwner::Player(_) | BulletOwner::Satellite(_) => {
-                    // Contra enemigos comunes
+                    // 1. Contra enemigos comunes (Prioridad de impacto para destruir antiaéreos antes de colisión ambiental)
                     for e in self.enemies.iter_mut() {
                         if !e.active {
                             continue;
                         }
                         let dist = ((b.x - e.x).powi(2) + (b.y - e.y).powi(2)).sqrt();
                         if dist < (b.radius + e.radius) {
-                            b.active = false;
+                            if b.pierce_count > 0 {
+                                b.pierce_count -= 1;
+                            } else {
+                                b.active = false;
+                            }
                             e.health -= b.damage;
                             self.renderer.add_explosion(b.x, b.y, 4, 0xFFFFFF00);
 
@@ -877,24 +909,38 @@ impl Game {
                                 Self::trigger_sfx(&audio, SoundEffect::Explosion);
 
                                 if e.enemy_type == EnemyType::ItemCarrier {
-                                    self.items.push(Self::create_carrier_drop(e.x, e.y, e.item_drop, phase, w_f, h_f));
+                                    self.items.push(Self::create_carrier_drop(e.x, e.y, e.item_drop));
                                 }
                             }
-                            break;
+                            if !b.active {
+                                break;
+                            }
                         }
                     }
 
-                    // Contra el Boss
+                    if !b.active {
+                        continue;
+                    }
+
+                    // 2. Contra el Boss
                     if let Some(boss) = self.boss.as_mut() {
                         if boss.active && !boss.defeated {
                             let dist = ((b.x - boss.x).powi(2) + (b.y - boss.y).powi(2)).sqrt();
                             if dist < (b.radius + boss.radius) {
-                                b.active = false;
+                                if b.pierce_count > 0 {
+                                    b.pierce_count -= 1;
+                                } else {
+                                    b.active = false;
+                                }
                                 boss.take_damage(b.damage);
                                 self.total_score += 50;
                                 self.renderer.add_explosion(b.x, b.y, 6, 0xFFFF0055);
                             }
                         }
+                    }
+
+                    if !b.active {
+                        continue;
                     }
                 }
                 BulletOwner::Enemy | BulletOwner::Boss => {
@@ -934,6 +980,46 @@ impl Game {
                             if died && p.lives <= 0 {
                                 p.active = false;
                             }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 3. Proyectiles chocan contra obstáculos físicos del escenario (con penetración para láser)
+            if b.active {
+                for obs in self.level_manager.obstacles.iter_mut() {
+                    if !obs.active {
+                        continue;
+                    }
+                    let half_w = obs.width * 0.5 + b.radius;
+                    let half_h = obs.height * 0.5 + b.radius;
+                    if (b.x - obs.x).abs() < half_w && (b.y - obs.y).abs() < half_h {
+                        if obs.destructible {
+                            if matches!(b.owner, BulletOwner::Player(_) | BulletOwner::Satellite(_)) {
+                                obs.health -= b.damage;
+                                if obs.health <= 0.0 {
+                                    obs.active = false;
+                                    self.total_score += 300;
+                                    self.renderer.add_explosion(obs.x, obs.y, 18, 0xFFFF6600);
+                                    Self::trigger_sfx(&audio, SoundEffect::Explosion);
+                                } else {
+                                    Self::trigger_sfx(&audio, SoundEffect::MetalClang);
+                                }
+                            }
+                            if b.pierce_count > 0 {
+                                b.pierce_count -= 1;
+                                self.renderer.add_explosion(b.x, b.y, 4, 0xFF00E5FF);
+                            } else {
+                                b.active = false;
+                                self.renderer.add_explosion(b.x, b.y, 4, 0xFF00E5FF);
+                                break;
+                            }
+                        } else {
+                            // Muro o estructura indestructible: ningún proyectil la atraviesa
+                            Self::trigger_sfx(&audio, SoundEffect::Ricochet);
+                            b.active = false;
+                            self.renderer.add_explosion(b.x, b.y, 4, 0xFF00E5FF);
                             break;
                         }
                     }
@@ -992,20 +1078,36 @@ impl Game {
 
                     match item.item_type {
                         ItemType::WeaponVulcan => {
-                            p.weapon = WeaponType::Vulcan;
-                            p.weapon_power = (p.weapon_power + 1).min(3);
+                            if p.weapon == WeaponType::Vulcan {
+                                p.weapon_power = (p.weapon_power + 1).min(3);
+                            } else {
+                                p.weapon = WeaponType::Vulcan;
+                                p.weapon_power = 1;
+                            }
                         }
                         ItemType::WeaponLaser => {
-                            p.weapon = WeaponType::Laser;
-                            p.weapon_power = (p.weapon_power + 1).min(3);
+                            if p.weapon == WeaponType::Laser {
+                                p.weapon_power = (p.weapon_power + 1).min(3);
+                            } else {
+                                p.weapon = WeaponType::Laser;
+                                p.weapon_power = 1;
+                            }
                         }
                         ItemType::WeaponSpread => {
-                            p.weapon = WeaponType::Spread;
-                            p.weapon_power = (p.weapon_power + 1).min(3);
+                            if p.weapon == WeaponType::Spread {
+                                p.weapon_power = (p.weapon_power + 1).min(3);
+                            } else {
+                                p.weapon = WeaponType::Spread;
+                                p.weapon_power = 1;
+                            }
                         }
                         ItemType::WeaponHoming => {
-                            p.weapon = WeaponType::Homing;
-                            p.weapon_power = (p.weapon_power + 1).min(3);
+                            if p.weapon == WeaponType::Homing {
+                                p.weapon_power = (p.weapon_power + 1).min(3);
+                            } else {
+                                p.weapon = WeaponType::Homing;
+                                p.weapon_power = 1;
+                            }
                         }
                         ItemType::Bomb => {
                             p.bombs = (p.bombs + 1).min(6);
@@ -1064,8 +1166,8 @@ impl Game {
                 // Respetar los muros y límites de la fase para que los drones no salgan del pozo vertical o cielo
                 match self.level_manager.current_phase {
                     StagePhase::AscendUp | StagePhase::DescendDown => {
-                        let min_shaft_x = 46.0 + e.radius;
-                        let max_shaft_x = w_f - 46.0 - e.radius;
+                        let min_shaft_x = 56.0 + e.radius;
+                        let max_shaft_x = w_f - 56.0 - e.radius;
                         if e.x < min_shaft_x {
                             e.x = min_shaft_x;
                             e.vx = e.vx.abs().max(30.0);

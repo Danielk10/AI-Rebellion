@@ -35,6 +35,7 @@ pub struct Bullet {
     pub life: f32,
     pub active: bool,
     pub color: u32, // RGBA en formato 0xAABBGGRR
+    pub pierce_count: u8, // Conteo de perforación a través de obstáculos y enemigos (Láser estilo Final Mission)
 }
 
 impl Bullet {
@@ -49,6 +50,10 @@ impl Bullet {
         b_type: BulletType,
         color: u32,
     ) -> Self {
+        let pierce = match b_type {
+            BulletType::LaserBeam => 3,
+            _ => 0,
+        };
         Self {
             x,
             y,
@@ -61,6 +66,7 @@ impl Bullet {
             life: 6.0,
             active: true,
             color,
+            pierce_count: pierce,
         }
     }
 
@@ -69,14 +75,14 @@ impl Bullet {
             return;
         }
 
-        // Comportamiento de misiles teledirigidos
+        // Comportamiento de misiles teledirigidos tácticos (inspirado en Final Mission)
         if self.b_type == BulletType::HomingMissile || self.b_type == BulletType::EnemyHoming {
             let dx = target_x - self.x;
             let dy = target_y - self.y;
             let dist = (dx * dx + dy * dy).sqrt();
             if dist > 5.0 {
-                let speed = (self.vx * self.vx + self.vy * self.vy).sqrt().max(350.0);
-                let turn_rate = 6.0 * dt;
+                let speed = (self.vx * self.vx + self.vy * self.vy).sqrt().max(520.0);
+                let turn_rate = 9.5 * dt;
                 let target_vx = (dx / dist) * speed;
                 let target_vy = (dy / dist) * speed;
                 self.vx += (target_vx - self.vx) * turn_rate;

@@ -66,7 +66,7 @@ impl Item {
         Self {
             x,
             y,
-            vx: -35.0,
+            vx: -175.0,
             vy: 0.0,
             item_type,
             active: true,
@@ -75,21 +75,18 @@ impl Item {
         }
     }
 
-    pub fn update(&mut self, dt: f32, screen_w: f32, screen_h: f32) {
+    pub fn update(&mut self, dt: f32) {
         if !self.active {
             return;
         }
         self.time_alive += dt;
+        // Desplazamiento horizontal dinámico a través de la pantalla estilo Final Mission NES (vx = -175.0)
         self.x += self.vx * dt;
-        self.y += self.vy * dt;
-        // Flotación sinusoidal suave estilo arcade clásico
-        self.y += (self.time_alive * 2.8).sin() * 22.0 * dt;
+        // Suave ondulación vertical
+        self.y += (self.time_alive * 3.5).sin() * 35.0 * dt;
 
-        // Mantener dentro del área de juego accesible y visible
-        self.y = self.y.clamp(48.0, screen_h - 48.0);
-
-        // Desactivar cuando sale completamente de la pantalla
-        if self.x < -40.0 || self.x > screen_w + 80.0 || self.y < -40.0 || self.y > screen_h + 40.0 {
+        // Despawn definitivo al salir de la pantalla por la izquierda
+        if self.x < -40.0 {
             self.active = false;
         }
     }
