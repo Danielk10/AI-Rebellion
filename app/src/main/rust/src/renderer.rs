@@ -1957,7 +1957,7 @@ impl Renderer {
         self.draw_aa_circle(buffer, spark_x, spark_y, 1.2, 0xFFFFFFFF, heat_col, 0.5);
     }
 
-    /// Torreta Láser Pesada de Asedio: Cúpula blindada, cañón gemelo con bobinas aceleradoras y haz guía
+    /// Torreta Antiaérea Pesada: Doble cañón flak blindado con freno de boca perforado, mantlete acorazado y cero palitos
     pub fn draw_laser_turret(
         &self,
         buffer: &mut [u32],
@@ -1967,58 +1967,99 @@ impl Renderer {
         let ex = enemy.x;
         let ey = enemy.y;
 
-        // 1. Anclaje sólido a la arquitectura del nivel
+        // 1. Cimientos y anclaje sólido a la arquitectura física
         self.draw_turret_mounting_base(buffer, ex, ey, enemy.anchor, anim_time);
 
-        // 2. Cúpula blindada giratoria con rejillas de refrigeración
-        let dome_r = 15.5;
-        self.draw_aa_circle(buffer, ex, ey, dome_r, 0xFF1E293B, 0xFF475569, 2.2);
-        self.draw_aa_circle(buffer, ex, ey, dome_r - 4.0, 0xFF0F172A, 0xFF334155, 1.5);
-
-        // Franjas de advertencia táctica en la cúpula
-        self.draw_aa_capsule(buffer, ex - 9.0, ey - 3.0, ex + 9.0, ey - 3.0, 1.2, 0xFFFFD700);
-
-        // 3. Sensor óptico frontal (ojo escáner rojo)
-        let eye_dist = 6.0;
-        let eye_x = ex + enemy.aim_angle.cos() * eye_dist;
-        let eye_y = ey + enemy.aim_angle.sin() * eye_dist;
-        self.draw_aa_circle(buffer, eye_x, eye_y, 3.2, 0xFFFF0033, 0xFFFFFFFF, 0.8);
-        self.draw_volumetric_light(buffer, eye_x, eye_y, 14.0, 0xFFFF0033, 0.6);
-
-        // 4. Doble Cañón Láser con bobinas electromagnéticas
         let cos_a = enemy.aim_angle.cos();
         let sin_a = enemy.aim_angle.sin();
-        let perp_x = -sin_a * 4.5;
-        let perp_y = cos_a * 4.5;
-        let barrel_len = 22.0;
+        let perp_x = -sin_a;
+        let perp_y = cos_a;
 
-        let b1_start_x = ex + perp_x;
-        let b1_start_y = ey + perp_y;
-        let b1_end_x = b1_start_x + cos_a * barrel_len;
-        let b1_end_y = b1_start_y + sin_a * barrel_len;
+        // 2. Anillo de giro / Base circular blindada con reborde de acero
+        let base_r = 16.5;
+        self.draw_aa_circle(buffer, ex, ey, base_r, 0xFF0F172A, 0xFF334155, 2.4);
+        self.draw_aa_circle(buffer, ex, ey, base_r - 3.5, 0xFF1E293B, 0xFF475569, 1.5);
 
-        let b2_start_x = ex - perp_x;
-        let b2_start_y = ey - perp_y;
-        let b2_end_x = b2_start_x + cos_a * barrel_len;
-        let b2_end_y = b2_start_y + sin_a * barrel_len;
+        // Remaches / pernos de blindaje perimetrales en la base giratoria
+        for r_i in 0..6 {
+            let r_ang = (r_i as f32) * (std::f32::consts::PI / 3.0) + (anim_time * 0.5);
+            let rx = ex + r_ang.cos() * (base_r - 2.0);
+            let ry = ey + r_ang.sin() * (base_r - 2.0);
+            self.draw_circle(buffer, rx as isize, ry as isize, 1, 0xFF94A3B8);
+        }
 
-        self.draw_aa_capsule(buffer, b1_start_x, b1_start_y, b1_end_x, b1_end_y, 2.6, 0xFF0F172A);
-        self.draw_aa_capsule(buffer, b2_start_x, b2_start_y, b2_end_x, b2_end_y, 2.6, 0xFF0F172A);
+        // 3. Bloque de recámara reforzada y muñón de elevación hidráulico
+        let breech_x = ex + cos_a * 4.0;
+        let breech_y = ey + sin_a * 4.0;
+        self.draw_aa_capsule(buffer, breech_x - perp_x * 9.0, breech_y - perp_y * 9.0, breech_x + perp_x * 9.0, breech_y + perp_y * 9.0, 5.0, 0xFF0F172A);
+        self.draw_aa_capsule(buffer, breech_x - perp_x * 7.5, breech_y - perp_y * 7.5, breech_x + perp_x * 7.5, breech_y + perp_y * 7.5, 2.5, 0xFF334155);
 
-        // Bobinas de energía cian pulsante
-        let coil_pulse = (anim_time * 8.0).sin().abs();
-        let coil_col = Self::lerp_color(0xFF0099FF, 0xFF00F0FF, coil_pulse);
-        self.draw_aa_capsule(buffer, b1_start_x + cos_a * 6.0, b1_start_y + sin_a * 6.0, b1_end_x - cos_a * 2.0, b1_end_y - sin_a * 2.0, 1.2, coil_col);
-        self.draw_aa_capsule(buffer, b2_start_x + cos_a * 6.0, b2_start_y + sin_a * 6.0, b2_end_x - cos_a * 2.0, b2_end_y - sin_a * 2.0, 1.2, coil_col);
+        // 4. Doble Cañón Pesado con camisas térmicas de refrigeración (sin palitos en la punta)
+        let barrel_spacing = 5.5;
+        let barrel_len = 20.0;
+        let sleeve_len = 10.0;
 
-        // Boquillas emisoras y haz láser de puntería tenue
-        self.draw_aa_circle(buffer, b1_end_x, b1_end_y, 2.2, 0xFFFFFFFF, 0xFF00E5FF, 0.8);
-        self.draw_aa_circle(buffer, b2_end_x, b2_end_y, 2.2, 0xFFFFFFFF, 0xFF00E5FF, 0.8);
+        for &sign in &[-1.0f32, 1.0f32] {
+            let offset_x = perp_x * barrel_spacing * sign;
+            let offset_y = perp_y * barrel_spacing * sign;
 
-        let aim_trace_len = 45.0;
-        let tr_x = ex + cos_a * (barrel_len + aim_trace_len);
-        let tr_y = ey + sin_a * (barrel_len + aim_trace_len);
-        self.draw_aa_capsule(buffer, ex + cos_a * barrel_len, ey + sin_a * barrel_len, tr_x, tr_y, 0.6, 0x5500F0FF);
+            let b_start_x = ex + offset_x + cos_a * 2.0;
+            let b_start_y = ey + offset_y + sin_a * 2.0;
+            let b_end_x = b_start_x + cos_a * barrel_len;
+            let b_end_y = b_start_y + sin_a * barrel_len;
+
+            // Cañón principal de acero al carbono pavonado
+            self.draw_aa_capsule(buffer, b_start_x, b_start_y, b_end_x, b_end_y, 3.2, 0xFF0B0F19);
+            self.draw_aa_capsule(buffer, b_start_x, b_start_y, b_end_x, b_end_y, 1.8, 0xFF1E293B);
+
+            // Camisa térmica estriada de la recámara (recoil sleeve)
+            let s_end_x = b_start_x + cos_a * sleeve_len;
+            let s_end_y = b_start_y + sin_a * sleeve_len;
+            self.draw_aa_capsule(buffer, b_start_x, b_start_y, s_end_x, s_end_y, 4.2, 0xFF1E293B);
+            self.draw_aa_capsule(buffer, b_start_x, b_start_y, s_end_x, s_end_y, 2.2, 0xFF475569);
+
+            // Freno de boca rectangular militar en la punta (Boca de cañón pesada, SIN palitos)
+            let muzzle_x = b_end_x;
+            let muzzle_y = b_end_y;
+            let brake_x1 = muzzle_x - perp_x * 2.5;
+            let brake_y1 = muzzle_y - perp_y * 2.5;
+            let brake_x2 = muzzle_x + perp_x * 2.5;
+            let brake_y2 = muzzle_y + perp_y * 2.5;
+            self.draw_aa_capsule(buffer, brake_x1, brake_y1, brake_x2, brake_y2, 3.0, 0xFF0F172A);
+            self.draw_aa_capsule(buffer, brake_x1, brake_y1, brake_x2, brake_y2, 1.5, 0xFF64748B);
+
+            // Orificio interior del ánima del cañón (dark bore)
+            self.draw_circle(buffer, muzzle_x as isize, muzzle_y as isize, 1, 0xFF020617);
+
+            // Destello de precarga cuando está a punto de disparar (fire_timer < 0.35)
+            if enemy.fire_timer < 0.35 {
+                let charge_glow = ((0.35 - enemy.fire_timer) / 0.35).clamp(0.0, 1.0);
+                let charge_col = Self::lerp_color(0xFF0099FF, 0xFF00FFFF, charge_glow);
+                self.draw_circle(buffer, muzzle_x as isize, muzzle_y as isize, 2, charge_col);
+                self.draw_point_light(buffer, muzzle_x as isize, muzzle_y as isize, 8, charge_col, charge_glow * 0.7);
+            }
+        }
+
+        // 5. Escudo frontal blindado / Mantlete protector con visor
+        let shield_x = ex + cos_a * 6.0;
+        let shield_y = ey + sin_a * 6.0;
+        let s_top_x = shield_x + perp_x * 12.0;
+        let s_top_y = shield_y + perp_y * 12.0;
+        let s_bot_x = shield_x - perp_x * 12.0;
+        let s_bot_y = shield_y - perp_y * 12.0;
+
+        self.draw_aa_capsule(buffer, s_top_x, s_top_y, s_bot_x, s_bot_y, 4.0, 0xFF1E293B);
+        self.draw_aa_capsule(buffer, s_top_x, s_top_y, s_bot_x, s_bot_y, 2.0, 0xFF64748B);
+
+        // Franja táctica naranja/amarilla de peligro en el escudo
+        self.draw_aa_capsule(buffer, s_top_x - cos_a * 2.0, s_top_y - sin_a * 2.0, s_bot_x - cos_a * 2.0, s_bot_y - sin_a * 2.0, 1.0, 0xFFFF7700);
+
+        // 6. Sensor de puntería telemétrico central (Visor óptico rojo en la torreta)
+        let optic_x = ex - cos_a * 2.0;
+        let optic_y = ey - sin_a * 2.0;
+        self.draw_aa_circle(buffer, optic_x, optic_y, 3.8, 0xFF0F172A, 0xFFFF1133, 1.4);
+        self.draw_circle(buffer, optic_x as isize, optic_y as isize, 1, 0xFFFFFFFF);
+        self.draw_point_light(buffer, optic_x as isize, optic_y as isize, 10, 0xFFFF0033, 0.5);
     }
 
     /// Cangrejo Cibernético Blindado: Caminante cuadrúpedo con blindaje reactivo, pinzas trituradoras y cañón
