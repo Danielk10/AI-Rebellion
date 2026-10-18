@@ -16,7 +16,6 @@ pub enum BulletType {
     LaserBeam,
     SpreadWave,
     HomingMissile,
-    PlasmaBomb,
     EnemyPlasma,
     EnemyHoming,
     EnemyLaser,

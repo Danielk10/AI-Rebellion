@@ -11,7 +11,7 @@
 
 use crate::boss::{Boss, BossId};
 use crate::bullet::{Bullet, BulletType};
-use crate::enemy::{Enemy, EnemyType, Item, ItemType};
+use crate::enemy::{Enemy, EnemyAnchor, EnemyType, Item, ItemType};
 use crate::level::{ObstacleStyle, StageObstacle, StagePhase};
 use crate::player::{Player, WeaponType};
 
@@ -49,12 +49,7 @@ pub struct Renderer {
     pub scroll_vy: f32,
     pub stage_phase: StagePhase,
     pub stage_progress: f32,
-    /// Puntuación total mostrada en el HUD superior derecho
-    pub hud_score: u32,
 }
-
-/// Color de contorno (outline) cel-shading para separar personajes del fondo
-const OUTLINE: u32 = 0xFF05070D;
 
 impl Renderer {
     fn build_stars(w: usize, h: usize) -> Vec<Star> {
@@ -94,7 +89,6 @@ impl Renderer {
             scroll_vy: 0.0,
             stage_phase: StagePhase::HorizontalRight,
             stage_progress: 0.0,
-            hud_score: 0,
         }
     }
 
@@ -162,90 +156,6 @@ impl Renderer {
             p.life -= dt;
         }
         self.particles.retain(|p| p.life > 0.0);
-    }
-
-    /// Renderiza la pantalla de presentación Splash original de Diamon Black & Powered by Rust
-    pub fn render_splash_screen(&self, buffer: &mut [u32], timer: f32) {
-        let w = self.width as isize;
-        let h = self.height as isize;
-
-        // Fondo oscuro de fibra de carbono y circuitos
-        buffer.fill(0xFF07090E);
-
-        // Trazas de circuitos cibernéticos de fondo
-        for line_y in (40..h).step_by(60) {
-            self.draw_rect(buffer, 0, line_y, w as usize, 1, 0xFF0E1422);
-        }
-        for line_x in (60..w).step_by(80) {
-            self.draw_rect(buffer, line_x, 0, 1, h as usize, 0xFF0E1422);
-        }
-
-        let cx = w / 2;
-        let cy = h / 2 - 20;
-
-        // Destello de haz anamórfico central (cian a la izquierda, naranja a la derecha)
-        let beam_alpha = ((timer * 2.5).sin().abs() * 0.6).min(0.6);
-        self.draw_rect(buffer, 40, cy - 65, (w - 80) as usize, 2, 0xFF00E5FF);
-        self.draw_point_light(buffer, cx - 180, cy - 65, 120, 0xFF00E5FF, beam_alpha);
-        self.draw_point_light(buffer, cx + 180, cy + 50, 120, 0xFFFF5500, beam_alpha);
-
-        // --- 1. TITULAR PRINCIPAL: IA REBELLION ---
-        self.draw_simple_text(buffer, "DIAMON BLACK PRESENTA", cx - 85, cy - 120, 0xFF718096, 1);
-
-        let t_box_w = 480;
-        let t_box_h = 68;
-        let t_x = cx - t_box_w / 2;
-        let t_y = cy - 100;
-
-        self.draw_rect(buffer, t_x, t_y, t_box_w as usize, t_box_h as usize, 0xEE101624);
-        self.draw_rect(buffer, t_x, t_y, t_box_w as usize, 3, 0xFF00E5FF);
-        self.draw_rect(buffer, t_x, t_y + t_box_h as isize - 3, t_box_w as usize, 3, 0xFFFF4500);
-        self.draw_rect(buffer, t_x + 2, t_y + 2, (t_box_w - 4) as usize, 1, 0xFF38BDF8);
-
-        // Nombre del juego: IA REBELLION en gran tamaño con brillo
-        self.draw_simple_text(buffer, "IA REBELLION", cx - 180, cy - 88, 0xFFFFFFFF, 4);
-        self.draw_simple_text(buffer, "IA REBELLION", cx - 180, cy - 89, 0xFF00F0FF, 4);
-        self.draw_volumetric_light(buffer, cx as f32, (cy - 66) as f32, 90.0, 0xFF00E5FF, 0.45);
-
-        self.draw_simple_text(buffer, "CYBERNETIC ARCADE SHMUP // 100% NATIVE RUST", cx - 165, cy - 22, 0xFFFFCC00, 1);
-
-        // --- 2. LOGO BADGE: POWERED BY RUST ---
-        let badge_w = 340;
-        let badge_h = 56;
-        let b_x = cx - badge_w / 2;
-        let b_y = cy + 10;
-
-        self.draw_rect(buffer, b_x, b_y, badge_w as usize, badge_h as usize, 0xFF1E232E);
-        self.draw_rect(buffer, b_x + 2, b_y + 2, (badge_w - 4) as usize, (badge_h - 4) as usize, 0xFF2A3140);
-        self.draw_rect(buffer, b_x + 3, b_y + 3, (badge_w - 6) as usize, 1, 0xFF5A667E);
-
-        let gear_x = b_x + 40;
-        let gear_y = b_y + 28;
-
-        for d in 0..8 {
-            let rad = (d as f32) * (std::f32::consts::PI / 4.0) + timer * 0.8;
-            let tx = gear_x + (rad.cos() * 18.0) as isize;
-            let ty = gear_y + (rad.sin() * 18.0) as isize;
-            self.draw_circle(buffer, tx, ty, 4, 0xFFFF4500);
-            self.draw_circle(buffer, tx, ty, 2, 0xFFFFCC00);
-        }
-
-        self.draw_circle(buffer, gear_x, gear_y, 16, 0xFFFF4500);
-        self.draw_circle(buffer, gear_x, gear_y, 12, 0xFF1E232E);
-        self.draw_rect(buffer, gear_x - 4, gear_y - 6, 3, 12, 0xFFFFD700);
-        self.draw_rect(buffer, gear_x - 4, gear_y - 6, 8, 3, 0xFFFFD700);
-        self.draw_rect(buffer, gear_x + 1, gear_y - 6, 3, 6, 0xFFFFD700);
-        self.draw_rect(buffer, gear_x - 4, gear_y - 1, 8, 2, 0xFFFFD700);
-        self.draw_rect(buffer, gear_x + 1, gear_y + 1, 3, 5, 0xFFFFD700);
-
-        self.draw_point_light(buffer, gear_x, gear_y, 35, 0xFFFF4500, 0.6);
-
-        self.draw_simple_text(buffer, "POWERED BY", b_x + 80, b_y + 12, 0xFFA0AEC0, 1);
-        self.draw_simple_text(buffer, "R U S T", b_x + 80, b_y + 28, 0xFFFF7700, 2);
-
-        let tap_pulse = ((timer * 4.0).sin().abs() * 200.0) as u32;
-        let tap_col = 0xFF000000 | (tap_pulse << 16) | (tap_pulse << 8) | tap_pulse;
-        self.draw_simple_text(buffer, "TOCA LA PANTALLA PARA INICIAR", cx - 170, cy + 110, tap_col, 2);
     }
 
     /// Renderiza el Menú Principal conservando intacta la animación original de Rust + los 3 botones del menú
@@ -359,10 +269,9 @@ impl Renderer {
     pub fn render_multiplayer_menu(
         &self,
         buffer: &mut [u32],
-        _timer: f32,
+        timer: f32,
         is_host: bool,
         local_player_id: u8,
-        _squad_size: u8,
         _connected_peers: u8,
     ) {
         let w = self.width as isize;
@@ -407,7 +316,7 @@ impl Renderer {
         self.draw_rect(buffer, cx + 4, role_y, half_w, 2, cli_col);
         self.draw_simple_text(buffer, "UNIRSE (CLIENTE BT)", cx + 26, role_y + 15, cli_col, 1);
 
-        // Fila 2: Selección de Jugador 1 a 4 (cy - 12, altura 54)
+        // Fila 2: Selección de Jugador 1 a 4 (cy - 12, altura 54) con Previsualización Animada
         let slot_y = cy - 12;
         let slot_w = panel_w / 4 - 6;
         let labels = ["JUGADOR 1", "JUGADOR 2", "JUGADOR 3", "JUGADOR 4"];
@@ -423,8 +332,18 @@ impl Renderer {
             self.draw_rect(buffer, sx, slot_y, slot_w, 54, bg);
             self.draw_rect(buffer, sx, slot_y, slot_w, 2, border);
             self.draw_rect(buffer, sx, slot_y + 52, slot_w, 2, border);
-            self.draw_simple_text(buffer, labels[i], sx + 14, slot_y + 12, cols[i], 1);
-            self.draw_simple_text(buffer, names[i], sx + 14, slot_y + 30, 0xFFE2E8F0, 1);
+            self.draw_simple_text(buffer, labels[i], sx + 10, slot_y + 8, cols[i], 1);
+            self.draw_simple_text(buffer, names[i], sx + 10, slot_y + 20, 0xFFE2E8F0, 1);
+
+            // Vista previa animada del Cyber-Commando
+            let preview_px = (sx + slot_w as isize - 24) as f32;
+            let preview_py = (slot_y + 36) as f32;
+            let mut prev_p = Player::new(i as u8, preview_px, preview_py);
+            prev_p.satellites[0].distance = 16.0;
+            prev_p.satellites[1].distance = 16.0;
+            prev_p.anim_timer = timer + (i as f32) * 0.8;
+            prev_p.jetpack_active = true;
+            self.draw_modern_commando(buffer, &prev_p);
         }
 
         // Fila 3: Botones de Acción (cy + 65, altura 44)
@@ -1370,7 +1289,7 @@ impl Renderer {
         }
     }
 
-    /// 3. Torretas Antiaéreas (Tamaño Fijo sin Dilatación)
+    /// 3. Torretas Antiaéreas (Tamaño Fijo con Anclaje a Techo, Suelo o Paredes Laterales)
     pub fn draw_spore_pod_turret(
         &self,
         buffer: &mut [u32],
@@ -1379,12 +1298,33 @@ impl Renderer {
     ) {
         let ex = enemy.x;
         let ey = enemy.y;
-        let is_ceiling = enemy.is_ceiling;
-        let anchor_y = if is_ceiling { ey - 18.0 } else { ey + 18.0 };
 
-        self.draw_aa_capsule(buffer, ex - 18.0, anchor_y, ex + 18.0, anchor_y, 4.0, 0xFF1E293B);
-        self.draw_aa_capsule(buffer, ex - 12.0, anchor_y, ex - 6.0, ey, 3.5, 0xFF0F172A);
-        self.draw_aa_capsule(buffer, ex + 12.0, anchor_y, ex + 6.0, ey, 3.5, 0xFF0F172A);
+        match enemy.anchor {
+            EnemyAnchor::LeftWall => {
+                let anchor_x = ex - 14.0;
+                self.draw_aa_capsule(buffer, anchor_x, ey - 18.0, anchor_x, ey + 18.0, 4.0, 0xFF1E293B);
+                self.draw_aa_capsule(buffer, anchor_x, ey - 12.0, ex, ey - 6.0, 3.5, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, anchor_x, ey + 12.0, ex, ey + 6.0, 3.5, 0xFF0F172A);
+            }
+            EnemyAnchor::RightWall => {
+                let anchor_x = ex + 14.0;
+                self.draw_aa_capsule(buffer, anchor_x, ey - 18.0, anchor_x, ey + 18.0, 4.0, 0xFF1E293B);
+                self.draw_aa_capsule(buffer, anchor_x, ey - 12.0, ex, ey - 6.0, 3.5, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, anchor_x, ey + 12.0, ex, ey + 6.0, 3.5, 0xFF0F172A);
+            }
+            EnemyAnchor::Ceiling => {
+                let anchor_y = ey - 18.0;
+                self.draw_aa_capsule(buffer, ex - 18.0, anchor_y, ex + 18.0, anchor_y, 4.0, 0xFF1E293B);
+                self.draw_aa_capsule(buffer, ex - 12.0, anchor_y, ex - 6.0, ey, 3.5, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, ex + 12.0, anchor_y, ex + 6.0, ey, 3.5, 0xFF0F172A);
+            }
+            _ => {
+                let anchor_y = ey + 18.0;
+                self.draw_aa_capsule(buffer, ex - 18.0, anchor_y, ex + 18.0, anchor_y, 4.0, 0xFF1E293B);
+                self.draw_aa_capsule(buffer, ex - 12.0, anchor_y, ex - 6.0, ey, 3.5, 0xFF0F172A);
+                self.draw_aa_capsule(buffer, ex + 12.0, anchor_y, ex + 6.0, ey, 3.5, 0xFF0F172A);
+            }
+        }
 
         let bulb_r = 16.0;
 
@@ -1416,9 +1356,28 @@ impl Renderer {
         let base_radius = 20.0;
         let open_factor = 0.5;
 
-        let stem_base_y = if enemy.is_ceiling { ey - 22.0 } else { ey + 22.0 };
-        self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 5.0, 0xFF14532D);
-        self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 2.0, 0xFF22C55E);
+        match enemy.anchor {
+            EnemyAnchor::LeftWall => {
+                let stem_base_x = ex - 22.0;
+                self.draw_aa_capsule(buffer, stem_base_x, ey, ex, ey, 5.0, 0xFF14532D);
+                self.draw_aa_capsule(buffer, stem_base_x, ey, ex, ey, 2.0, 0xFF22C55E);
+            }
+            EnemyAnchor::RightWall => {
+                let stem_base_x = ex + 22.0;
+                self.draw_aa_capsule(buffer, stem_base_x, ey, ex, ey, 5.0, 0xFF14532D);
+                self.draw_aa_capsule(buffer, stem_base_x, ey, ex, ey, 2.0, 0xFF22C55E);
+            }
+            EnemyAnchor::Ceiling => {
+                let stem_base_y = ey - 22.0;
+                self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 5.0, 0xFF14532D);
+                self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 2.0, 0xFF22C55E);
+            }
+            _ => {
+                let stem_base_y = ey + 22.0;
+                self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 5.0, 0xFF14532D);
+                self.draw_aa_capsule(buffer, ex, stem_base_y, ex, ey, 2.0, 0xFF22C55E);
+            }
+        }
 
         let stamen_glow = 0xFF00F0FF;
         let stamen_r = 7.5;
@@ -1899,6 +1858,7 @@ impl Renderer {
         let max_w = 460.min(w.saturating_sub(260));
         let cur_w = ((b.health / b.max_health).clamp(0.0, 1.0) * max_w as f32) as usize;
         let bar_x = (w as isize - max_w as isize) / 2;
+        self.draw_simple_text(buffer, &b.name, bar_x + 8, 8, 0xFFFFD700, 1);
         self.draw_rect(buffer, bar_x - 6, 22, max_w + 12, 22, 0xFF550000);
         self.draw_rect(buffer, bar_x - 2, 24, max_w + 4, 18, 0xFF1A0000);
         self.draw_rect(buffer, bar_x, 26, cur_w, 14, 0xFFFF2244);

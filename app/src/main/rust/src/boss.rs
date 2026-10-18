@@ -19,11 +19,8 @@ pub enum BossId {
 pub struct Boss {
     pub id: BossId,
     pub name: String,
-    pub stage: u8,
     pub x: f32,
     pub y: f32,
-    pub vx: f32,
-    pub vy: f32,
     pub radius: f32,
     pub health: f32,
     pub max_health: f32,
@@ -50,11 +47,8 @@ impl Boss {
         Self {
             id,
             name: name.to_string(),
-            stage,
             x: screen_w + 120.0, // Entra deslizándose desde la derecha
             y: screen_h * 0.5,
-            vx: -160.0,
-            vy: 80.0,
             radius: r,
             health: hp,
             max_health: hp,

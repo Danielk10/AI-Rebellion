@@ -6,7 +6,7 @@ use crate::audio::{AudioEngine, SoundEffect};
 use crate::level::{LevelManager, StagePhase};
 use crate::boss::Boss;
 use crate::bullet::{Bullet, BulletOwner};
-use crate::enemy::{Enemy, EnemyType, Item, ItemType};
+use crate::enemy::{Enemy, EnemyAnchor, EnemyType, Item, ItemType};
 use crate::multiplayer::MultiplayerManager;
 use crate::player::{Player, WeaponType};
 use crate::renderer::Renderer;
@@ -14,7 +14,6 @@ use crate::touch::TouchControls;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum GameState {
-    SplashScreen,
     TitleMenu,
     MultiplayerMenu,
     SettingsMenu,
@@ -46,19 +45,12 @@ pub struct Game {
     pub multiplayer: MultiplayerManager,
 
     pub total_score: u32,
-    pub high_score: u32,
     pub paused_from_boss: bool,
     pub settings_from_pause: bool,
-    pub squad_size: u8,
 }
 
 impl Game {
-    pub fn new(w: usize, h: usize) -> Self {
-        Self::new_with_audio(w, h, Arc::new(Mutex::new(AudioEngine::new())))
-    }
-
     pub fn new_with_audio(w: usize, h: usize, audio_engine: Arc<Mutex<AudioEngine>>) -> Self {
-        let w_f = w as f32;
         let h_f = h as f32;
 
         let p1 = Player::new(0, 160.0, h_f * 0.5);
@@ -75,15 +67,13 @@ impl Game {
             boss: None,
             bullets: Vec::with_capacity(256),
             level_manager: LevelManager::new(1),
-            touch_controls: TouchControls::new(w_f, h_f),
+            touch_controls: TouchControls::new(),
             renderer: Renderer::new(w, h),
             audio_engine,
             multiplayer: MultiplayerManager::new(true, 0),
             total_score: 0,
-            high_score: 50000,
             paused_from_boss: false,
             settings_from_pause: false,
-            squad_size: 1,
         }
     }
 
@@ -119,16 +109,12 @@ impl Game {
     pub fn resize(&mut self, w: usize, h: usize) {
         self.width = w;
         self.height = h;
-        self.touch_controls.resize(w as f32, h as f32);
         self.renderer.resize(w, h);
     }
 
     /// Reinicia completamente una nueva campaña desde el Nivel 1 con todas las vidas, bombas y armas restauradas
     pub fn start_new_campaign(&mut self) {
         let h_f = self.height as f32;
-        if self.total_score > self.high_score {
-            self.high_score = self.total_score;
-        }
         self.total_score = 0;
 
         let count = (self.multiplayer.local_player_id + 1).clamp(1, 4) as usize;
@@ -159,12 +145,6 @@ impl Game {
         let cy = h_f * 0.5;
 
         match self.state {
-            GameState::SplashScreen => {
-                self.play_sfx(SoundEffect::SatelliteLock);
-                self.state = GameState::TitleMenu;
-                self.state_timer = 0.0;
-                return;
-            }
             GameState::TitleMenu => {
                 // Solo se activan las opciones al tocar directamente el botón correspondiente
                 let cy_menu = cy - 40.0;
@@ -449,7 +429,7 @@ impl Game {
         }
 
         match self.state {
-            GameState::SplashScreen | GameState::TitleMenu | GameState::MultiplayerMenu | GameState::SettingsMenu | GameState::Paused => {
+            GameState::TitleMenu | GameState::MultiplayerMenu | GameState::SettingsMenu | GameState::Paused => {
                 // La navegación de menús se gestiona por eventos táctiles en on_touch_down
             }
             GameState::StageIntro => {
@@ -480,9 +460,6 @@ impl Game {
                         self.renderer.add_explosion(b.x, b.y, 40, 0xFFFF4500);
                         self.play_sfx(SoundEffect::Explosion);
                         self.total_score += 10000 * (self.level_manager.current_stage as u32);
-                        if self.total_score > self.high_score {
-                            self.high_score = self.total_score;
-                        }
 
                         if self.level_manager.current_stage >= 8 {
                             self.state = GameState::Victory;
@@ -545,7 +522,6 @@ impl Game {
             p.facing_right = true;
         }
 
-        self.touch_controls.toggle_facing = false;
         self.touch_controls.flick_facing = None;
         self.touch_controls.trigger_bomb = false;
         self.touch_controls.time_since_last_tap = 10.0;
@@ -567,14 +543,6 @@ impl Game {
         let sat_angle = self.touch_controls.satellite_target_angle;
         let trigger_bomb = self.touch_controls.trigger_bomb;
         self.touch_controls.trigger_bomb = false;
-
-        // Conmutación de orientación si quedó pendiente
-        if self.touch_controls.toggle_facing {
-            self.touch_controls.toggle_facing = false;
-            if let Some(p) = self.players.get_mut(local_id) {
-                p.toggle_facing();
-            }
-        }
 
         // 1. Transmitir controles vía Bluetooth (Vector normalizado de posición)
         if let Some(p) = self.players.get(local_id) {
@@ -677,13 +645,32 @@ impl Game {
         }
 
         // 5. Actualizar enemigos comunes con desplazamiento lineal continuo 2D (Final Mission style)
+        let scroll_vx = self.level_manager.scroll_vx;
         let scroll_vy = self.level_manager.scroll_vy;
         let current_phase = self.level_manager.current_phase;
 
         for e in self.enemies.iter_mut() {
-            if current_phase == StagePhase::AscendUp || current_phase == StagePhase::DescendDown {
+            if !e.active {
+                continue;
+            }
+            if e.is_anchored() {
+                // Torretas ancladas a superficies se desplazan rígidamente con el scroll de cámara
+                e.x -= scroll_vx * dt;
                 e.y -= scroll_vy * dt;
-                e.x -= e.vx * dt * 0.45;
+
+                // Bloquear su coordenada contra la superficie anclada para evitar despegues o derivas
+                match e.anchor {
+                    EnemyAnchor::Ceiling => { e.y = 68.0; }
+                    EnemyAnchor::Floor => { e.y = h_f - 68.0; }
+                    EnemyAnchor::LeftWall => { e.x = 42.0; }
+                    EnemyAnchor::RightWall => { e.x = w_f - 42.0; }
+                    EnemyAnchor::FreeFlying => {}
+                }
+            } else {
+                // Enemigos voladores libres
+                if current_phase == StagePhase::AscendUp || current_phase == StagePhase::DescendDown {
+                    e.y -= scroll_vy * dt * 0.35;
+                }
             }
             e.update(dt, p_x, p_y, &mut self.bullets);
         }
@@ -693,7 +680,7 @@ impl Game {
 
         // 6. Actualizar cápsulas de items en pantalla
         for item in self.items.iter_mut() {
-            item.update(dt);
+            item.update(dt, w_f, h_f);
         }
         self.items.retain(|item| item.active);
 
@@ -701,7 +688,36 @@ impl Game {
         self.check_collisions(w_f, h_f);
     }
 
+    fn create_carrier_drop(ex: f32, ey: f32, drop: Option<ItemType>, phase: StagePhase, screen_w: f32, screen_h: f32) -> Item {
+        let item_type = drop.unwrap_or(ItemType::WeaponVulcan);
+        let mut item = Item::new(ex, ey, item_type);
+
+        // Posicionamiento predecible y accesible garantizado en pantalla:
+        // Asegurar que no aparezca fuera de la vista o pegado a los bordes
+        item.x = item.x.clamp(60.0, screen_w - 60.0);
+        item.y = item.y.clamp(60.0, screen_h - 60.0);
+
+        // Ajustar vector de desplazamiento según la fase actual de la cámara
+        match phase {
+            StagePhase::AscendUp => {
+                item.vx = 0.0;
+                item.vy = 45.0; // Desciende suavemente hacia el jugador por el eje vertical
+            }
+            StagePhase::DescendDown => {
+                item.vx = 0.0;
+                item.vy = -45.0; // Asciende suavemente hacia el jugador por el eje vertical
+            }
+            _ => {
+                item.vx = -35.0; // Flota suavemente hacia la izquierda para fácil intercepción
+                item.vy = 0.0;
+            }
+        }
+        item
+    }
+
     fn trigger_bomb(&mut self, bx: f32, by: f32) {
+        let (w_f, h_f) = (self.width as f32, self.height as f32);
+        let phase = self.level_manager.current_phase;
         self.renderer.add_explosion(bx, by, 60, 0xFF00FFFF);
         self.play_sfx(SoundEffect::BombExplosion);
         self.play_sfx(SoundEffect::EmpShockwave);
@@ -718,7 +734,7 @@ impl Game {
                 e.active = false;
                 self.total_score += 150;
                 if e.enemy_type == EnemyType::ItemCarrier {
-                    self.items.push(Item::new(e.x, e.y, ItemType::Bomb));
+                    self.items.push(Self::create_carrier_drop(e.x, e.y, e.item_drop, phase, w_f, h_f));
                 }
             }
         }
@@ -741,6 +757,7 @@ impl Game {
 
     fn check_collisions(&mut self, w_f: f32, h_f: f32) {
         let audio = self.audio_engine.clone();
+        let phase = self.level_manager.current_phase;
 
         // A. Colisión física Jugador vs Obstáculos / Escenario (Estilo Final Mission)
         let (min_x, max_x, min_y, max_y) = self.level_manager.get_player_bounds(w_f, h_f);
@@ -860,16 +877,7 @@ impl Game {
                                 Self::trigger_sfx(&audio, SoundEffect::Explosion);
 
                                 if e.enemy_type == EnemyType::ItemCarrier {
-                                    let item_choice =
-                                        match ((self.total_score / 100) + (e.y as u32 / 30)) % 6 {
-                                            0 => ItemType::WeaponLaser,
-                                            1 => ItemType::WeaponSpread,
-                                            2 => ItemType::WeaponHoming,
-                                            3 => ItemType::WeaponVulcan,
-                                            4 => ItemType::Bomb,
-                                            _ => ItemType::Shield,
-                                        };
-                                    self.items.push(Item::new(e.x, e.y, item_choice));
+                                    self.items.push(Self::create_carrier_drop(e.x, e.y, e.item_drop, phase, w_f, h_f));
                                 }
                             }
                             break;
@@ -963,9 +971,6 @@ impl Game {
         // Verificar si todos los miembros del escuadrón han caído -> GameOver
         let any_alive = self.players.iter().any(|p| p.active && p.lives > 0);
         if !any_alive && (self.state == GameState::InGame || self.state == GameState::BossBattle) {
-            if self.total_score > self.high_score {
-                self.high_score = self.total_score;
-            }
             self.state = GameState::GameOver;
             self.state_timer = 0.0;
         }
@@ -1016,13 +1021,78 @@ impl Game {
                 }
             }
         }
+
+        // E. Colisión física y anti-solapamiento: Enemigos vs Obstáculos del Escenario y Límites de Fase
+        for e in self.enemies.iter_mut() {
+            if !e.active {
+                continue;
+            }
+
+            // Los enemigos voladores libres no deben atravesar ni quedar dentro de obstáculos sólidos
+            if !e.is_anchored() {
+                for obs in self.level_manager.obstacles.iter() {
+                    if !obs.active {
+                        continue;
+                    }
+                    let half_w = obs.width * 0.5 + e.radius;
+                    let half_h = obs.height * 0.5 + e.radius;
+                    let dx = e.x - obs.x;
+                    let dy = e.y - obs.y;
+
+                    if dx.abs() < half_w && dy.abs() < half_h {
+                        let overlap_x = half_w - dx.abs();
+                        let overlap_y = half_h - dy.abs();
+
+                        if overlap_x < overlap_y {
+                            if dx >= 0.0 {
+                                e.x += overlap_x;
+                            } else {
+                                e.x -= overlap_x;
+                            }
+                            e.vx = -e.vx * 0.5;
+                        } else {
+                            if dy >= 0.0 {
+                                e.y += overlap_y;
+                            } else {
+                                e.y -= overlap_y;
+                            }
+                            e.vy = -e.vy * 0.5;
+                        }
+                    }
+                }
+
+                // Respetar los muros y límites de la fase para que los drones no salgan del pozo vertical o cielo
+                match self.level_manager.current_phase {
+                    StagePhase::AscendUp | StagePhase::DescendDown => {
+                        let min_shaft_x = 46.0 + e.radius;
+                        let max_shaft_x = w_f - 46.0 - e.radius;
+                        if e.x < min_shaft_x {
+                            e.x = min_shaft_x;
+                            e.vx = e.vx.abs().max(30.0);
+                        } else if e.x > max_shaft_x {
+                            e.x = max_shaft_x;
+                            e.vx = -e.vx.abs().max(30.0);
+                        }
+                    }
+                    StagePhase::HorizontalRight => {
+                        let min_sky_y = 52.0 + e.radius;
+                        let max_sky_y = h_f - 48.0 - e.radius;
+                        if e.y < min_sky_y {
+                            e.y = min_sky_y;
+                            e.vy = e.vy.abs();
+                        } else if e.y > max_sky_y {
+                            e.y = max_sky_y;
+                            e.vy = -e.vy.abs();
+                        }
+                    }
+                    StagePhase::BossEncounter => {}
+                }
+            }
+        }
     }
 
     pub fn render(&mut self, buffer: &mut [u32]) {
         match self.state {
-            GameState::SplashScreen => {
-                self.renderer.render_splash_screen(buffer, self.state_timer);
-            }
             GameState::TitleMenu => {
                 self.renderer.render_title_menu(
                     buffer,
@@ -1035,7 +1105,6 @@ impl Game {
                     self.state_timer,
                     self.multiplayer.is_host,
                     self.multiplayer.local_player_id,
-                    self.squad_size,
                     self.multiplayer.connected_players.iter().filter(|&&c| c).count() as u8,
                 );
             }
@@ -1121,30 +1190,6 @@ impl Game {
                 }
             }
         }
-    }
-
-    pub fn process_bluetooth_data(&mut self, data: &[u8]) {
-        let w_f = self.width as f32;
-        let h_f = self.height as f32;
-        self.multiplayer.process_incoming(
-            data,
-            &mut self.players,
-            &mut self.bullets,
-            w_f,
-            h_f,
-        );
-
-        if let Some(pid) = self.multiplayer.trigger_bomb_request.take() {
-            if let Some(p) = self.players.get(pid as usize) {
-                let bx = p.x;
-                let by = p.y;
-                self.trigger_bomb(bx, by);
-            }
-        }
-    }
-
-    pub fn get_bluetooth_outgoing(&mut self) -> Vec<u8> {
-        self.multiplayer.take_outgoing_bytes()
     }
 
     pub fn set_multiplayer(&mut self, is_host: bool, player_id: u8) {

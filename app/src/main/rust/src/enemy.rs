@@ -29,6 +29,15 @@ pub enum EnemyType {
     StealthStriker,      // Mapea a SynthKatana / SynthRifle
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum EnemyAnchor {
+    FreeFlying,  // Drones, avispas voladoras, cazas, leviatán (espacio libre)
+    Ceiling,     // Torreta/planta anclada rígidamente al techo (fase horizontal)
+    Floor,       // Torreta/planta anclada rígidamente al suelo (fase horizontal)
+    LeftWall,    // Torreta anclada rígidamente a la pared izquierda (fase vertical)
+    RightWall,   // Torreta anclada rígidamente a la pared derecha (fase vertical)
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ItemType {
     WeaponVulcan,  // 'P': Potencia de Fuego / Power-Up Vulcan
@@ -66,16 +75,21 @@ impl Item {
         }
     }
 
-    pub fn update(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f32, screen_w: f32, screen_h: f32) {
         if !self.active {
             return;
         }
         self.time_alive += dt;
         self.x += self.vx * dt;
+        self.y += self.vy * dt;
         // Flotación sinusoidal suave estilo arcade clásico
-        self.y += (self.time_alive * 2.8).sin() * 30.0 * dt;
+        self.y += (self.time_alive * 2.8).sin() * 22.0 * dt;
 
-        if self.x < -50.0 {
+        // Mantener dentro del área de juego accesible y visible
+        self.y = self.y.clamp(48.0, screen_h - 48.0);
+
+        // Desactivar cuando sale completamente de la pantalla
+        if self.x < -40.0 || self.x > screen_w + 80.0 || self.y < -40.0 || self.y > screen_h + 40.0 {
             self.active = false;
         }
     }
@@ -95,24 +109,64 @@ pub struct Enemy {
     pub active: bool,
     pub time_alive: f32,
     pub aim_angle: f32,   // Orientación del cañón o sensor hacia el jugador
-    pub is_ceiling: bool, // Montada en techo o invertida
+    pub is_ceiling: bool, // Montada en techo o invertida (retrocompatibilidad)
+    pub anchor: EnemyAnchor, // Tipo de anclaje (FreeFlying, Ceiling, Floor, LeftWall, RightWall)
+    pub item_drop: Option<ItemType>, // Ítem garantizado que suelta al ser destruido
 }
 
 impl Enemy {
     pub fn new(x: f32, y: f32, e_type: EnemyType) -> Self {
-        let (hp, r, vx, vy) = match e_type {
+        let anchor = match e_type {
+            EnemyType::LaserTurret | EnemyType::BioPlantFlowerTrap | EnemyType::BioPlantSporePod => {
+                if y < 140.0 {
+                    EnemyAnchor::Ceiling
+                } else {
+                    EnemyAnchor::Floor
+                }
+            }
+            _ => EnemyAnchor::FreeFlying,
+        };
+        Self::new_anchored(x, y, e_type, anchor)
+    }
+
+    pub fn new_carrier(x: f32, y: f32, item: ItemType) -> Self {
+        let mut e = Self::new(x, y, EnemyType::ItemCarrier);
+        e.item_drop = Some(item);
+        e
+    }
+
+    pub fn new_anchored(x: f32, y: f32, e_type: EnemyType, anchor: EnemyAnchor) -> Self {
+        let (hp, r, mut vx, mut vy) = match e_type {
             EnemyType::SynthKatana | EnemyType::StealthStriker => (75.0, 19.0, -170.0, 0.0),
             EnemyType::SynthRifle => (85.0, 20.0, -140.0, 0.0),
             EnemyType::BioPlantVine | EnemyType::AsteroidLeech => (90.0, 22.0, -100.0, 0.0),
-            EnemyType::BioPlantSporePod => (130.0, 25.0, -80.0, 0.0),
-            EnemyType::BioPlantFlowerTrap | EnemyType::LaserTurret => (140.0, 26.0, -90.0, 0.0),
+            EnemyType::BioPlantSporePod => (130.0, 25.0, 0.0, 0.0),
+            EnemyType::BioPlantFlowerTrap | EnemyType::LaserTurret => (140.0, 26.0, 0.0, 0.0),
             EnemyType::PredatoryDrone | EnemyType::PatrolDrone => (45.0, 18.0, -210.0, 0.0),
             EnemyType::KamikazeWasp => (30.0, 16.0, -250.0, 0.0),
             EnemyType::BioMechLeviathan | EnemyType::CyberCrab => (220.0, 32.0, -75.0, 25.0),
-            EnemyType::ItemCarrier => (48.0, 22.0, -115.0, 0.0), // Dron contenedor dorado
+            EnemyType::ItemCarrier => (48.0, 22.0, -95.0, 0.0), // Dron transportador dorado accesible
         };
 
-        let is_ceiling = y < 140.0;
+        if anchor != EnemyAnchor::FreeFlying {
+            vx = 0.0;
+            vy = 0.0;
+        }
+
+        let is_ceiling = anchor == EnemyAnchor::Ceiling;
+        let aim_angle = match anchor {
+            EnemyAnchor::LeftWall => 0.0,
+            EnemyAnchor::RightWall => std::f32::consts::PI,
+            EnemyAnchor::Ceiling => std::f32::consts::FRAC_PI_2,
+            EnemyAnchor::Floor => -std::f32::consts::FRAC_PI_2,
+            EnemyAnchor::FreeFlying => std::f32::consts::PI,
+        };
+
+        let item_drop = if e_type == EnemyType::ItemCarrier {
+            Some(ItemType::WeaponVulcan)
+        } else {
+            None
+        };
 
         Self {
             x,
@@ -126,19 +180,16 @@ impl Enemy {
             fire_timer: 0.8,
             active: true,
             time_alive: 0.0,
-            aim_angle: std::f32::consts::PI, // Hacia la izquierda por defecto
+            aim_angle,
             is_ceiling,
+            anchor,
+            item_drop,
         }
     }
 
-    pub fn take_damage(&mut self, dmg: f32) -> bool {
-        self.health -= dmg;
-        if self.health <= 0.0 {
-            self.active = false;
-            true
-        } else {
-            false
-        }
+    #[inline(always)]
+    pub fn is_anchored(&self) -> bool {
+        self.anchor != EnemyAnchor::FreeFlying
     }
 
     pub fn update(&mut self, dt: f32, player_x: f32, player_y: f32, bullets: &mut Vec<Bullet>) {
@@ -154,40 +205,62 @@ impl Enemy {
         let dy = player_y - self.y;
         self.aim_angle = dy.atan2(dx);
 
-        // Movimiento según patrón táctico
-        match self.enemy_type {
-            EnemyType::KamikazeWasp => {
-                self.x += self.vx * dt;
-                self.y += (self.time_alive * 5.0).sin() * 160.0 * dt;
-            }
-            EnemyType::PredatoryDrone | EnemyType::PatrolDrone => {
-                self.x += self.vx * dt;
-                self.y += (self.time_alive * 3.5).sin() * 70.0 * dt;
-            }
-            EnemyType::ItemCarrier => {
-                self.x += self.vx * dt;
-                self.y += (self.time_alive * 2.5).sin() * 45.0 * dt;
-            }
-            EnemyType::CyberCrab | EnemyType::BioMechLeviathan => {
-                self.x += self.vx * dt;
-                self.y += (self.time_alive * 2.2).cos() * 90.0 * dt;
-            }
-            EnemyType::LaserTurret | EnemyType::BioPlantFlowerTrap | EnemyType::BioPlantSporePod => {
-                self.x += self.vx * dt;
-            }
-            EnemyType::SynthKatana | EnemyType::StealthStriker => {
-                let dash = if ((self.time_alive * 2.0) as usize) % 2 == 0 { 1.5 } else { 0.7 };
-                self.x += self.vx * dash * dt;
-                self.y += self.vy * dt;
-            }
-            _ => {
-                self.x += self.vx * dt;
-                self.y += self.vy * dt;
+        // Movimiento según patrón táctico y tipo de anclaje:
+        // Las torretas ancladas son desplazadas exclusivamente por el vector de scroll en game.rs.
+        if !self.is_anchored() {
+            let is_vertical_flight = self.vy.abs() > 20.0;
+
+            match self.enemy_type {
+                EnemyType::KamikazeWasp => {
+                    if is_vertical_flight {
+                        self.y += self.vy * dt;
+                        self.x += self.vx * dt + (self.time_alive * 6.0).sin() * 140.0 * dt;
+                    } else {
+                        self.x += self.vx * dt;
+                        self.y += self.vy * dt + (self.time_alive * 5.0).sin() * 160.0 * dt;
+                    }
+                }
+                EnemyType::PredatoryDrone | EnemyType::PatrolDrone => {
+                    if is_vertical_flight {
+                        self.y += self.vy * dt;
+                        self.x += self.vx * dt + (self.time_alive * 4.0).sin() * 70.0 * dt;
+                    } else {
+                        self.x += self.vx * dt;
+                        self.y += self.vy * dt + (self.time_alive * 3.5).sin() * 70.0 * dt;
+                    }
+                }
+                EnemyType::ItemCarrier => {
+                    if is_vertical_flight {
+                        self.y += self.vy * dt;
+                        self.x += self.vx * dt + (self.time_alive * 3.0).sin() * 45.0 * dt;
+                    } else {
+                        self.x += self.vx * dt;
+                        self.y += self.vy * dt + (self.time_alive * 2.5).sin() * 45.0 * dt;
+                    }
+                }
+                EnemyType::CyberCrab | EnemyType::BioMechLeviathan => {
+                    if is_vertical_flight {
+                        self.y += self.vy * dt;
+                        self.x += self.vx * dt + (self.time_alive * 2.5).cos() * 80.0 * dt;
+                    } else {
+                        self.x += self.vx * dt;
+                        self.y += self.vy * dt + (self.time_alive * 2.2).cos() * 90.0 * dt;
+                    }
+                }
+                EnemyType::SynthKatana | EnemyType::StealthStriker => {
+                    let dash = if ((self.time_alive * 2.0) as usize) % 2 == 0 { 1.5 } else { 0.7 };
+                    self.x += self.vx * dash * dt;
+                    self.y += self.vy * dt;
+                }
+                _ => {
+                    self.x += self.vx * dt;
+                    self.y += self.vy * dt;
+                }
             }
         }
 
         // Disparo enemigo dirigido (ItemCarrier no dispara)
-        if self.enemy_type != EnemyType::ItemCarrier && self.fire_timer <= 0.0 && self.x > 40.0 && self.x < 1800.0 {
+        if self.enemy_type != EnemyType::ItemCarrier && self.fire_timer <= 0.0 && self.x > 30.0 && self.x < 1800.0 {
             self.fire_timer = match self.enemy_type {
                 EnemyType::LaserTurret | EnemyType::BioPlantFlowerTrap => 1.7,
                 EnemyType::CyberCrab | EnemyType::BioMechLeviathan => 2.0,
@@ -228,7 +301,7 @@ impl Enemy {
             ));
         }
 
-        if self.x < -80.0 {
+        if self.x < -120.0 || self.x > 2600.0 || self.y < -140.0 || self.y > 2000.0 {
             self.active = false;
         }
     }

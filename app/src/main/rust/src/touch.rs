@@ -8,13 +8,6 @@
 //!   * Cambio de Dirección (Flick): Deslizamiento horizontal rápido hacia derecha o izquierda (< 0.40s).
 //!   * Ataque Especial (Bomba EMP): Doble toque rápido (toques rápidos repetidos < 0.40s) exclusivamente con el dedo libre.
 
-#[derive(Clone, Copy, Debug)]
-pub struct TouchHistoryPoint {
-    pub x: f32,
-    pub y: f32,
-    pub time: f32,
-}
-
 #[derive(Clone, Debug)]
 pub struct TouchControls {
     pub primary_id: i32,
@@ -31,9 +24,6 @@ pub struct TouchControls {
     pub secondary_x: f32,
     pub secondary_y: f32,
 
-    // Tiempo de pulsación del primer dedo
-    pub primary_down_time: f32,
-
     // Estado del segundo dedo (dedo libre: satélites + dirección + doble toque de bomba)
     pub secondary_origin_x: f32,
     pub secondary_origin_y: f32,
@@ -43,7 +33,6 @@ pub struct TouchControls {
     pub secondary_has_dragged: bool,
 
     pub touch_timer: f32,
-    pub flick_cooldown: f32,
     pub flick_facing: Option<bool>, // Some(true) = derecha, Some(false) = izquierda
 
     // Acciones de juego
@@ -52,17 +41,13 @@ pub struct TouchControls {
     pub satellite_lock: bool,
     pub satellite_target_angle: Option<f32>,
     pub trigger_bomb: bool,
-    pub toggle_facing: bool,
 
     // Temporizador entre toques rápidos del dedo libre (secondary_id) para Bomba EMP
     pub time_since_last_tap: f32,
-
-    pub screen_width: f32,
-    pub screen_height: f32,
 }
 
 impl TouchControls {
-    pub fn new(w: f32, h: f32) -> Self {
+    pub fn new() -> Self {
         Self {
             primary_id: -1,
             secondary_id: -1,
@@ -73,7 +58,6 @@ impl TouchControls {
             primary_y: 0.0,
             secondary_x: 0.0,
             secondary_y: 0.0,
-            primary_down_time: 0.0,
             secondary_origin_x: 0.0,
             secondary_origin_y: 0.0,
             secondary_start_x: 0.0,
@@ -81,34 +65,20 @@ impl TouchControls {
             secondary_touch_time: 0.0,
             secondary_has_dragged: false,
             touch_timer: 0.0,
-            flick_cooldown: 0.0,
             flick_facing: None,
             is_touching: false,
             is_firing: false,
             satellite_lock: false,
             satellite_target_angle: None,
             trigger_bomb: false,
-            toggle_facing: false,
             time_since_last_tap: 10.0,
-            screen_width: w,
-            screen_height: h,
         }
-    }
-
-    pub fn resize(&mut self, w: f32, h: f32) {
-        self.screen_width = w;
-        self.screen_height = h;
     }
 
     pub fn update(&mut self, dt: f32) {
         self.touch_timer += dt;
         self.time_since_last_tap += dt;
-        self.toggle_facing = false;
         self.flick_facing = None;
-
-        if self.flick_cooldown > 0.0 {
-            self.flick_cooldown -= dt;
-        }
 
         if self.secondary_id != -1 {
             self.secondary_touch_time += dt;
@@ -132,7 +102,6 @@ impl TouchControls {
 
             self.is_touching = true;
             self.is_firing = true;
-            self.primary_down_time = self.touch_timer;
             self.time_since_last_tap = 10.0;
         } else if self.secondary_id == -1 && id != self.primary_id {
             // Segundo dedo detectado (dedo libre):
@@ -242,7 +211,6 @@ impl TouchControls {
                 if total_dx.abs() >= 25.0 && total_dx.abs() >= total_dy.abs() * 1.1 {
                     // Latigazo horizontal rápido del dedo libre (Flick) -> Derecha / Izquierda
                     self.flick_facing = Some(total_dx > 0.0);
-                    self.flick_cooldown = 0.20;
                     self.time_since_last_tap = 10.0;
                 } else if total_dist_sq < 400.0 {
                     // Toque rápido en el sitio (< 20 px) con el dedo libre:
