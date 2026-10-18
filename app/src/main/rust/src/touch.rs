@@ -1,14 +1,12 @@
 //! Módulo de Gestión Táctil para IA Rebellion (Inspirado en Final Mission NES)
 //! Arquitectura 100% Nativa sin botones virtuales en pantalla:
-//! - Primer dedo (movimiento): Arrastre relativo 1:1 de Jugador.java (sin tapar el personaje).
-//!   NO cambia nunca la dirección del personaje, garantizando esquivas y desplazamientos limpios.
-//! - Segundo dedo (dedo libre - Exclusión Mutua):
-//!   * Modo Satélites: Al arrastrar y rotar en 360°, la dirección del jugador queda totalmente bloqueada,
-//!     garantizando que apuntar o girar satélites NUNCA cambie la orientación del personaje.
-//!   * Cambio de Dirección (Flick): Latigazo horizontal rápido que se suelta (Swipe & Release < 0.25s).
-//! - Ataque especial (Bomba EMP):
-//!   * Toque rápido simultáneo de dos dedos (two-finger tap) o tap seco del segundo dedo (< 0.25s sin arrastre).
-//!   * Doble toque rápido repetido (< 0.35s).
+//! - Primer dedo (dedo de movimiento - `primary_id`): Arrastre relativo 1:1 de Jugador.java (sin tapar el personaje).
+//!   NO cambia nunca la dirección del personaje ni activa jamás el ataque especial, garantizando desplazamientos limpios.
+//!   Si se cambia de dedo para mover, el nuevo dedo asume el movimiento suavemente y el otro pasa a ser el dedo libre.
+//! - Segundo dedo (dedo libre - `secondary_id` - Exclusión Mutua):
+//!   * Modo Satélites: Al mantener y arrastrar en 360°, bloquea y orienta los satélites sin cambiar la dirección del jugador.
+//!   * Cambio de Dirección (Flick): Deslizamiento horizontal rápido hacia derecha o izquierda (< 0.40s).
+//!   * Ataque Especial (Bomba EMP): Doble toque rápido (toques rápidos repetidos < 0.40s) exclusivamente con el dedo libre.
 
 #[derive(Clone, Copy, Debug)]
 pub struct TouchHistoryPoint {
@@ -36,7 +34,9 @@ pub struct TouchControls {
     // Tiempo de pulsación del primer dedo
     pub primary_down_time: f32,
 
-    // Estado del segundo dedo (dedo libre: satélites + dirección + flick)
+    // Estado del segundo dedo (dedo libre: satélites + dirección + doble toque de bomba)
+    pub secondary_origin_x: f32,
+    pub secondary_origin_y: f32,
     pub secondary_start_x: f32,
     pub secondary_start_y: f32,
     pub secondary_touch_time: f32,
@@ -54,7 +54,7 @@ pub struct TouchControls {
     pub trigger_bomb: bool,
     pub toggle_facing: bool,
 
-    // Temporizador para doble toque rápido
+    // Temporizador entre toques rápidos del dedo libre (secondary_id) para Bomba EMP
     pub time_since_last_tap: f32,
 
     pub screen_width: f32,
@@ -74,6 +74,8 @@ impl TouchControls {
             secondary_x: 0.0,
             secondary_y: 0.0,
             primary_down_time: 0.0,
+            secondary_origin_x: 0.0,
+            secondary_origin_y: 0.0,
             secondary_start_x: 0.0,
             secondary_start_y: 0.0,
             secondary_touch_time: 0.0,
@@ -116,6 +118,7 @@ impl TouchControls {
     /// Evento toquePresionado (AMOTION_EVENT_ACTION_DOWN / POINTER_DOWN)
     pub fn on_touch_down(&mut self, id: i32, x: f32, y: f32, px: f32, py: f32) {
         if self.primary_id == -1 {
+            // Dedo de movimiento: NUNCA activa el ataque especial (Bomba EMP)
             self.primary_id = id;
             self.primary_x = x;
             self.primary_y = y;
@@ -130,29 +133,20 @@ impl TouchControls {
             self.is_touching = true;
             self.is_firing = true;
             self.primary_down_time = self.touch_timer;
-
-            // Detección de doble toque rápido (< 0.35s) con un solo dedo para lanzar Bomba EMP
-            if self.time_since_last_tap < 0.35 {
-                self.trigger_bomb = true;
-                self.time_since_last_tap = 10.0;
-            } else {
-                self.time_since_last_tap = 0.0;
-            }
+            self.time_since_last_tap = 10.0;
         } else if self.secondary_id == -1 && id != self.primary_id {
-            // Segundo dedo detectado (dedo libre)
+            // Segundo dedo detectado (dedo libre):
+            // Encargado de orientar el personaje (flick), apuntar satélites (arrastre)
+            // y activar el ataque especial mediante toques rápidos (doble toque rápido).
             self.secondary_id = id;
             self.secondary_x = x;
             self.secondary_y = y;
+            self.secondary_origin_x = x;
+            self.secondary_origin_y = y;
             self.secondary_start_x = x;
             self.secondary_start_y = y;
             self.secondary_touch_time = 0.0;
             self.secondary_has_dragged = false;
-
-            // Ataque especial por pulsación rápida simultánea de los dos dedos (two-finger tap):
-            // Si el segundo dedo cae casi al mismo tiempo que el primero (< 0.20s)
-            if (self.touch_timer - self.primary_down_time).abs() < 0.20 {
-                self.trigger_bomb = true;
-            }
         }
     }
 
@@ -164,8 +158,8 @@ impl TouchControls {
             self.is_touching = true;
             self.is_firing = true;
 
-            // El dedo primario SOLO desplaza al jugador por la pantalla.
-            // NO evalúa gestos flick ni cambia jamás la dirección del personaje.
+            // El dedo de movimiento SOLO desplaza al jugador por la pantalla.
+            // NO evalúa gestos flick ni activa jamás el ataque especial.
             if self.touch_initialized {
                 let new_x = x - self.delta_x_tactil;
                 let new_y = y - self.delta_y_tactil;
@@ -207,7 +201,9 @@ impl TouchControls {
     pub fn on_touch_up(&mut self, id: i32, x: f32, y: f32) {
         if self.primary_id == id {
             if self.secondary_id != -1 {
-                // Promover segundo dedo a primario
+                // Cuando se cambia de dedo para movimiento:
+                // El segundo dedo pasa a ser el nuevo dedo de movimiento (primary_id)
+                // y el dedo que quedó libre será ahora el dedo libre (secondary_id) al tocar la pantalla.
                 self.primary_id = self.secondary_id;
                 self.primary_x = self.secondary_x;
                 self.primary_y = self.secondary_y;
@@ -217,6 +213,7 @@ impl TouchControls {
                 self.satellite_target_angle = None;
                 self.secondary_has_dragged = false;
                 self.secondary_touch_time = 0.0;
+                self.time_since_last_tap = 10.0;
             } else {
                 self.primary_id = -1;
                 self.touch_initialized = false;
@@ -224,33 +221,46 @@ impl TouchControls {
                 self.is_firing = false;
                 self.satellite_lock = false;
                 self.satellite_target_angle = None;
+                self.time_since_last_tap = 10.0;
             }
         } else if self.secondary_id == id {
-            let dx = x - self.secondary_start_x;
-            let dy = y - self.secondary_start_y;
-            let dist_sq = dx * dx + dy * dy;
+            let total_dx = x - self.secondary_origin_x;
+            let total_dy = y - self.secondary_origin_y;
+            let total_dist_sq = total_dx * total_dx + total_dy * total_dy;
             let touch_time = self.secondary_touch_time;
 
             // ==============================================================
-            // EXCLUSIÓN MUTUA INTELIGENTE:
-            // 1. Si el toque fue breve (< 0.40s): fue un gesto rápido deliberado:
-            //    - Desplazamiento horizontal (Flick / Swipe): cambia la orientación del jugador.
-            //    - Toque seco sin desplazamiento (< 18px): lanza la Bomba Especial EMP.
-            // 2. Si el toque fue sostenido (>= 0.40s): el jugador estuvo apuntando/girando satélites.
-            //    Al levantarse, simplemente se liberan los satélites sin alterar dirección ni gastar bomba.
+            // ACCIONES EXCLUSIVAS DEL DEDO LIBRE (secondary_id):
+            // 1. Gesto rápido (< 0.40s):
+            //    - Desplazamiento horizontal (Flick / Swipe >= 25px): cambia la orientación (derecha/izquierda).
+            //    - Toques rápidos sin desplazamiento (< 20px): doble toque rápido (< 0.40s entre toques)
+            //      lanza la Bomba Especial EMP. Un solo toque aislado NO dispara la bomba por accidente.
+            // 2. Toque sostenido (>= 0.40s) o arrastre de satélites:
+            //    - Libera el bloqueo de satélites sin cambiar dirección ni activar bomba.
             // ==============================================================
             if touch_time < 0.40 {
-                if dx.abs() >= 25.0 && dx.abs() >= dy.abs() * 1.1 {
-                    // Latigazo horizontal rápido del dedo libre (Flick):
-                    self.flick_facing = Some(dx > 0.0);
+                if total_dx.abs() >= 25.0 && total_dx.abs() >= total_dy.abs() * 1.1 {
+                    // Latigazo horizontal rápido del dedo libre (Flick) -> Derecha / Izquierda
+                    self.flick_facing = Some(total_dx > 0.0);
                     self.flick_cooldown = 0.20;
-                } else if dist_sq < 324.0 {
-                    // Toque seco en un punto (< 18 px): Bomba especial EMP
-                    self.trigger_bomb = true;
+                    self.time_since_last_tap = 10.0;
+                } else if total_dist_sq < 400.0 {
+                    // Toque rápido en el sitio (< 20 px) con el dedo libre:
+                    // Si es el segundo toque rápido consecutivo (< 0.40s), activa el ataque especial EMP
+                    if self.time_since_last_tap < 0.40 {
+                        self.trigger_bomb = true;
+                        self.time_since_last_tap = 10.0;
+                    } else {
+                        self.time_since_last_tap = 0.0;
+                    }
+                } else {
+                    self.time_since_last_tap = 10.0;
                 }
+            } else {
+                self.time_since_last_tap = 10.0;
             }
 
-            // Liberar estado del segundo dedo
+            // Liberar estado del segundo dedo (dedo libre)
             self.secondary_id = -1;
             self.satellite_lock = false;
             self.satellite_target_angle = None;

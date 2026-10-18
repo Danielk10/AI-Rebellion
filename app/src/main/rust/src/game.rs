@@ -124,19 +124,6 @@ impl Game {
         };
 
         self.touch_controls.on_touch_down(id, x, y, px, py);
-
-        // Bomba especial EMP activada por toque rápido (dos dedos o doble toque)
-        if self.touch_controls.trigger_bomb {
-            self.touch_controls.trigger_bomb = false;
-            if let Some(p) = self.players.get_mut(local_id) {
-                if p.bombs > 0 {
-                    p.bombs -= 1;
-                    let bx = p.x;
-                    let by = p.y;
-                    self.trigger_bomb(bx, by);
-                }
-            }
-        }
     }
 
     /// Evento táctil: dedo se desliza por la pantalla (Jugador.java toqueDeslizando)
@@ -178,27 +165,30 @@ impl Game {
         let local_id = self.multiplayer.local_player_id as usize;
         self.touch_controls.on_touch_up(id, x, y);
 
-        // Gesto de Flick horizontal ejecutado al levantar el dedo (Swipe & Release):
+        // Gesto de Flick horizontal ejecutado al levantar el dedo libre (Swipe & Release):
         if let Some(flick_right) = self.touch_controls.flick_facing.take() {
             if let Some(p) = self.players.get_mut(local_id) {
                 p.facing_right = flick_right;
             }
         }
 
-        // Bomba especial EMP activada por toque rápido seco con el segundo dedo
+        // Bomba especial EMP activada exclusivamente por toques rápidos con el dedo libre
         if self.touch_controls.trigger_bomb {
             self.touch_controls.trigger_bomb = false;
-            if let Some(p) = self.players.get_mut(local_id) {
-                if p.bombs > 0 {
-                    p.bombs -= 1;
-                    let bx = p.x;
-                    let by = p.y;
-                    self.trigger_bomb(bx, by);
+            if self.state == GameState::InGame || self.state == GameState::BossBattle {
+                if let Some(p) = self.players.get_mut(local_id) {
+                    if p.bombs > 0 {
+                        p.bombs -= 1;
+                        let bx = p.x;
+                        let by = p.y;
+                        self.trigger_bomb(bx, by);
+                    }
                 }
             }
         }
 
-        // Si se promovió el segundo dedo a primario, inicializar delta con la posición actual
+        // Si se promovió el segundo dedo a primario (cambio de dedo de movimiento),
+        // inicializar delta con la posición actual del jugador para evitar saltos
         if self.touch_controls.primary_id != -1 && !self.touch_controls.touch_initialized {
             if let Some(p) = self.players.get(local_id) {
                 self.touch_controls.delta_x_tactil = self.touch_controls.primary_x - p.x;
@@ -317,6 +307,8 @@ impl Game {
 
         self.touch_controls.toggle_facing = false;
         self.touch_controls.flick_facing = None;
+        self.touch_controls.trigger_bomb = false;
+        self.touch_controls.time_since_last_tap = 10.0;
 
         // Reinicializar desplazamiento relativo táctil con la posición inicial
         let local_id = self.multiplayer.local_player_id as usize;
@@ -335,6 +327,7 @@ impl Game {
         let sat_lock = self.touch_controls.satellite_lock;
         let sat_angle = self.touch_controls.satellite_target_angle;
         let trigger_bomb = self.touch_controls.trigger_bomb;
+        self.touch_controls.trigger_bomb = false;
 
         // Conmutación de orientación si quedó pendiente
         if self.touch_controls.toggle_facing {
